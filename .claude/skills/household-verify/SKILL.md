@@ -32,9 +32,10 @@ without a concluded CI run on the pushed SHA.
    `run_id` + `failed_only: true` + `return_content: true`. The workflow prints `[FAIL] <step>: <message>`,
    deduplicated compiler errors with file:line, failing test names with messages, and a step outcome table.
    The `verify-<run_id>-<attempt>` artifact holds full logs and `.xcresult` bundles.
-8. **Who fixes:** Auto-fix owns red CI on the `build/v1` PR (CLAUDE.md, "Division of labor"). As the lead
-   session, report the failure and wait for Auto-fix's commit to go green; fix it yourself only if you are the
-   Auto-fix agent or the owner has turned Auto-fix off. Either way: `git pull --ff-only origin build/v1` first.
+8. **Who fixes:** while Auto-fix is on for the `build/v1` PR it owns red CI (CLAUDE.md, "Division of labor"): as
+   the lead session, report the failure and wait for Auto-fix's commit to go green. Fix it yourself if you are the
+   Auto-fix agent, or Auto-fix is off/unavailable (always the case on the owner's Mac unless told otherwise); on a
+   Mac, reproduce with `Scripts/verify.sh --keep-going` before pushing the fix. Either way: `git pull --ff-only origin build/v1` first.
    **Fix only what the evidence supports.** Root-cause it; no speculative edits, no skipped/disabled tests,
    no weakened lint rules. A second identical failure after one re-run is real, not a flake.
 9. **Repeat 3–8** until the run for the current head SHA concludes `success`.

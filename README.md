@@ -8,11 +8,11 @@ Local-first iPhone app (iOS 26+) for household budget, wishlist, and tasks. Spec
 `.github/workflows/verify.yml` on GitHub-hosted macOS runners is the authoritative gate: it generates the project,
 lints, builds for the iOS Simulator, and runs unit (Swift Testing) and UI (XCTest) tests.
 
-## On a Mac (optional)
+## On a Mac
 ```bash
 Scripts/bootstrap.sh     # checks tools, installs nothing
 Scripts/generate.sh      # project.yml -> HouseholdHub.xcodeproj (XcodeGen; the .xcodeproj is git-ignored)
-Scripts/verify.sh        # same steps as CI
+Scripts/verify.sh        # same steps as CI (see docs/MOVING-TO-MAC.md)
 open HouseholdHub.xcodeproj
 ```
 
