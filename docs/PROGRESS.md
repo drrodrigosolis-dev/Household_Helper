@@ -5,8 +5,8 @@ that completes it (CLAUDE.md, "Autonomous CI-driven operation"; spec §28). Mirr
 
 | Phase (§21) | Status | Note |
 |---|---|---|
-| 0 — Environment | in progress | Setup deliverables (CLAUDE.md, settings, hooks, skills, agents, Scripts/, verify.yml) committed; closes when the first verify run is green. CI is the gate by owner override of §14. |
-| 1 — Skeleton | not started | Judgment call: a minimal HouseholdHub app + unit/UI test targets already exist so the CI pipeline could be proven end-to-end; Phase 1 still owes the core module, SwiftData container, feature folders. |
+| 0 — Environment | CI green | Run 36192377205 on `729351a`: Xcode 26.6 / Swift 6.3.3 / iPhone 17 Pro Max iOS 26.5, lint+build+1 unit+1 UI passed. §27's iPhone 16 Pro Max is absent from the runner (open question for Phase 10). |
+| 1 — Skeleton | in progress | `HouseholdHubCore` framework (no SwiftUI) with the §5.2 factory, SchemaV1 + migration plan, §24.1 tab shell with placeholder screens, String Catalog. Judgment call: SchemaV1 holds only a minimal `AppSettings` and stays mutable until first release; Phase 2 adds the §7 models to it. |
 | 2 — Domain foundation | not started | |
 | 3 — Core UX | not started | |
 | 4 — Wishlist | not started | |

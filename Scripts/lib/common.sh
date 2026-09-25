@@ -15,7 +15,7 @@ RESULTS_DIR="$BUILD_DIR/results"
 LOG_DIR="$BUILD_DIR/logs"
 DEST_FILE="$BUILD_DIR/.destination"
 # shellcheck disable=SC2034  # consumed by lint.sh/format.sh
-SWIFT_DIRS="HouseholdHubApp HouseholdHubTests HouseholdHubUITests"
+SWIFT_DIRS="HouseholdHubCore HouseholdHubApp HouseholdHubTests HouseholdHubUITests"
 # Simulator preference: spec §27 reference device first, then newer Pro Max models.
 PREFERRED_DEVICES="iPhone 16 Pro Max|iPhone 17 Pro Max|iPhone 17 Pro|iPhone 16 Pro|iPhone 17|iPhone 16"
 

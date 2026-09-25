@@ -79,6 +79,10 @@ the owner's) is assumed to have Xcode. Do not "correct" this back to the spec.
   `gh`, use the GitHub MCP tools: `actions_list` (list_workflow_runs, branch `build/v1`), `actions_get`
   (get_workflow_run), `get_job_logs` (failed_only), `pull_request_read` (get_check_runs). The `household-verify`
   skill has the exact procedure.
+- **Division of labor (owner decision):** claude.ai "Auto-fix" is on for the `build/v1` PR and owns fixing red CI.
+  The lead session writes phase work and does not race Auto-fix: if the latest run on `build/v1` is red, wait for
+  Auto-fix's fix to go green instead of pushing a competing fix. Always `git pull --ff-only origin build/v1`
+  before committing and again before pushing, because Auto-fix pushes to the same branch.
 - A DoD item (§18) or a phase (§21) is complete only when CI is green on the commit that contains it. Phase gates
   (§28) use CI, not memory: before starting phase N+1, confirm the latest run on `build/v1` head is green.
 - After each phase: update `docs/PROGRESS.md` and mirror its table into the PR description.
