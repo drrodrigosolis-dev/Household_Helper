@@ -16,6 +16,7 @@ struct MoreView: View {
                     Label("Settings", systemImage: "gearshape")
                 }
             }
+            .quickAddAccess()
             .navigationTitle("More")
         }
     }

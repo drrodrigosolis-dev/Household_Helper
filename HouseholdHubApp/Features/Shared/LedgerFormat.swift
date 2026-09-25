@@ -82,14 +82,33 @@ extension Color {
     }
 }
 
+/// Money on one line: shrinks rather than wrapping mid-number at large text sizes.
+struct AmountText: View {
+    let text: String
+    let font: Font
+
+    init(_ text: String, font: Font = .body) {
+        self.text = text
+        self.font = font
+    }
+
+    var body: some View {
+        Text(text)
+            .font(font.monospacedDigit())
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+    }
+}
+
 /// Category icon on its color. Decorative: rows describe the category in text for VoiceOver.
 struct CategoryBadge: View {
     let icon: String
     let color: ColorToken?
 
     var body: some View {
+        // Fixed glyph size: the badge is decorative (hidden from VoiceOver) and must not overflow its circle.
         Image(systemName: icon)
-            .font(.body)
+            .font(.system(size: 15, weight: .medium))
             .foregroundStyle(.white)
             .frame(width: 32, height: 32)
             .background(Circle().fill(color.map { Color($0) } ?? Color.gray))

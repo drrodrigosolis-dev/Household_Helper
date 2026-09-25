@@ -5,7 +5,6 @@ import SwiftUI
 struct AppRootView: View {
     @Environment(\.services) private var services
     @State private var needsOnboarding = false
-    @State private var isPresentingQuickAdd = false
     @State private var router = AppRouter()
 
     var body: some View {
@@ -27,12 +26,6 @@ struct AppRootView: View {
             }
         }
         .environment(router)
-        .overlay(alignment: .bottomTrailing) {
-            QuickAddButton { isPresentingQuickAdd = true }
-                .padding(.trailing, 20)
-                .padding(.bottom, 72)
-        }
-        .sheet(isPresented: $isPresentingQuickAdd) { QuickAddView() }
         .task { await bootstrap() }
         .sheet(isPresented: $needsOnboarding) {
             OnboardingView { needsOnboarding = false }

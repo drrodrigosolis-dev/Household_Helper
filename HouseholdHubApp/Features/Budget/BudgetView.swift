@@ -36,6 +36,7 @@ struct BudgetView: View {
                 .padding(.horizontal)
                 .accessibilityIdentifier("budget.segment")
             }
+            .quickAddAccess()
             .navigationTitle("Budget")
             .toolbar {
                 if router.budgetSegment == .transactions {

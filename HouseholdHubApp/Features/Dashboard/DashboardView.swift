@@ -13,6 +13,7 @@ struct DashboardView: View {
     @Query private var recent: [TransactionRecord]
     @State private var summary: DashboardSummary?
     @State private var loadFailed = false
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     init() {
         var descriptor = FetchDescriptor<TransactionRecord>(sortBy: [SortDescriptor(\.occurredAt, order: .reverse)])
@@ -45,6 +46,7 @@ struct DashboardView: View {
                 }
                 .padding()
             }
+            .quickAddAccess()
             .navigationTitle("Dashboard")
             .task { await refresh() }
             .onReceive(storeSaves) { _ in Task { await refresh() } }
@@ -59,34 +61,38 @@ struct DashboardView: View {
         DashboardCard(title: "Current balance", identifier: "dashboard.current") {
             router.showBudget(.transactions, filter: posted)
         } content: {
-            Text(summary.balance.current.formatted())
-                .font(.largeTitle.bold().monospacedDigit())
+            AmountText(summary.balance.current.formatted(), font: .largeTitle.bold())
         }
-        HStack(alignment: .top, spacing: 16) {
+        pairLayout {
             DashboardCard(title: "Pending impact", identifier: "dashboard.pending") {
                 router.showBudget(.transactions, filter: TransactionFilter(status: .pending))
             } content: {
-                Text(summary.balance.pendingImpact.formatted())
-                    .font(.title3.monospacedDigit())
+                AmountText(summary.balance.pendingImpact.formatted(), font: .title3)
             }
             DashboardCard(title: "Spent this week", identifier: "dashboard.week") {
                 router.showBudget(.transactions, filter: TransactionFilter(period: .thisWeek, status: .posted))
             } content: {
-                Text(summary.spentThisWeek.formatted())
-                    .font(.title3.monospacedDigit())
+                AmountText(summary.spentThisWeek.formatted(), font: .title3)
             }
         }
         DashboardCard(title: "Projected in 30 days", identifier: "dashboard.projected") {
             router.showBudget(.recurring)
         } content: {
             VStack(alignment: .leading, spacing: 8) {
-                Text(summary.balance.projected.formatted())
-                    .font(.title2.monospacedDigit())
+                AmountText(summary.balance.projected.formatted(), font: .title2)
                 Toggle("Include pending", isOn: pendingBinding)
                     .font(.subheadline)
                     .accessibilityIdentifier("dashboard.includePending")
             }
         }
+    }
+
+    /// Side-by-side cards stack at accessibility text sizes so titles and amounts never break mid-word.
+    private var pairLayout: AnyLayout {
+        if typeSize.isAccessibilitySize {
+            return AnyLayout(VStackLayout(spacing: 16))
+        }
+        return AnyLayout(HStackLayout(alignment: .top, spacing: 16))
     }
 
     private func upcomingCard(_ upcoming: [UpcomingOccurrence]) -> some View {

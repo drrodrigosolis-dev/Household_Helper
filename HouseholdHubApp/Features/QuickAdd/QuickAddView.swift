@@ -20,6 +20,29 @@ struct QuickAddButton: View {
     }
 }
 
+/// Quick Add access on a tab's root screen (spec §24.3): the floating button, bottom scroll clearance so it never
+/// covers the last row, and the sheet. Pushed screens (editors, Settings pages) do not get the button.
+private struct QuickAddAccess: ViewModifier {
+    @State private var isPresenting = false
+
+    func body(content: Content) -> some View {
+        content
+            .contentMargins(.bottom, 88, for: .scrollContent)
+            .overlay(alignment: .bottomTrailing) {
+                QuickAddButton { isPresenting = true }
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 12)
+            }
+            .sheet(isPresented: $isPresenting) { QuickAddView() }
+    }
+}
+
+extension View {
+    func quickAddAccess() -> some View {
+        modifier(QuickAddAccess())
+    }
+}
+
 /// Quick Add sheet (spec §24.3): one autofocused field parsed by the §25 grammar, progressive details, and a
 /// Save button that stays disabled until the draft is valid.
 struct QuickAddView: View {
@@ -92,9 +115,12 @@ struct QuickAddView: View {
 
     private var detailsSection: some View {
         Section("Details") {
-            TextField("Amount", text: $amountText)
-                .keyboardType(.decimalPad)
-                .accessibilityIdentifier("quickadd.amount")
+            LabeledContent("Amount") {
+                TextField("0.00", text: $amountText)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .accessibilityIdentifier("quickadd.amount")
+            }
             Picker("Category", selection: $categoryID) {
                 Text("None").tag(UUID?.none)
                 ForEach(usableCategories) { category in
@@ -102,8 +128,11 @@ struct QuickAddView: View {
                 }
             }
             DatePicker("Date", selection: $occurredAt, displayedComponents: [.date, .hourAndMinute])
-            TextField("Notes", text: $notes)
-                .accessibilityIdentifier("quickadd.notes")
+            LabeledContent("Notes") {
+                TextField("Optional", text: $notes)
+                    .multilineTextAlignment(.trailing)
+                    .accessibilityIdentifier("quickadd.notes")
+            }
         }
     }
 

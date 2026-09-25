@@ -46,9 +46,12 @@ struct TransactionEditorView: View {
                     Text("Income").tag(TransactionType.income)
                 }
                 .pickerStyle(.segmented)
-                TextField("Amount", text: $amountText)
-                    .keyboardType(.decimalPad)
-                    .accessibilityIdentifier("editor.amount")
+                LabeledContent("Amount") {
+                    TextField("0.00", text: $amountText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .accessibilityIdentifier("editor.amount")
+                }
                 DatePicker("Date", selection: $occurredAt, displayedComponents: [.date, .hourAndMinute])
                 Picker("Status", selection: $status) {
                     ForEach(TransactionStatus.allCases, id: \.self) { status in
@@ -63,8 +66,14 @@ struct TransactionEditorView: View {
                         Text(category.name).tag(UUID?.some(category.id))
                     }
                 }
-                TextField("Merchant", text: $merchant)
-                TextField("Notes", text: $notes, axis: .vertical)
+                LabeledContent("Merchant") {
+                    TextField("Optional", text: $merchant)
+                        .multilineTextAlignment(.trailing)
+                }
+                LabeledContent("Notes") {
+                    TextField("Optional", text: $notes, axis: .vertical)
+                        .multilineTextAlignment(.trailing)
+                }
             }
             if record.recurringSeriesID != nil {
                 Section {

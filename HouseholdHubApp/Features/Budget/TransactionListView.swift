@@ -156,6 +156,7 @@ private struct FilteredTransactions: View {
 struct TransactionRow: View {
     let record: TransactionRecord
     let category: CategoryRecord?
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var title: String {
         record.merchantNameSnapshot ?? record.notes ?? category?.name ?? String(localized: "Transaction")
@@ -175,21 +176,36 @@ struct TransactionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             CategoryBadge(icon: category?.icon ?? "questionmark", color: category?.color)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.body)
-                if !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            rowLayout {
+                details
+                if !typeSize.isAccessibilitySize {
+                    Spacer(minLength: 8)
                 }
+                AmountText(LedgerFormat.signedAmount(record.amount, type: record.type))
+                    .strikethrough(record.status == .cancelled)
             }
-            Spacer(minLength: 8)
-            Text(LedgerFormat.signedAmount(record.amount, type: record.type))
-                .font(.body.monospacedDigit())
-                .strikethrough(record.status == .cancelled)
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("transaction.row")
+    }
+
+    /// Amount moves under the title at accessibility text sizes instead of squeezing both onto one line.
+    private var rowLayout: AnyLayout {
+        if typeSize.isAccessibilitySize {
+            return AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+        }
+        return AnyLayout(HStackLayout(spacing: 8))
+    }
+
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.body)
+            if !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }

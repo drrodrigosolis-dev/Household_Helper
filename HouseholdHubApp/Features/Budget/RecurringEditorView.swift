@@ -48,16 +48,22 @@ struct RecurringEditorView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Name (e.g. Rent)", text: $name)
-                        .accessibilityIdentifier("recurringEditor.name")
+                    LabeledContent("Name") {
+                        TextField("e.g. Rent", text: $name)
+                            .multilineTextAlignment(.trailing)
+                            .accessibilityIdentifier("recurringEditor.name")
+                    }
                     Picker("Type", selection: $type) {
                         Text("Expense").tag(TransactionType.expense)
                         Text("Income").tag(TransactionType.income)
                     }
                     .pickerStyle(.segmented)
-                    TextField("Amount", text: $amountText)
-                        .keyboardType(.decimalPad)
-                        .accessibilityIdentifier("recurringEditor.amount")
+                    LabeledContent("Amount") {
+                        TextField("0.00", text: $amountText)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .accessibilityIdentifier("recurringEditor.amount")
+                    }
                     Picker("Category", selection: $categoryID) {
                         Text("None").tag(UUID?.none)
                         ForEach(categories.filter { !$0.isArchived && $0.kind.allows(type) }) { category in
@@ -72,6 +78,7 @@ struct RecurringEditorView: View {
                         Text("Monthly on a weekday").tag(RuleKind.monthlyOnWeekday)
                         Text("Yearly").tag(RuleKind.yearly)
                     }
+                    .pickerStyle(.navigationLink)
                     ruleFields
                     DatePicker("Starts", selection: $startDate, displayedComponents: [.date, .hourAndMinute])
                     Text(RecurrenceFormat.describe(rule))
