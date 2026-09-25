@@ -6,25 +6,27 @@ struct AppRootView: View {
     @Environment(\.services) private var services
     @State private var needsOnboarding = false
     @State private var isPresentingQuickAdd = false
+    @State private var router = AppRouter()
 
     var body: some View {
-        TabView {
-            Tab("Dashboard", systemImage: "house") {
+        TabView(selection: $router.tab) {
+            Tab("Dashboard", systemImage: "house", value: AppRouter.AppTab.dashboard) {
                 DashboardView()
             }
-            Tab("Budget", systemImage: "dollarsign.circle") {
+            Tab("Budget", systemImage: "dollarsign.circle", value: AppRouter.AppTab.budget) {
                 BudgetView()
             }
-            Tab("Wishlist", systemImage: "heart") {
+            Tab("Wishlist", systemImage: "heart", value: AppRouter.AppTab.wishlist) {
                 WishlistView()
             }
-            Tab("Tasks", systemImage: "checklist") {
+            Tab("Tasks", systemImage: "checklist", value: AppRouter.AppTab.tasks) {
                 TasksView()
             }
-            Tab("More", systemImage: "ellipsis") {
+            Tab("More", systemImage: "ellipsis", value: AppRouter.AppTab.more) {
                 MoreView()
             }
         }
+        .environment(router)
         .overlay(alignment: .bottomTrailing) {
             QuickAddButton { isPresentingQuickAdd = true }
                 .padding(.trailing, 20)

@@ -36,6 +36,42 @@ public actor CategoryService {
         try commit()
     }
 
+    @discardableResult
+    public func create(name: String, icon: String, color: ColorToken, kind: CategoryKind, now: Date) throws -> UUID {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw LedgerError.emptyCategoryName }
+        let count = try modelContext.fetchCount(FetchDescriptor<CategoryRecord>())
+        let record = CategoryRecord(name: trimmed, icon: icon, color: color, kind: kind, sortOrder: count, now: now)
+        modelContext.insert(record)
+        try commit()
+        return record.id
+    }
+
+    /// Edits a category. Changing its kind is refused if existing transactions or series would no longer fit.
+    public func update(
+        category id: UUID, name: String, icon: String, color: ColorToken, kind: CategoryKind, now: Date
+    ) throws {
+        let category = try requireCategory(id)
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw LedgerError.emptyCategoryName }
+        if kind != category.kind {
+            let target: UUID? = id
+            let transactions = try modelContext.fetch(
+                FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.categoryID == target }))
+            let series = try modelContext.fetch(
+                FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.categoryID == target }))
+            if let misfit = (transactions.map(\.type) + series.map(\.type)).first(where: { !kind.allows($0) }) {
+                throw LedgerError.categoryKindMismatch(kind, misfit)
+            }
+        }
+        category.name = trimmed
+        category.icon = icon
+        category.color = color
+        category.kind = kind
+        category.updatedAt = now
+        try commit()
+    }
+
     public func setArchived(_ archived: Bool, category id: UUID, now: Date) throws {
         let category = try requireCategory(id)
         category.isArchived = archived

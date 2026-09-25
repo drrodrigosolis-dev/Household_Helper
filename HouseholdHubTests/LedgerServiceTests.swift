@@ -317,6 +317,61 @@ struct LedgerServiceTests {
         #expect(try await fixture.transactions.settingsSnapshot()?.includePendingInProjection == true)
     }
 
+    // MARK: Dashboard
+
+    @Test func dashboardSummarySpendingAndUpcomingExcludePostedOccurrences() async throws {
+        let fixture = try await makeFixture(startingBalance: 10_000, asOf: now.addingTimeInterval(-10 * 86_400))
+        let service = fixture.transactions
+        let calendar = HouseholdCalendar(timeZone: zone, locale: Locale(identifier: "en_US"))
+        let coffee = TransactionDraft(amount: cad(2500), type: .expense, occurredAt: now.addingTimeInterval(-60))
+        let refund = TransactionDraft(amount: cad(900), type: .income, occurredAt: now.addingTimeInterval(-30))
+        try await service.create(coffee, now: now)
+        try await service.create(refund, now: now)
+        let tomorrow = now.addingTimeInterval(86_400)
+        let gymID = try await service.createSeries(
+            templateAmount: cad(1000), type: .expense, rule: .weekly(interval: 1, weekday: 3), timeZone: zone,
+            startDate: tomorrow, notes: "Gym", now: now)
+
+        let before = try await service.dashboardSummary(now: now, calendar: calendar)
+        #expect(before.spentThisWeek == cad(2500))
+        #expect(before.upcoming.map(\.title) == ["Gym"])
+        #expect(before.balance.current == cad(8400))
+
+        let due = try #require(before.upcoming.first?.date)
+        try await service.materialize(seriesID: gymID, occurrence: due, status: .pending, now: now)
+        #expect(try await service.dashboardSummary(now: now, calendar: calendar).upcoming.isEmpty)
+
+        try await service.setSeriesEnabled(false, series: gymID, now: now)
+        let disabled = try await service.dashboardSummary(now: now, calendar: calendar)
+        #expect(disabled.upcoming.isEmpty)
+        await #expect(throws: LedgerError.unknownSeries) {
+            try await service.setSeriesEnabled(true, series: UUID(), now: now)
+        }
+    }
+
+    @Test func categoriesCanBeCreatedAndEditedButNotIntoAMisfit() async throws {
+        let fixture = try await makeFixture()
+        let categories = fixture.categories
+        await #expect(throws: LedgerError.emptyCategoryName) {
+            try await categories.create(name: "   ", icon: "cart", color: .black, kind: .expense, now: now)
+        }
+        let coffee = try await categories.create(
+            name: " Coffee ", icon: "cup.and.saucer", color: .black, kind: .expense, now: now)
+        let draft = TransactionDraft(amount: cad(450), type: .expense, occurredAt: now, categoryID: coffee)
+        try await fixture.transactions.create(draft, now: now)
+
+        await #expect(throws: LedgerError.categoryKindMismatch(.income, .expense)) {
+            try await categories.update(
+                category: coffee, name: "Coffee", icon: "cup.and.saucer", color: .black, kind: .income, now: now)
+        }
+        try await categories.update(
+            category: coffee, name: "Café", icon: "mug", color: .white, kind: .both, now: now)
+        let stored = try #require(try fixture.context().fetch(FetchDescriptor<CategoryRecord>()).first)
+        #expect(stored.name == "Café")
+        #expect(stored.kind == .both)
+        #expect(stored.icon == "mug")
+    }
+
     // MARK: Categories
 
     @Test func systemCategoriesSeedOnceAndAreReadable() async throws {

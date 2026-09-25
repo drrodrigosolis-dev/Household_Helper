@@ -31,7 +31,8 @@ Each tab owns its own `NavigationStack`. Quick Add is not a tab; it is a persist
 | Wishlist | Filter chips (priority, status), grid or list toggle, item cards with image thumbnail, priority, estimated price | Tap item → detail with "Mark Purchased" flow (§8.1) |
 | Tasks | Kanban board, horizontally scrollable columns | Drag-and-drop reorder/move between columns; every drag interaction has a non-drag accessibility alternative (§24.5) |
 | Analytics | Period selector, spending-by-category chart, income-vs-expense trend chart, top merchants list, optional AI narrative summary (collapsed by default, never auto-generated on screen open if AI is disabled) | Tap a category slice to filter Budget tab to that category |
-| Settings | Currency, Face ID toggle, AI feature toggles (each independently switchable), backup/restore, CSV/Google Sheets export, appearance, about | — |
+| Settings | Currency, categories (list, add, edit, archive, reassign — §8.4), Face ID toggle, AI feature toggles (each independently switchable), backup/restore, CSV/Google Sheets export, appearance, about | Categories: swipe and context-menu archive/edit/delete; deleting a referenced category offers archive or move-then-delete |
+| Onboarding (first launch only) | Currency, starting balance, as-of date (§9.1) | Shown until setup completes; cannot be dismissed without it. Added 2026-09-25 (Sprint 2) because balances need a currency and starting balance and no screen captured them |
 
 Do not add screens or navigation levels beyond what's listed without updating this table — an agent that discovers a "need" for an extra screen mid-implementation should treat that as a signal to re-read this section, not to design ad hoc.
 

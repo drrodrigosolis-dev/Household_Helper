@@ -243,6 +243,63 @@ public actor TransactionService {
             calendar: calendar, includePendingInProjection: includePendingInProjection)
     }
 
+    public func dashboardSummary(now: Date, calendar: HouseholdCalendar, days: Int = 7) throws -> DashboardSummary {
+        let settings = try requireSettings()
+        let balance = try balanceSnapshot(
+            now: now, calendar: calendar, includePendingInProjection: settings.includePendingInProjection)
+
+        let weekStart = calendar.startOfWeek(for: now)
+        let expense = TransactionType.expense.rawValue
+        let posted = TransactionStatus.posted.rawValue
+        let thisWeek = FetchDescriptor<TransactionRecord>(
+            predicate: #Predicate {
+                $0.occurredAt >= weekStart && $0.occurredAt <= now && $0.typeRawValue == expense
+                    && $0.statusRawValue == posted
+            })
+        let weekLines = try modelContext.fetch(thisWeek).map { try $0.ledgerLine().amount }
+        let spent = try Money.sum(weekLines, currencyCode: settings.currencyCode)
+
+        let dayStart = calendar.startOfDay(for: now)
+        let end = calendar.calendar.date(byAdding: .day, value: days, to: dayStart) ?? dayStart
+        let window = DateInterval(start: dayStart, end: max(end, dayStart))
+        let windowStart = window.start
+        let windowEnd = window.end
+        let never = Date.distantPast
+        let materializedDescriptor = FetchDescriptor<TransactionRecord>(
+            predicate: #Predicate {
+                $0.recurringSeriesID != nil && ($0.scheduledOccurrence ?? never) >= windowStart
+                    && ($0.scheduledOccurrence ?? never) < windowEnd
+            })
+        var handled = Set<String>()
+        for record in try modelContext.fetch(materializedDescriptor) {
+            if let seriesID = record.recurringSeriesID, let date = record.scheduledOccurrence {
+                handled.insert("\(seriesID.uuidString)-\(date.timeIntervalSinceReferenceDate)")
+            }
+        }
+        let enabled = FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.isEnabled == true })
+        var upcoming: [UpcomingOccurrence] = []
+        for model in try modelContext.fetch(enabled) {
+            let series = try model.series()
+            for date in RecurrenceEngine().occurrences(of: series, in: window) {
+                let item = UpcomingOccurrence(
+                    seriesID: series.id, date: date, amount: series.templateAmount, type: series.type,
+                    title: model.notes)
+                if !handled.contains(item.id) {
+                    upcoming.append(item)
+                }
+            }
+        }
+        upcoming.sort { $0.date < $1.date }
+        return DashboardSummary(balance: balance, spentThisWeek: spent, upcoming: upcoming)
+    }
+
+    public func setSeriesEnabled(_ enabled: Bool, series id: UUID, now: Date) throws {
+        guard let series = try recurringSeries(id) else { throw LedgerError.unknownSeries }
+        series.isEnabled = enabled
+        series.updatedAt = now
+        try commit()
+    }
+
     // MARK: Persistence
 
     /// Saves, or discards every pending edit if the save fails, so no later save can persist a failed operation.

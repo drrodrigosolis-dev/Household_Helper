@@ -21,6 +21,7 @@ public enum LedgerError: Error, Equatable, Sendable {
     case unknownTransaction
     case categoryInUse(transactionCount: Int)
     case systemCategoryIsPermanent
+    case emptyCategoryName
 }
 
 /// Read-only view of the settings row for the UI, safe to pass across actors.

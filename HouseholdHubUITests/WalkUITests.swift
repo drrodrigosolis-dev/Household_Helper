@@ -40,5 +40,33 @@ final class WalkUITests: XCTestCase {
             XCTAssertTrue(app.navigationBars[tab].waitForExistence(timeout: 5))
             captureScreen(app, named: "\(variant.rawValue)-\(tab)")
         }
+        walkSecondaryScreens(app, variant)
+    }
+
+    /// Recurring, Settings and Categories, including their editors.
+    @MainActor
+    private func walkSecondaryScreens(_ app: XCUIApplication, _ variant: WalkVariant) {
+        let prefix = variant.rawValue
+        app.tabBars.buttons["Budget"].tap()
+        app.buttons["Recurring"].tap()
+        XCTAssertTrue(app.buttons["recurring.addEmpty"].waitForExistence(timeout: 5))
+        captureScreen(app, named: "\(prefix)-Recurring-empty")
+        app.buttons["recurring.addEmpty"].tap()
+        XCTAssertTrue(app.textFields["recurringEditor.name"].waitForExistence(timeout: 5))
+        captureScreen(app, named: "\(prefix)-RecurringEditor")
+        app.buttons["Cancel"].tap()
+        app.buttons["Transactions"].tap()
+
+        app.tabBars.buttons["More"].tap()
+        app.buttons["Settings"].tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        captureScreen(app, named: "\(prefix)-Settings")
+        app.buttons["settings.categories"].tap()
+        XCTAssertTrue(app.navigationBars["Categories"].waitForExistence(timeout: 5))
+        captureScreen(app, named: "\(prefix)-Categories")
+        app.buttons["categories.add"].tap()
+        XCTAssertTrue(app.textFields["categoryEditor.name"].waitForExistence(timeout: 5))
+        captureScreen(app, named: "\(prefix)-CategoryEditor")
+        app.buttons["Cancel"].tap()
     }
 }
