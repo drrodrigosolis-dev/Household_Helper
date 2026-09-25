@@ -12,9 +12,9 @@ Process: `.claude/skills/household-sprint`. Owner answered "run" (all defaults) 
 ## Items
 | # | Item (§21 Phase 2) | Spec | Chunk | Built (CI green) | Walked |
 |---|---|---|---|---|---|
-| 1 | Money: minor units, checked arithmetic, sum/average/percentage, Decimal boundary, formatting | §6 | A | ☐ | tests |
-| 2 | Currency: ISO 4217 validation, minor-unit digits | §6.2 | A | ☐ | tests |
-| 3 | HouseholdCalendar: day/week/month/year bounds, relative day, DST-safe | §10 | A | ☐ | tests |
+| 1 | Money: minor units, checked arithmetic, sum/average/percentage, Decimal boundary, formatting | §6 | A | ☑ `b4dcc9f` | tests |
+| 2 | Currency: ISO 4217 validation, minor-unit digits | §6.2 | A | ☑ `b4dcc9f` | tests |
+| 3 | HouseholdCalendar: day/week/month/year bounds, relative day, DST-safe | §10 | A | ☑ `b4dcc9f` | tests |
 | 4 | Categories: model, kinds, ColorToken with contrast check, system seed, archive-not-delete | §7.3, §8.4 | B | ☐ | tests |
 | 5 | Transactions: model with explicit type/status/source, validation | §7.2 | B | ☐ | tests |
 | 6 | Recurrence engine: weekly/monthly(day)/monthly(nth weekday)/yearly, end-of-month, leap years, DST | §7.5–7.6, §9.4 | B | ☐ | tests |
@@ -31,6 +31,8 @@ Process: `.claude/skills/household-sprint`. Owner answered "run" (all defaults) 
   materializes, so projection never counts it twice and it cannot be materialized twice.
 - Current balance counts posted transactions strictly **after** `startingBalanceDate` and at or before "now".
 - Rounding for division (average) is banker's rounding.
+- Categories are `CategoryRecord` (ObjectiveC exports `Category`). System category names are seeded in English as
+  editable data; localizing seeded names is an open question for the localization pass.
 
 ## Close-out
 ☐ CI green on final head · ☐ data-safety review · ☐ PROGRESS + PR description · ☐ research log
