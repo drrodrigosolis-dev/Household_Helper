@@ -1,0 +1,27 @@
+# Xcode
+build/
+DerivedData/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# Generated project (XcodeGen regenerates this from project.yml)
+*.xcodeproj/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# CocoaPods (uncomment if adopted later)
+# Pods/
+
+# macOS
+.DS_Store
+
+# XcodeGen cache
+.xcodegen/
