@@ -15,11 +15,11 @@ Process: `.claude/skills/household-sprint`. Owner answered "run" (all defaults) 
 | 1 | Money: minor units, checked arithmetic, sum/average/percentage, Decimal boundary, formatting | §6 | A | ☑ `b4dcc9f` | tests |
 | 2 | Currency: ISO 4217 validation, minor-unit digits | §6.2 | A | ☑ `b4dcc9f` | tests |
 | 3 | HouseholdCalendar: day/week/month/year bounds, relative day, DST-safe | §10 | A | ☑ `b4dcc9f` | tests |
-| 4 | Categories: model, kinds, ColorToken with contrast check, system seed, archive-not-delete | §7.3, §8.4 | B | ☐ | tests |
-| 5 | Transactions: model with explicit type/status/source, validation | §7.2 | B | ☐ | tests |
-| 6 | Recurrence engine: weekly/monthly(day)/monthly(nth weekday)/yearly, end-of-month, leap years, DST | §7.5–7.6, §9.4 | B | ☐ | tests |
-| 7 | Balance calculations: current (posted), pending impact, 30-day projection | §9 | C | ☐ | tests |
-| 8 | Transaction service: create, materialize a recurring occurrence exactly once, delete-occurrence options | §8.3, §9.4 | C | ☐ | tests |
+| 4 | Categories: model, kinds, ColorToken with contrast check, system seed, archive-not-delete | §7.3, §8.4 | B | ☑ `ddc4b64` | tests |
+| 5 | Transactions: model with explicit type/status/source, validation | §7.2 | B | ☑ `ddc4b64` | tests |
+| 6 | Recurrence engine: weekly/monthly(day)/monthly(nth weekday)/yearly, end-of-month, leap years, DST | §7.5–7.6, §9.4 | B | ☑ `ddc4b64` | tests |
+| 7 | Balance calculations: current (posted), pending impact, 30-day projection | §9 | C | ☑ `ddc4b64` | tests |
+| 8 | Transaction service: create, materialize a recurring occurrence exactly once, delete-occurrence options | §8.3, §9.4 | C | ☑ `ddc4b64` | tests |
 
 ## Decisions (recorded in docs/research as they are made)
 - Transaction model is `TransactionRecord`: `Transaction` collides with SwiftUI's type in the app target
@@ -49,4 +49,5 @@ Not covered by a test: the rollback path itself (SwiftData offers no clean way t
 reading. Residual, documented in `CategoryService`: `delete` in one actor vs `create` in the other can race.
 
 ## Close-out
-☐ CI green on final head · ☐ data-safety review · ☐ PROGRESS + PR description · ☐ research log
+☑ CI green on final head (run 36196665245, `ddc4b64`: 58 unit + 3 UI tests) · ☑ data-safety review (blocked, fixed) ·
+☑ PROGRESS + PR description · ☑ research log. Walk: domain-only sprint, walked by its tests. **Sprint closed.**

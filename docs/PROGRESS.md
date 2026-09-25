@@ -7,8 +7,8 @@ that completes it (CLAUDE.md, "Autonomous CI-driven operation"; spec §28). Mirr
 |---|---|---|
 | 0 — Environment | CI green | Run 36192377205 on `729351a`: Xcode 26.6 / Swift 6.3.3 / iPhone 17 Pro Max iOS 26.5, lint+build+1 unit+1 UI passed. §27's iPhone 16 Pro Max is absent from the runner (open question for Phase 10). |
 | 1 — Skeleton | CI green | Run 36193820270 on `44681ee` (5 unit, 3 UI tests). `HouseholdHubCore` framework (no SwiftUI) with the §5.2 factory, SchemaV1 + migration plan, §24.1 tab shell with placeholder screens, String Catalog. Judgment call: SchemaV1 holds only a minimal `AppSettings` and stays mutable until first release; Phase 2 adds the §7 models to it. Not yet seen visually (Dark Mode, Dynamic Type): pending the sprint walk decision. |
-| 2 — Domain foundation | not started | |
-| 3 — Core UX | not started | |
+| 2 — Domain foundation | CI green | Sprint 1. Run 36196665245 on `ddc4b64` (58 unit, 3 UI). Money, Currency, HouseholdCalendar, ledger models, recurrence engine, balance calculator, transaction/category services. A data-safety review blocked the gate on 6 findings, all fixed before green. Details: `docs/sprints/SPRINT-1.md`. |
+| 3 — Core UX | in progress | Sprint 2 (`docs/sprints/SPRINT-2.md`). Judgment call: category management goes under More › Settings › Categories (no §24.2 screen for it). |
 | 4 — Wishlist | not started | |
 | 5 — Tasks | not started | |
 | 6 — Analytics | not started | |

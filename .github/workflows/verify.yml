@@ -12,9 +12,10 @@ on:
 permissions:
   contents: read
 
+# Queue instead of cancel: every pushed head that starts a run gets a result (runs are free on this public repo).
 concurrency:
   group: verify-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   verify:
