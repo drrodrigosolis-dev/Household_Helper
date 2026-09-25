@@ -20,8 +20,10 @@ export_screenshots() {
     fi
     # Rename exported files to the attachment names given in the tests (manifest.json maps them).
     python3 - "$screens" <<'PY'
-import json, os, sys
+import json, os, re, sys
 root = sys.argv[1]
+# upload-artifact rejects " : < > | * ? CR LF in paths (failure-debug attachments contain quotes).
+safe = lambda text: re.sub(r'[\"\':<>|*?\r\n/\\]', "_", text).strip() or "attachment"
 manifest = os.path.join(root, "manifest.json")
 if os.path.exists(manifest):
     for test in json.load(open(manifest)):
@@ -30,7 +32,7 @@ if os.path.exists(manifest):
             name = item.get("suggestedHumanReadableName") or ""
             base = name.split("_0_")[0] if "_0_" in name else os.path.splitext(name)[0]
             if base and os.path.exists(src):
-                os.replace(src, os.path.join(root, base + os.path.splitext(src)[1]))
+                os.replace(src, os.path.join(root, safe(base) + os.path.splitext(src)[1]))
 PY
     info "screenshots: $(find "$screens" -name '*.png' | wc -l | tr -d ' ') exported to ${screens#"$REPO_ROOT"/}"
 }

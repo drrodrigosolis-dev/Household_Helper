@@ -16,8 +16,7 @@ final class WishlistUITests: XCTestCase {
         let price = app.textFields["wishlist.purchase.price"]
         XCTAssertTrue(price.waitForExistence(timeout: 5), "Purchase sheet did not open")
         XCTAssertEqual(price.value as? String, "40.00", "Price paid should start from the estimate")
-        price.tap()
-        price.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 8) + "37.99")
+        replaceText(in: price, with: "37.99")
         app.buttons["wishlist.purchase.confirm"].tap()
         XCTAssertTrue(app.staticTexts["Purchased"].waitForExistence(timeout: 10), "Item should read as purchased")
 

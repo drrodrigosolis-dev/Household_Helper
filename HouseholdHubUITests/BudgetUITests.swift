@@ -63,8 +63,7 @@ final class BudgetUITests: XCTestCase {
         row.tap()
         let amount = app.textFields["editor.amount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 5))
-        amount.tap()
-        amount.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 12) + "25")
+        replaceText(in: amount, with: "25")
         captureScreen(app, named: "light-TransactionEditor")
         app.buttons["editor.save"].tap()
         let edited = transactionRow(app, containing: "25.00")

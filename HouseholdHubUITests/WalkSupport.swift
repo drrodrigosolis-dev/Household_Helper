@@ -50,6 +50,17 @@ extension XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 10), .completed, "Quick Add did not save '\(text)'")
     }
 
+    /// Replaces a text field's contents. Taps at the trailing edge so the cursor lands after the existing text:
+    /// fields inside `LabeledContent` are narrow and trailing-aligned, so a center tap can land mid-value.
+    @MainActor
+    func replaceText(in field: XCUIElement, with text: String) {
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
+        let current = (field.value as? String) ?? ""
+        let deletes = String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 2)
+        field.typeText(deletes + text)
+        XCTAssertEqual(field.value as? String, text, "Field did not end up holding '\(text)'")
+    }
+
     @MainActor
     func transactionRow(_ app: XCUIApplication, containing text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: "transaction.row")
