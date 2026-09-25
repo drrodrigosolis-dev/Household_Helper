@@ -90,6 +90,19 @@ struct BalanceCalculatorTests {
         #expect(snapshot.projected == cad(5000))
     }
 
+    @Test func futurePostedOccurrenceIsCountedOnce() throws {
+        let now = try date("2026-09-25T15:00:00-07:00")
+        let rent = try monthly(1, 120_000, .expense, from: "2026-01-01T09:00:00-08:00")
+        var prepaid = try line(120_000, .expense, .posted, "2026-10-01T09:00:00-07:00")
+        prepaid.recurringSeriesID = rent.id
+        prepaid.scheduledOccurrence = prepaid.occurredAt
+        let snapshot = try BalanceCalculator().snapshot(
+            startingBalance: cad(200_000), startingBalanceDate: try date("2026-09-01T00:00:00-07:00"), lines: [prepaid],
+            series: [rent], now: now, calendar: calendar, includePendingInProjection: false)
+        #expect(snapshot.current == cad(200_000))
+        #expect(snapshot.projected == cad(80_000))
+    }
+
     @Test func mixedCurrenciesAreRejected() throws {
         let now = try date("2026-09-25T15:00:00-07:00")
         let usd = LedgerLine(

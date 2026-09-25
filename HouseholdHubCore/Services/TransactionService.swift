@@ -1,11 +1,25 @@
 import Foundation
 import SwiftData
+import Synchronization
 
 /// The only writer of transaction records (spec §4.4). Runs on its own serial executor off the main actor.
+///
+/// Exactly one instance exists per container (`make(container:)`), so every write goes through one serial context:
+/// check-then-insert guards such as "not materialized yet" cannot race a second writer in the same process.
 @ModelActor
 public actor TransactionService {
+    // Holds each container for the process lifetime, so ObjectIdentifier keys are never reused.
+    private static let instances = Mutex<[ObjectIdentifier: TransactionService]>([:])
+
     public static func make(container: ModelContainer) -> TransactionService {
-        TransactionService(modelContainer: container)
+        instances.withLock { cache in
+            if let existing = cache[ObjectIdentifier(container)] {
+                return existing
+            }
+            let service = TransactionService(modelContainer: container)
+            cache[ObjectIdentifier(container)] = service
+            return service
+        }
     }
 
     // MARK: Settings
@@ -15,16 +29,17 @@ public actor TransactionService {
         guard try settings() == nil else { return }
         let currency = try Currency(code: currencyCode)
         modelContext.insert(AppSettings(currencyCode: currency.code, now: now))
-        try modelContext.save()
+        try commit()
     }
 
     public func setStartingBalance(_ balance: Money, asOf date: Date, now: Date) throws {
         let settings = try requireSettings()
         try requireCurrency(balance, settings)
+        guard date <= now else { throw LedgerError.startingBalanceInFuture }
         settings.startingBalanceMinorUnits = balance.minorUnits
         settings.startingBalanceDate = date
         settings.updatedAt = now
-        try modelContext.save()
+        try commit()
     }
 
     // MARK: Transactions
@@ -48,7 +63,7 @@ public actor TransactionService {
             record.merchantNameSnapshot = name
         }
         modelContext.insert(record)
-        try modelContext.save()
+        try commit()
         return record.id
     }
 
@@ -56,22 +71,56 @@ public actor TransactionService {
         let record = try requireTransaction(id)
         record.status = status
         record.updatedAt = now
-        try modelContext.save()
+        try commit()
     }
 
-    /// Deletes one transaction. For a recurring occurrence the caller passes the user's choice from spec §8.3;
-    /// deleting an occurrence never disables its series implicitly.
+    /// Deletes one transaction, carrying out the user's choice from spec §8.3. A recurring occurrence is kept as a
+    /// cancelled record instead of being erased, so the occurrence stays "handled": it neither reappears in the
+    /// projection nor can be posted again. Deleting an occurrence disables its series only when asked.
     public func deleteTransaction(_ id: UUID, alsoDisableSeries: Bool, now: Date) throws {
         let record = try requireTransaction(id)
-        if alsoDisableSeries, let seriesID = record.recurringSeriesID, let series = try recurringSeries(seriesID) {
+        let series = try record.recurringSeriesID.flatMap { try recurringSeries($0) }
+        if alsoDisableSeries, let series {
             series.isEnabled = false
             series.updatedAt = now
         }
-        modelContext.delete(record)
-        try modelContext.save()
+        if record.recurringSeriesID != nil, record.scheduledOccurrence != nil {
+            record.status = .cancelled
+            record.updatedAt = now
+        } else {
+            modelContext.delete(record)
+        }
+        try commit()
     }
 
     // MARK: Recurring
+
+    /// Creates a validated recurring series (positive template, household currency, usable category of the right
+    /// kind). Series are definitions only; no transactions are generated (spec §9.4).
+    @discardableResult
+    public func createSeries(
+        templateAmount: Money, type: TransactionType, rule: RecurrenceRule, timeZone: TimeZone, startDate: Date,
+        endDate: Date? = nil, categoryID: UUID? = nil, notes: String? = nil, now: Date
+    ) throws -> UUID {
+        guard templateAmount.minorUnits > 0 else { throw LedgerError.nonPositiveAmount }
+        guard type != .transfer else { throw LedgerError.transfersUnavailable }
+        let settings = try requireSettings()
+        try requireCurrency(templateAmount, settings)
+        if let categoryID {
+            try requireUsableCategory(categoryID, for: type)
+        }
+        let series = try RecurringTransaction(
+            templateAmount: templateAmount, type: type, rule: rule, timeZone: timeZone, startDate: startDate,
+            endDate: endDate, now: now)
+        series.categoryID = categoryID
+        series.notes = notes
+        let snapshot = try series.series()
+        // `nextOccurrence(after:)` is strict, so step back one second to include the start itself.
+        series.nextOccurrence = RecurrenceEngine().nextOccurrence(of: snapshot, after: startDate.addingTimeInterval(-1))
+        modelContext.insert(series)
+        try commit()
+        return series.id
+    }
 
     /// Posts (or records as pending) one occurrence of a series, exactly once (spec §9.4).
     @discardableResult
@@ -80,6 +129,9 @@ public actor TransactionService {
     ) throws -> UUID {
         guard let series = try recurringSeries(seriesID) else { throw LedgerError.unknownSeries }
         let snapshot = try series.series()
+        guard snapshot.templateAmount.minorUnits > 0 else { throw LedgerError.nonPositiveAmount }
+        let settings = try requireSettings()
+        try requireCurrency(snapshot.templateAmount, settings)
         let probe = DateInterval(start: occurrence, duration: 1)
         guard RecurrenceEngine().occurrences(of: snapshot, in: probe).first == occurrence else {
             throw LedgerError.notAnOccurrence
@@ -93,7 +145,7 @@ public actor TransactionService {
         guard try modelContext.fetchCount(existing) == 0 else { throw LedgerError.alreadyMaterialized }
 
         let record = TransactionRecord(
-            amount: series.templateAmount, type: series.type, status: status, source: .recurring,
+            amount: snapshot.templateAmount, type: snapshot.type, status: status, source: .recurring,
             occurredAt: occurrence, now: now)
         record.recurringSeriesID = seriesID
         record.scheduledOccurrence = occurrence
@@ -103,7 +155,7 @@ public actor TransactionService {
         modelContext.insert(record)
         series.nextOccurrence = RecurrenceEngine().nextOccurrence(of: snapshot, after: occurrence)
         series.updatedAt = now
-        try modelContext.save()
+        try commit()
         return record.id
     }
 
@@ -115,7 +167,7 @@ public actor TransactionService {
         let settings = try requireSettings()
         let startDate = settings.startingBalanceDate
         let afterStart = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.occurredAt > startDate })
-        let lines = try modelContext.fetch(afterStart).map(\.ledgerLine)
+        let lines = try modelContext.fetch(afterStart).map { try $0.ledgerLine() }
         let enabled = FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.isEnabled == true })
         let series = try modelContext.fetch(enabled).map { try $0.series() }
         let starting = Money(minorUnits: settings.startingBalanceMinorUnits, currencyCode: settings.currencyCode)
@@ -124,10 +176,24 @@ public actor TransactionService {
             calendar: calendar, includePendingInProjection: includePendingInProjection)
     }
 
+    // MARK: Persistence
+
+    /// Saves, or discards every pending edit if the save fails, so no later save can persist a failed operation.
+    private func commit() throws {
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+    }
+
     // MARK: Lookups
 
     private func settings() throws -> AppSettings? {
-        try modelContext.fetch(FetchDescriptor<AppSettings>()).first
+        var descriptor = FetchDescriptor<AppSettings>(sortBy: [SortDescriptor(\.createdAt)])
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
     }
 
     private func requireSettings() throws -> AppSettings {

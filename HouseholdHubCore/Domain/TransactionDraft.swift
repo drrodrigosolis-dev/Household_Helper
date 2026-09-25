@@ -2,6 +2,10 @@ import Foundation
 
 public enum LedgerError: Error, Equatable, Sendable {
     case settingsMissing
+    case startingBalanceInFuture
+    /// A stored value this version cannot interpret (e.g. an unknown enum raw value). Accounting paths refuse to
+    /// guess, because a wrong guess can flip the sign of a balance.
+    case unreadableRecord(field: String, value: String)
     case nonPositiveAmount
     case transfersUnavailable
     case sourceRequiresDedicatedPath(TransactionSource)

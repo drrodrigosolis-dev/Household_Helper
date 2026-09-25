@@ -34,5 +34,19 @@ Process: `.claude/skills/household-sprint`. Owner answered "run" (all defaults) 
 - Categories are `CategoryRecord` (ObjectiveC exports `Category`). System category names are seeded in English as
   editable data; localizing seeded names is an open question for the localization pass.
 
+## Data-safety review (subagent, 2026-09-25) — gate BLOCKED, then fixed
+| Finding | Fix |
+|---|---|
+| Failed `save()` left edits in the actor context for a later save to persist | `commit()` rolls back on failure in both services |
+| Two service instances could each pass the "not materialized" check | One instance per container (`make(container:)` caches under a `Mutex`) + concurrency test |
+| Deleting a recurring occurrence resurrected it in the projection | Occurrences are kept as `cancelled` markers; ordinary transactions are still deleted |
+| Unknown stored enum/time-zone values silently became `.expense`/`.current` | Accounting reads (`ledgerLine()`, `series()`) throw `unreadableRecord` |
+| Series inputs unvalidated; `reassign` skipped series kinds | `createSeries` validates; `reassign` checks series too |
+| Duplicate settings / future starting balance | Sorted singleton fetch; `startingBalanceInFuture` |
+| Stored formats only round-trip tested | Fixed-JSON fixtures for `RecurrenceRule` and `ColorToken` |
+
+Not covered by a test: the rollback path itself (SwiftData offers no clean way to force `save()` to fail); verified by
+reading. Residual, documented in `CategoryService`: `delete` in one actor vs `create` in the other can race.
+
 ## Close-out
 ☐ CI green on final head · ☐ data-safety review · ☐ PROGRESS + PR description · ☐ research log

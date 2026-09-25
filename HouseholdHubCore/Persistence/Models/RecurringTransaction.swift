@@ -65,11 +65,17 @@ extension SchemaV1 {
             HouseholdCalendar(timeZone: TimeZone(identifier: timeZoneIdentifier) ?? .current)
         }
 
-        /// Value snapshot for pure domain calculations off the persistence layer.
+        /// Value snapshot for accounting; refuses unknown stored values instead of guessing.
         public func series() throws -> RecurringSeries {
             let decodedRule = try rule()
+            guard let type = TransactionType(rawValue: typeRawValue) else {
+                throw LedgerError.unreadableRecord(field: "type", value: typeRawValue)
+            }
+            guard let zone = TimeZone(identifier: timeZoneIdentifier) else {
+                throw LedgerError.unreadableRecord(field: "timeZone", value: timeZoneIdentifier)
+            }
             return RecurringSeries(
-                id: id, templateAmount: templateAmount, type: type, rule: decodedRule, timeZone: calendar.timeZone,
+                id: id, templateAmount: templateAmount, type: type, rule: decodedRule, timeZone: zone,
                 startDate: startDate, endDate: endDate, isEnabled: isEnabled)
         }
     }

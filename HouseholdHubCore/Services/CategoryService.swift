@@ -1,11 +1,26 @@
 import Foundation
 import SwiftData
+import Synchronization
 
 /// Category lifecycle (spec §7.3, §8.4): system seed, archive instead of delete when referenced, reassignment.
+/// One instance per container, like `TransactionService`.
+///
+/// Known limit: `delete` counts references in this actor's context while `TransactionService.create` validates the
+/// category in its own; a transaction created between the two could reference a just-deleted category. The UI
+/// never runs both at once, and `ledgerLine()` does not depend on the category existing.
 @ModelActor
 public actor CategoryService {
+    private static let instances = Mutex<[ObjectIdentifier: CategoryService]>([:])
+
     public static func make(container: ModelContainer) -> CategoryService {
-        CategoryService(modelContainer: container)
+        instances.withLock { cache in
+            if let existing = cache[ObjectIdentifier(container)] {
+                return existing
+            }
+            let service = CategoryService(modelContainer: container)
+            cache[ObjectIdentifier(container)] = service
+            return service
+        }
     }
 
     /// Inserts the default system categories once. Names are stored data and can be renamed by the user.
@@ -18,14 +33,14 @@ public actor CategoryService {
                 now: now)
             modelContext.insert(record)
         }
-        try modelContext.save()
+        try commit()
     }
 
     public func setArchived(_ archived: Bool, category id: UUID, now: Date) throws {
         let category = try requireCategory(id)
         category.isArchived = archived
         category.updatedAt = now
-        try modelContext.save()
+        try commit()
     }
 
     /// Hard-deletes only an unreferenced, non-system category; otherwise the caller must archive (spec §8.4).
@@ -35,7 +50,7 @@ public actor CategoryService {
         let references = try referenceCount(id)
         guard references == 0 else { throw LedgerError.categoryInUse(transactionCount: references) }
         modelContext.delete(category)
-        try modelContext.save()
+        try commit()
     }
 
     /// Moves every transaction and series from one category to another; returns how many transactions moved.
@@ -46,22 +61,33 @@ public actor CategoryService {
         let sourceID: UUID? = source
         let transactions = try modelContext.fetch(
             FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.categoryID == sourceID }))
+        let series = try modelContext.fetch(
+            FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.categoryID == sourceID }))
         // Validate everything before mutating: a throw mid-loop would leave unsaved edits in this actor's context.
-        if let mismatch = transactions.first(where: { !target.kind.allows($0.type) }) {
-            throw LedgerError.categoryKindMismatch(target.kind, mismatch.type)
+        let types = transactions.map(\.type) + series.map(\.type)
+        if let mismatch = types.first(where: { !target.kind.allows($0) }) {
+            throw LedgerError.categoryKindMismatch(target.kind, mismatch)
         }
         for record in transactions {
             record.categoryID = destination
             record.updatedAt = now
         }
-        let series = try modelContext.fetch(
-            FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.categoryID == sourceID }))
         for item in series {
             item.categoryID = destination
             item.updatedAt = now
         }
-        try modelContext.save()
+        try commit()
         return transactions.count
+    }
+
+    /// Saves, or discards every pending edit if the save fails, so no later save can persist a failed operation.
+    private func commit() throws {
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
     }
 
     private func requireCategory(_ id: UUID) throws -> CategoryRecord {

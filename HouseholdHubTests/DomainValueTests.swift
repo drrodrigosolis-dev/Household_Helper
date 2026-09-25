@@ -36,6 +36,23 @@ struct DomainValueTests {
         #expect(Merchant.normalize(input) == expected)
     }
 
+    /// Stored-format fixtures: a renamed case or field must fail here before it can strand saved data.
+    @Test(arguments: [
+        (#"{"weekly":{"interval":2,"weekday":6}}"#, RecurrenceRule.weekly(interval: 2, weekday: 6)),
+        (#"{"monthlyOnDay":{"day":31}}"#, .monthlyOnDay(day: 31)),
+        (#"{"monthlyOnWeekday":{"ordinal":-1,"weekday":6}}"#, .monthlyOnWeekday(ordinal: -1, weekday: 6)),
+        (#"{"yearly":{"month":2,"day":29}}"#, .yearly(month: 2, day: 29)),
+    ])
+    func recurrenceRuleStoredFormatIsStable(json: String, expected: RecurrenceRule) throws {
+        #expect(try RecurrenceRule.decoded(from: Data(json.utf8)) == expected)
+    }
+
+    @Test func colorTokenStoredFormatIsStable() throws {
+        let json = #"{"red":30,"green":136,"blue":229,"alpha":255}"#
+        let token = try JSONDecoder().decode(ColorToken.self, from: Data(json.utf8))
+        #expect(token == ColorToken(red: 30, green: 136, blue: 229))
+    }
+
     @Test func ledgerLineBalanceEffectSign() throws {
         let amount = Money(minorUnits: 4750, currencyCode: "CAD")
         let now = Date(timeIntervalSince1970: 0)

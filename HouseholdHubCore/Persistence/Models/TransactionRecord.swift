@@ -46,6 +46,7 @@ extension SchemaV1 {
             Money(minorUnits: amountMinorUnits, currencyCode: currencyCode)
         }
 
+        /// Display accessors fall back for unknown stored values; accounting uses the throwing `ledgerLine()`.
         public var type: TransactionType {
             get { TransactionType(rawValue: typeRawValue) ?? .expense }
             set { typeRawValue = newValue.rawValue }
@@ -61,9 +62,15 @@ extension SchemaV1 {
             set { sourceRawValue = newValue.rawValue }
         }
 
-        /// Value snapshot for pure domain calculations off the persistence layer.
-        public var ledgerLine: LedgerLine {
-            LedgerLine(
+        /// Value snapshot for accounting. Unlike the display accessors above, it refuses unknown stored values.
+        public func ledgerLine() throws -> LedgerLine {
+            guard let type = TransactionType(rawValue: typeRawValue) else {
+                throw LedgerError.unreadableRecord(field: "type", value: typeRawValue)
+            }
+            guard let status = TransactionStatus(rawValue: statusRawValue) else {
+                throw LedgerError.unreadableRecord(field: "status", value: statusRawValue)
+            }
+            return LedgerLine(
                 amount: amount, type: type, status: status, occurredAt: occurredAt,
                 recurringSeriesID: recurringSeriesID, scheduledOccurrence: scheduledOccurrence)
         }
