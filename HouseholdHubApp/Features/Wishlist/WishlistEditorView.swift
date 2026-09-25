@@ -127,10 +127,14 @@ struct WishlistEditorView: View {
 
     private var photoSection: some View {
         Section("Photo") {
-            // Resolved here, on the main actor: PhotosPicker's label closure is Sendable.
-            let title = photoActionTitle
+            // Resolved here, on the main actor: PhotosPicker's label closure is Sendable, so it captures only a Bool.
+            let replacing = hasPhoto
             PhotosPicker(selection: $photoItem, matching: .images) {
-                Label(title, systemImage: "photo")
+                if replacing {
+                    Label("Replace photo", systemImage: "photo")
+                } else {
+                    Label("Add photo", systemImage: "photo")
+                }
             }
             if hasPhoto {
                 Button("Remove photo", role: .destructive) {
@@ -141,8 +145,6 @@ struct WishlistEditorView: View {
             }
         }
     }
-
-    private var photoActionTitle: LocalizedStringKey { hasPhoto ? "Replace photo" : "Add photo" }
 
     private var hasPhoto: Bool { photoData != nil || (item?.mediaReference != nil && !removePhoto) }
 
