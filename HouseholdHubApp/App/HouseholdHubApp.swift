@@ -4,20 +4,29 @@ import SwiftUI
 
 @main
 struct HouseholdHubApp: App {
-    private let container: Result<ModelContainer, any Error>
+    private struct LoadedStore {
+        let container: ModelContainer
+        let services: AppServices
+    }
+
+    private let store: Result<LoadedStore, any Error>
 
     init() {
         let inMemory = ProcessInfo.processInfo.arguments.contains(LaunchArguments.uiTesting)
         let configuration = PersistenceConfiguration(useInMemoryStore: inMemory)
-        container = Result { try HouseholdContainerFactory().makeContainer(configuration: configuration) }
+        store = Result {
+            let container = try HouseholdContainerFactory().makeContainer(configuration: configuration)
+            return LoadedStore(container: container, services: AppServices(container: container))
+        }
     }
 
     var body: some Scene {
         WindowGroup {
-            switch container {
-            case .success(let container):
+            switch store {
+            case .success(let loaded):
                 AppRootView()
-                    .modelContainer(container)
+                    .environment(\.services, loaded.services)
+                    .modelContainer(loaded.container)
             case .failure(let error):
                 StoreUnavailableView(error: error)
             }

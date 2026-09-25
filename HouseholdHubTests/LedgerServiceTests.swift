@@ -265,6 +265,58 @@ struct LedgerServiceTests {
         #expect(snapshot.projected == cad(93_250))
     }
 
+    // MARK: Onboarding and editing
+
+    @Test func onboardingSetsCurrencyAndBalanceAndLocksCurrencyOnceRecordsExist() async throws {
+        let container = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
+        let service = TransactionService.make(container: container)
+        #expect(try await service.settingsSnapshot() == nil)
+
+        let usd = Money(minorUnits: 125_050, currencyCode: "USD")
+        let asOf = now.addingTimeInterval(-3600)
+        try await service.completeOnboarding(currencyCode: "usd", startingBalance: usd, asOf: asOf, now: now)
+        let settings = try #require(try await service.settingsSnapshot())
+        #expect(settings.currencyCode == "USD")
+        #expect(settings.onboardingCompleted)
+        #expect(settings.startingBalance == usd)
+        #expect(settings.startingBalanceDate == asOf)
+
+        let draft = TransactionDraft(amount: usd, type: .expense, occurredAt: now)
+        try await service.create(draft, now: now)
+        await #expect(throws: LedgerError.currencyLockedByExistingRecords) {
+            try await service.completeOnboarding(currencyCode: "CAD", startingBalance: cad(0), asOf: asOf, now: now)
+        }
+    }
+
+    @Test func updateReplacesEditableFieldsAndKeepsProvenance() async throws {
+        let fixture = try await makeFixture()
+        let start = try #require(ISO8601DateFormatter().date(from: "2026-01-01T09:00:00-08:00"))
+        let seriesID = try await insertMonthlyRent(in: fixture, startingAt: start)
+        let id = try await fixture.transactions.materialize(seriesID: seriesID, occurrence: start, now: now)
+
+        let edited = TransactionDraft(
+            amount: cad(118_000), type: .expense, occurredAt: start, merchantName: "Landlord", notes: "discounted")
+        try await fixture.transactions.update(id, with: edited, now: now)
+
+        let record = try #require(try fixture.context().fetch(FetchDescriptor<TransactionRecord>()).first)
+        #expect(record.amount == cad(118_000))
+        #expect(record.notes == "discounted")
+        #expect(record.merchantNameSnapshot == "Landlord")
+        #expect(record.source == .recurring)
+        #expect(record.recurringSeriesID == seriesID)
+
+        let invalid = TransactionDraft(amount: cad(0), type: .expense, occurredAt: start)
+        let service = fixture.transactions
+        await #expect(throws: LedgerError.nonPositiveAmount) { try await service.update(id, with: invalid, now: now) }
+    }
+
+    @Test func pendingProjectionPreferenceIsStored() async throws {
+        let fixture = try await makeFixture()
+        #expect(try await fixture.transactions.settingsSnapshot()?.includePendingInProjection == false)
+        try await fixture.transactions.setIncludePendingInProjection(true, now: now)
+        #expect(try await fixture.transactions.settingsSnapshot()?.includePendingInProjection == true)
+    }
+
     // MARK: Categories
 
     @Test func systemCategoriesSeedOnceAndAreReadable() async throws {

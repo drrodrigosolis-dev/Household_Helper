@@ -35,6 +35,13 @@ Planned 2026-09-25 (cloud session); owner answered "run" (all defaults). Starts 
 - **Where category management lives:** §21 puts it in Phase 3 but §24.2 has no screen for it. Default: More ›
   Settings › Categories (§24.2 Settings row gains "Categories").
 
+## Decisions made while building
+- §25 parser: a weekday word means its most recent occurrence **including today**; keywords are English only in v1;
+  an unmatched `#tag` is dropped (no category), and a tag never selects a category of the wrong kind.
+- Onboarding changes currency only while no transactions or series exist (§6.3 → `currencyLockedByExistingRecords`).
+- Walk screenshots: UI tests attach named screenshots; `Scripts/ui-test.sh` exports them to `build/screenshots/`,
+  uploaded with the run's artifact.
+
 ## Close-out
 ☐ CI green on final head · ☐ walk screenshots reviewed · ☐ data-safety review (delete flows) · ☐ PROGRESS + PR ·
 ☐ WALK-QUEUE updated

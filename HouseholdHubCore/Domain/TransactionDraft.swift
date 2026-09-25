@@ -3,6 +3,8 @@ import Foundation
 public enum LedgerError: Error, Equatable, Sendable {
     case settingsMissing
     case startingBalanceInFuture
+    /// Currency can change freely only while no financial records exist (spec §6.3).
+    case currencyLockedByExistingRecords
     /// A stored value this version cannot interpret (e.g. an unknown enum raw value). Accounting paths refuse to
     /// guess, because a wrong guess can flip the sign of a balance.
     case unreadableRecord(field: String, value: String)
@@ -19,6 +21,26 @@ public enum LedgerError: Error, Equatable, Sendable {
     case unknownTransaction
     case categoryInUse(transactionCount: Int)
     case systemCategoryIsPermanent
+}
+
+/// Read-only view of the settings row for the UI, safe to pass across actors.
+public struct SettingsSnapshot: Equatable, Sendable {
+    public let currencyCode: String
+    public let onboardingCompleted: Bool
+    public let startingBalance: Money
+    public let startingBalanceDate: Date
+    public let includePendingInProjection: Bool
+
+    public init(
+        currencyCode: String, onboardingCompleted: Bool, startingBalance: Money, startingBalanceDate: Date,
+        includePendingInProjection: Bool
+    ) {
+        self.currencyCode = currencyCode
+        self.onboardingCompleted = onboardingCompleted
+        self.startingBalance = startingBalance
+        self.startingBalanceDate = startingBalanceDate
+        self.includePendingInProjection = includePendingInProjection
+    }
 }
 
 /// A validated request to record a transaction (spec §12.2): every entry path — manual, Quick Add, AI — produces a

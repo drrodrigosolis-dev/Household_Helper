@@ -32,6 +32,44 @@ public actor TransactionService {
         try commit()
     }
 
+    public func settingsSnapshot() throws -> SettingsSnapshot? {
+        guard let settings = try settings() else { return nil }
+        let balance = Money(minorUnits: settings.startingBalanceMinorUnits, currencyCode: settings.currencyCode)
+        return SettingsSnapshot(
+            currencyCode: settings.currencyCode, onboardingCompleted: settings.onboardingCompleted,
+            startingBalance: balance, startingBalanceDate: settings.startingBalanceDate,
+            includePendingInProjection: settings.includePendingInProjection)
+    }
+
+    /// First-launch setup. The currency may change only while no transactions or series exist (spec §6.3).
+    public func completeOnboarding(currencyCode: String, startingBalance: Money, asOf date: Date, now: Date) throws {
+        let currency = try Currency(code: currencyCode)
+        guard startingBalance.currencyCode == currency.code else {
+            throw LedgerError.currencyMismatch(expected: currency.code, actual: startingBalance.currencyCode)
+        }
+        guard date <= now else { throw LedgerError.startingBalanceInFuture }
+        try ensureSettings(currencyCode: currency.code, now: now)
+        let settings = try requireSettings()
+        if settings.currencyCode != currency.code {
+            let records = try modelContext.fetchCount(FetchDescriptor<TransactionRecord>())
+            let series = try modelContext.fetchCount(FetchDescriptor<RecurringTransaction>())
+            guard records + series == 0 else { throw LedgerError.currencyLockedByExistingRecords }
+            settings.currencyCode = currency.code
+        }
+        settings.startingBalanceMinorUnits = startingBalance.minorUnits
+        settings.startingBalanceDate = date
+        settings.onboardingCompleted = true
+        settings.updatedAt = now
+        try commit()
+    }
+
+    public func setIncludePendingInProjection(_ include: Bool, now: Date) throws {
+        let settings = try requireSettings()
+        settings.includePendingInProjection = include
+        settings.updatedAt = now
+        try commit()
+    }
+
     public func setStartingBalance(_ balance: Money, asOf date: Date, now: Date) throws {
         let settings = try requireSettings()
         try requireCurrency(balance, settings)
@@ -65,6 +103,35 @@ public actor TransactionService {
         modelContext.insert(record)
         try commit()
         return record.id
+    }
+
+    /// Replaces the user-editable fields of an existing transaction. Provenance (source, recurring link) is kept.
+    public func update(_ id: UUID, with draft: TransactionDraft, now: Date) throws {
+        let record = try requireTransaction(id)
+        var checked = draft
+        checked.source = .manual
+        try checked.validate()
+        let settings = try requireSettings()
+        try requireCurrency(draft.amount, settings)
+        if let categoryID = draft.categoryID {
+            try requireUsableCategory(categoryID, for: draft.type)
+        }
+        var merchantID: UUID?
+        let name = draft.merchantName.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
+        if !Merchant.normalize(name).isEmpty {
+            merchantID = try findOrCreateMerchant(named: name, now: now).id
+        }
+        record.amountMinorUnits = draft.amount.minorUnits
+        record.currencyCode = draft.amount.currencyCode
+        record.type = draft.type
+        record.status = draft.status
+        record.occurredAt = draft.occurredAt
+        record.categoryID = draft.categoryID
+        record.notes = draft.notes
+        record.merchantID = merchantID
+        record.merchantNameSnapshot = merchantID == nil ? nil : name
+        record.updatedAt = now
+        try commit()
     }
 
     public func setStatus(_ status: TransactionStatus, forTransaction id: UUID, now: Date) throws {

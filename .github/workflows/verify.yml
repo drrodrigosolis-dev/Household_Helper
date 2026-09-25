@@ -73,6 +73,7 @@ jobs:
           path: |
             build/logs/
             build/results/
+            build/screenshots/
           retention-days: 14
           if-no-files-found: ignore
 

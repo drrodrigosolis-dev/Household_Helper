@@ -6,14 +6,6 @@ final class LaunchUITests: XCTestCase {
     }
 
     @MainActor
-    private func launchApp() -> XCUIApplication {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting"]
-        app.launch()
-        return app
-    }
-
-    @MainActor
     func testEachPrimaryTabShowsItsScreen() {
         let app = launchApp()
         for tab in ["Dashboard", "Budget", "Wishlist", "Tasks", "More"] {

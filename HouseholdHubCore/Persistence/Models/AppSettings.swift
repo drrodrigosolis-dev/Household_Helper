@@ -11,6 +11,8 @@ extension SchemaV1 {
         public var onboardingCompleted: Bool
         public var startingBalanceMinorUnits: Int64
         public var startingBalanceDate: Date
+        /// Whether the projected balance adds pending transactions (spec §9.3). Off by default.
+        public var includePendingInProjection: Bool = false
         public var createdAt: Date
         public var updatedAt: Date
 
@@ -20,6 +22,7 @@ extension SchemaV1 {
             self.onboardingCompleted = false
             self.startingBalanceMinorUnits = 0
             self.startingBalanceDate = now
+            self.includePendingInProjection = false
             self.createdAt = now
             self.updatedAt = now
         }
