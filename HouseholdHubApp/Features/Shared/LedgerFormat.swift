@@ -22,13 +22,31 @@ enum LedgerFormat {
     }
 
     /// Parses a user-typed amount in the current locale; nil unless it is a plain positive number.
-    static func parseAmount(_ text: String, currencyCode: String) -> Money? {
-        let trimmed = text.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty, let currency = try? Currency(code: currencyCode),
-            let value = try? Decimal(trimmed, format: .number.locale(.current)),
+    static func parseAmount(_ text: String, currencyCode: String, locale: Locale = .current) -> Money? {
+        guard let value = parseDecimal(text, locale: locale), let currency = try? Currency(code: currencyCode),
             let money = try? Money(decimal: value, currency: currency), money.minorUnits > 0
         else { return nil }
         return money
+    }
+
+    /// Strict locale-aware number parsing: plain digits, or correctly grouped thousands, with an optional
+    /// fraction and leading minus. Anything else is nil, never a partial parse ("1,250.50" is 1250.50 in en_US,
+    /// "12,5" is rejected there, "1.250,50" is 1250.50 in de_DE).
+    static func parseDecimal(_ text: String, locale: Locale = .current) -> Decimal? {
+        let body = text.trimmingCharacters(in: .whitespaces)
+        let group = locale.groupingSeparator ?? ","
+        let point = locale.decimalSeparator ?? "."
+        let groups = [group, "\u{00A0}", "\u{202F}", " "].map(NSRegularExpression.escapedPattern(for:))
+        let groupClass = "(?:" + groups.joined(separator: "|") + ")"
+        let fraction = "(?:" + NSRegularExpression.escapedPattern(for: point) + "\\d+)?"
+        let pattern = "-?(?:\\d{1,3}(?:" + groupClass + "\\d{3})+|\\d+)" + fraction
+        guard let regex = try? Regex(pattern), body.wholeMatch(of: regex) != nil else { return nil }
+        var plain = body
+        for separator in [group, "\u{00A0}", "\u{202F}", " "] {
+            plain = plain.replacingOccurrences(of: separator, with: "")
+        }
+        plain = plain.replacingOccurrences(of: point, with: ".")
+        return Decimal(string: plain, locale: Locale(identifier: "en_US_POSIX"))
     }
 
     static func typeLabel(_ type: TransactionType) -> LocalizedStringKey {

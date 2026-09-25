@@ -36,6 +36,11 @@ struct QuickAddView: View {
     @State private var notes = ""
     @State private var showDetails = false
     @State private var errorMessage: String?
+    @State private var isSaving = false
+    /// Which fields the quick text currently supplies; those follow the text, manual edits are kept.
+    @State private var typeFromText = false
+    @State private var amountFromText = false
+    @State private var categoryFromText = false
     @FocusState private var quickFieldFocused: Bool
 
     private var currencyCode: String { settings.first?.currencyCode ?? "CAD" }
@@ -76,7 +81,7 @@ struct QuickAddView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { Task { await save() } }
-                        .disabled(amount == nil)
+                        .disabled(amount == nil || isSaving)
                         .accessibilityIdentifier("quickadd.save")
                 }
             }
@@ -117,24 +122,39 @@ struct QuickAddView: View {
         let parsed = parser.parse(text, now: .now)
         if parsed.type == .income {
             type = .income
+            typeFromText = true
+        } else if typeFromText {
+            type = .expense
+            typeFromText = false
         }
         if let parsedAmount = parsed.amount {
             amountText = LedgerFormat.editableAmount(parsedAmount)
+            amountFromText = true
             showDetails = true
+        } else if amountFromText {
+            amountText = ""
+            amountFromText = false
         }
         if let parsedCategory = parsed.categoryID {
             categoryID = parsedCategory
+            categoryFromText = true
+        } else if categoryFromText {
+            categoryID = nil
+            categoryFromText = false
         }
         occurredAt = parsed.occurredAt
         notes = parsed.description
     }
 
     private func save() async {
-        guard let services, let amount else { return }
+        guard let services, let amount, !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
         if let categoryID, let category = categories.first(where: { $0.id == categoryID }),
             !category.kind.allows(type)
         {
-            self.categoryID = nil
+            errorMessage = String(localized: "\(category.name) can't be used for this type. Choose another category.")
+            return
         }
         let trimmedNotes = notes.trimmingCharacters(in: .whitespaces)
         let draft = TransactionDraft(

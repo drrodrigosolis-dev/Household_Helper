@@ -114,7 +114,8 @@ public actor TransactionService {
         let settings = try requireSettings()
         try requireCurrency(draft.amount, settings)
         if let categoryID = draft.categoryID {
-            try requireUsableCategory(categoryID, for: draft.type)
+            // A category archived after this record was filed stays valid for the record; new use is refused.
+            try requireUsableCategory(categoryID, for: draft.type, allowArchived: categoryID == record.categoryID)
         }
         var merchantID: UUID?
         let name = draft.merchantName.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
@@ -342,10 +343,10 @@ public actor TransactionService {
         return try modelContext.fetch(descriptor).first
     }
 
-    private func requireUsableCategory(_ id: UUID, for type: TransactionType) throws {
+    private func requireUsableCategory(_ id: UUID, for type: TransactionType, allowArchived: Bool = false) throws {
         let descriptor = FetchDescriptor<CategoryRecord>(predicate: #Predicate { $0.id == id })
         guard let category = try modelContext.fetch(descriptor).first else { throw LedgerError.unknownCategory }
-        guard !category.isArchived else { throw LedgerError.archivedCategory }
+        guard allowArchived || !category.isArchived else { throw LedgerError.archivedCategory }
         guard category.kind.allows(type) else { throw LedgerError.categoryKindMismatch(category.kind, type) }
     }
 

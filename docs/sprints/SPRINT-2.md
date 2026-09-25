@@ -42,6 +42,18 @@ Planned 2026-09-25 (cloud session); owner answered "run" (all defaults). Starts 
 - Walk screenshots: UI tests attach named screenshots; `Scripts/ui-test.sh` exports them to `build/screenshots/`,
   uploaded with the run's artifact.
 
+## Data-safety review (subagent) — gate BLOCKED, then fixed
+| Finding | Fix |
+|---|---|
+| Onboarding `Decimal(string:)` parsed a prefix ("1,250.50" → 1) | Strict locale-aware `LedgerFormat.parseDecimal`, used by every amount field |
+| Quick Add Save had no in-flight guard (double tap → two records) | `isSaving` guard on every save (Quick Add, editor, recurring, category, onboarding) |
+| Quick Add kept income/amount/category after the text stopped supplying them | Text-owned fields revert when the parse no longer yields them |
+| Unused category deleted without confirmation | Confirmation dialog; move-then-delete reports which step failed |
+| Editor: archived category blocked edits; wrong-kind category silently cleared | Service allows the record's own archived category; editor shows an error instead |
+
+Logged, not fixed: `update` clears a series-set `merchantID` without a snapshot name — unreachable today (no UI sets
+a series merchant); revisit when one does. Not covered by a UI test: the double-tap race itself (guarded in code).
+
 ## Close-out
 ☐ CI green on final head · ☐ walk screenshots reviewed · ☐ data-safety review (delete flows) · ☐ PROGRESS + PR ·
 ☐ WALK-QUEUE updated

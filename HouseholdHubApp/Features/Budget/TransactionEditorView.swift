@@ -18,6 +18,7 @@ struct TransactionEditorView: View {
     @State private var merchant: String
     @State private var notes: String
     @State private var errorMessage: String?
+    @State private var isSaving = false
 
     init(record: TransactionRecord) {
         self.record = record
@@ -80,19 +81,23 @@ struct TransactionEditorView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") { Task { await save() } }
-                    .disabled(amount == nil)
+                    .disabled(amount == nil || isSaving)
                     .accessibilityIdentifier("editor.save")
             }
         }
     }
 
     private func save() async {
-        guard let services, let amount else { return }
-        let category = categories.first { $0.id == categoryID }
-        let validCategory = category.flatMap { $0.kind.allows(type) ? $0.id : nil }
+        guard let services, let amount, !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+        if let category = categories.first(where: { $0.id == categoryID }), !category.kind.allows(type) {
+            errorMessage = String(localized: "\(category.name) can't be used for this type. Choose another category.")
+            return
+        }
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         let draft = TransactionDraft(
-            amount: amount, type: type, occurredAt: occurredAt, status: status, categoryID: validCategory,
+            amount: amount, type: type, occurredAt: occurredAt, status: status, categoryID: categoryID,
             merchantName: merchant, notes: trimmedNotes.isEmpty ? nil : trimmedNotes)
         do {
             try await services.transactions.update(record.id, with: draft, now: .now)

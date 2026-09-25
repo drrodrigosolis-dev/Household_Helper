@@ -372,6 +372,59 @@ struct LedgerServiceTests {
         #expect(stored.icon == "mug")
     }
 
+    @Test func editKeepsAnArchivedCategoryAlreadyOnTheRecordButRejectsWrongCurrency() async throws {
+        let fixture = try await makeFixture()
+        let categories = fixture.categories
+        let coffee = try await categories.create(
+            name: "Coffee", icon: "cup.and.saucer", color: .black, kind: .expense, now: now)
+        let draft = TransactionDraft(amount: cad(450), type: .expense, occurredAt: now, categoryID: coffee)
+        let id = try await fixture.transactions.create(draft, now: now)
+        try await categories.setArchived(true, category: coffee, now: now)
+
+        var edited = draft
+        edited.amount = cad(500)
+        try await fixture.transactions.update(id, with: edited, now: now)
+
+        var usd = edited
+        usd.amount = Money(minorUnits: 999, currencyCode: "USD")
+        let service = fixture.transactions
+        await #expect(throws: LedgerError.currencyMismatch(expected: "CAD", actual: "USD")) {
+            try await service.update(id, with: usd, now: now)
+        }
+        let record = try #require(try fixture.context().fetch(FetchDescriptor<TransactionRecord>()).first)
+        #expect(record.amount == cad(500))
+        #expect(record.categoryID == coffee)
+
+        let other = try await categories.create(name: "Old", icon: "bag", color: .black, kind: .expense, now: now)
+        try await categories.setArchived(true, category: other, now: now)
+        var reassigned = edited
+        reassigned.categoryID = other
+        await #expect(throws: LedgerError.archivedCategory) { try await service.update(id, with: reassigned, now: now) }
+    }
+
+    @Test func spentThisWeekCountsOnlyPostedPastExpensesAndUpcomingSkipsSkippedOccurrences() async throws {
+        let fixture = try await makeFixture(asOf: now.addingTimeInterval(-10 * 86_400))
+        let service = fixture.transactions
+        let calendar = HouseholdCalendar(timeZone: zone, locale: Locale(identifier: "en_US"))
+        let recent = now.addingTimeInterval(-60)
+        for (amount, status) in [(Int64(1000), TransactionStatus.posted), (200, .pending), (300, .cancelled)] {
+            let draft = TransactionDraft(amount: cad(amount), type: .expense, occurredAt: recent, status: status)
+            try await service.create(draft, now: now)
+        }
+        let later = TransactionDraft(amount: cad(4000), type: .expense, occurredAt: now.addingTimeInterval(3600))
+        try await service.create(later, now: now)
+
+        let seriesID = try await service.createSeries(
+            templateAmount: cad(1000), type: .expense, rule: .weekly(interval: 1, weekday: 3), timeZone: zone,
+            startDate: now.addingTimeInterval(86_400), notes: "Gym", now: now)
+        let before = try await service.dashboardSummary(now: now, calendar: calendar)
+        #expect(before.spentThisWeek == cad(1000))
+        let due = try #require(before.upcoming.first?.date)
+        let occurrenceID = try await service.materialize(seriesID: seriesID, occurrence: due, now: now)
+        try await service.deleteTransaction(occurrenceID, alsoDisableSeries: false, now: now)
+        #expect(try await service.dashboardSummary(now: now, calendar: calendar).upcoming.isEmpty)
+    }
+
     // MARK: Categories
 
     @Test func systemCategoriesSeedOnceAndAreReadable() async throws {

@@ -55,9 +55,9 @@ struct OnboardingView: View {
     }
 
     private func save() async {
-        guard let services else { return }
+        guard let services, !isSaving else { return }
         let trimmed = balanceText.trimmingCharacters(in: .whitespaces)
-        let decimal = trimmed.isEmpty ? Decimal(0) : Decimal(string: trimmed, locale: .current)
+        let decimal = trimmed.isEmpty ? Decimal(0) : LedgerFormat.parseDecimal(trimmed)
         guard let decimal, let currency = try? Currency(code: currencyCode),
             let balance = try? Money(decimal: decimal, currency: currency)
         else {

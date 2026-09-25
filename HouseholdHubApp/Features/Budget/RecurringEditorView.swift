@@ -30,6 +30,7 @@ struct RecurringEditorView: View {
     @State private var month = Calendar.current.component(.month, from: .now)
     @State private var startDate = Date.now
     @State private var errorMessage: String?
+    @State private var isSaving = false
 
     private var currencyCode: String { settings.first?.currencyCode ?? "CAD" }
     private var amount: Money? { LedgerFormat.parseAmount(amountText, currencyCode: currencyCode) }
@@ -88,7 +89,7 @@ struct RecurringEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { Task { await save() } }
-                        .disabled(amount == nil)
+                        .disabled(amount == nil || isSaving)
                         .accessibilityIdentifier("recurringEditor.save")
                 }
             }
@@ -130,7 +131,9 @@ struct RecurringEditorView: View {
     }
 
     private func save() async {
-        guard let services, let amount else { return }
+        guard let services, let amount, !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             try await services.transactions.createSeries(

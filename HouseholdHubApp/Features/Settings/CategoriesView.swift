@@ -8,6 +8,7 @@ struct CategoriesView: View {
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
     @State private var editing: CategoryEditorView.Mode?
     @State private var inUse: InUse?
+    @State private var pendingDelete: CategoryRecord?
     @State private var errorMessage: String?
 
     struct InUse: Identifiable {
@@ -48,6 +49,14 @@ struct CategoriesView: View {
             CategoryEditorView(mode: mode)
         }
         .confirmationDialog(
+            "Delete this category?", isPresented: deleteShown, titleVisibility: .visible, presenting: pendingDelete
+        ) { category in
+            Button("Delete \(category.name)", role: .destructive) { delete(category) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("If anything uses it you'll be offered archive or move instead. Deleting can't be undone.")
+        }
+        .confirmationDialog(
             "Category in use", isPresented: inUseShown, titleVisibility: .visible, presenting: inUse
         ) { info in
             Button("Archive \(info.category.name)") { setArchived(info.category, true) }
@@ -74,7 +83,7 @@ struct CategoriesView: View {
         .accessibilityIdentifier("category.row")
         .swipeActions(edge: .trailing) {
             if !category.isSystem {
-                Button("Delete", role: .destructive) { delete(category) }
+                Button("Delete", role: .destructive) { pendingDelete = category }
             }
             Button(archiveTitle(category)) { setArchived(category, !category.isArchived) }
                 .tint(.orange)
@@ -87,7 +96,7 @@ struct CategoriesView: View {
                 setArchived(category, !category.isArchived)
             }
             if !category.isSystem {
-                Button("Delete", systemImage: "trash", role: .destructive) { delete(category) }
+                Button("Delete", systemImage: "trash", role: .destructive) { pendingDelete = category }
             }
         }
     }
@@ -102,6 +111,10 @@ struct CategoriesView: View {
         case .income: return "Income"
         case .both: return "Income and expense"
         }
+    }
+
+    private var deleteShown: Binding<Bool> {
+        Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } })
     }
 
     private var inUseShown: Binding<Bool> {
@@ -140,10 +153,15 @@ struct CategoriesView: View {
         Task {
             do {
                 try await services.categories.reassign(from: source, to: destination, now: .now)
+            } catch {
+                errorMessage = String(localized: "Items couldn't be moved to that category.")
+                return
+            }
+            do {
                 try await services.categories.delete(category: source)
                 errorMessage = nil
             } catch {
-                errorMessage = String(localized: "Items couldn't be moved to that category.")
+                errorMessage = String(localized: "Items were moved, but the old category couldn't be deleted.")
             }
         }
     }
@@ -195,6 +213,7 @@ struct CategoryEditorView: View {
     @State private var icon: String
     @State private var color: ColorToken
     @State private var errorMessage: String?
+    @State private var isSaving = false
 
     init(mode: Mode) {
         self.mode = mode
@@ -267,7 +286,7 @@ struct CategoryEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { Task { await save() } }
-                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
                         .accessibilityIdentifier("categoryEditor.save")
                 }
             }
@@ -280,7 +299,9 @@ struct CategoryEditorView: View {
     }
 
     private func save() async {
-        guard let services else { return }
+        guard let services, !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
         do {
             switch mode {
             case .create:
