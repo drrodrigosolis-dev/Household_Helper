@@ -33,4 +33,23 @@ extension XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
     }
+
+    /// Records a transaction through the real Quick Add sheet.
+    @MainActor
+    func addViaQuickAdd(_ app: XCUIApplication, _ text: String) {
+        app.buttons["quickadd.button"].tap()
+        let field = app.textFields["quickadd.text"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5), "Quick Add sheet did not open")
+        field.tap()
+        field.typeText(text)
+        app.buttons["quickadd.save"].tap()
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: field)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 10), .completed, "Quick Add did not save '\(text)'")
+    }
+
+    @MainActor
+    func transactionRow(_ app: XCUIApplication, containing text: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: "transaction.row")
+            .matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+    }
 }
