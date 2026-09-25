@@ -1,0 +1,54 @@
+import Foundation
+
+/// Persistable sRGB color (spec §7.3). Never a serialized SwiftUI `Color`.
+public struct ColorToken: Codable, Hashable, Sendable {
+    public var red: UInt8
+    public var green: UInt8
+    public var blue: UInt8
+    public var alpha: UInt8
+
+    public init(red: UInt8, green: UInt8, blue: UInt8, alpha: UInt8 = 255) {
+        self.red = red
+        self.green = green
+        self.blue = blue
+        self.alpha = alpha
+    }
+
+    /// Parses `#RRGGBB` or `#RRGGBBAA` (the `#` is optional).
+    public init?(hex: String) {
+        let digits = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
+        guard digits.count == 6 || digits.count == 8, let value = UInt32(digits, radix: 16) else { return nil }
+        let full = digits.count == 6 ? (value << 8) | 0xFF : value
+        let red = UInt8((full >> 24) & 0xFF)
+        let green = UInt8((full >> 16) & 0xFF)
+        let blue = UInt8((full >> 8) & 0xFF)
+        self.init(red: red, green: green, blue: blue, alpha: UInt8(full & 0xFF))
+    }
+
+    public var hex: String {
+        String(format: "#%02X%02X%02X%02X", Int(red), Int(green), Int(blue), Int(alpha))
+    }
+
+    public static let white = ColorToken(red: 255, green: 255, blue: 255)
+    public static let black = ColorToken(red: 0, green: 0, blue: 0)
+
+    /// WCAG 2.x relative luminance of the opaque color.
+    public var relativeLuminance: Double {
+        func linear(_ channel: UInt8) -> Double {
+            let value = Double(channel) / 255
+            return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
+    }
+
+    public func contrastRatio(with other: ColorToken) -> Double {
+        let lighter = max(relativeLuminance, other.relativeLuminance)
+        let darker = min(relativeLuminance, other.relativeLuminance)
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    /// WCAG AA: 4.5:1 for body text, 3:1 for large text and non-text UI.
+    public func meetsAAContrast(against background: ColorToken, largeText: Bool = false) -> Bool {
+        contrastRatio(with: background) >= (largeText ? 3 : 4.5)
+    }
+}
