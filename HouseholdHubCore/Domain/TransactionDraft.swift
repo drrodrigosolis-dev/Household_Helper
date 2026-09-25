@@ -19,7 +19,12 @@ public enum LedgerError: Error, Equatable, Sendable {
     case notAnOccurrence
     case alreadyMaterialized
     case unknownTransaction
-    case categoryInUse(transactionCount: Int)
+    /// Transactions, series, and wishlist items that still reference the category.
+    case categoryInUse(referenceCount: Int)
+    /// A wishlist purchase stays one expense (spec §8.1): its type cannot change.
+    case purchaseMustStayExpense
+    /// Cancelling would leave the item "purchased" with nothing spent; deleting the transaction reverts the item.
+    case purchaseCannotBeCancelled
     case systemCategoryIsPermanent
     case emptyCategoryName
 }

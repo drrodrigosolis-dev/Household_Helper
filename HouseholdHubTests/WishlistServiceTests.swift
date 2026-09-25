@@ -175,6 +175,101 @@ struct WishlistServiceTests {
         #expect(try fixture.transactions().first?.source == .wishlistPurchase)
     }
 
+    @Test func aPurchaseStaysOneLiveExpense() async throws {
+        let fixture = try await makeFixture()
+        let service = fixture.service
+        let id = try await addItem("Lamp", 4_000, to: fixture)
+        let transactionID = try await buy(id, 3_799, in: fixture)
+        let asIncome = TransactionDraft(amount: cad(3_799), type: .income, occurredAt: now)
+        await #expect(throws: LedgerError.purchaseMustStayExpense) {
+            try await service.update(transactionID, with: asIncome, now: now)
+        }
+        let cancelled = TransactionDraft(amount: cad(3_799), type: .expense, occurredAt: now, status: .cancelled)
+        await #expect(throws: LedgerError.purchaseCannotBeCancelled) {
+            try await service.update(transactionID, with: cancelled, now: now)
+        }
+        await #expect(throws: LedgerError.purchaseCannotBeCancelled) {
+            try await service.setStatus(.cancelled, forTransaction: transactionID, now: now)
+        }
+        let record = try #require(fixture.transactions().first)
+        #expect(record.type == .expense)
+        #expect(record.status == .posted)
+        #expect(record.amount == cad(3_799))
+        // Pending is still allowed: the purchase remains an expense in the pending impact.
+        try await service.setStatus(.pending, forTransaction: transactionID, now: now)
+        #expect(try fixture.transactions().first?.status == .pending)
+        #expect(try fixture.item(id).status == .purchased)
+    }
+
+    @Test func editingAPurchasedOrArchivedItemKeepsItsStatusAndLink() async throws {
+        let fixture = try await makeFixture()
+        let service = fixture.service
+        let bought = try await addItem("Lamp", 4_000, to: fixture)
+        let transactionID = try await buy(bought, 3_799, in: fixture)
+        let archived = try await addItem("Rug", 100, to: fixture)
+        try await service.setWishlistItemArchived(true, item: archived, now: now)
+        for id in [bought, archived] {
+            let draft = WishlistDraft(name: "Renamed", estimatedPrice: cad(1), priority: .high, status: .pending)
+            try await service.updateWishlistItem(id, with: draft, now: now)
+        }
+        #expect(try fixture.item(bought).status == .purchased)
+        #expect(try fixture.item(bought).purchasedTransactionID == transactionID)
+        #expect(try fixture.item(bought).name == "Renamed")
+        #expect(try fixture.item(archived).status == .archived)
+    }
+
+    @Test func itemAmountsMustBeInTheItemsCurrency() async throws {
+        let fixture = try await makeFixture()
+        let service = fixture.service
+        let id = try await addItem("Lamp", 4_000, to: fixture)
+        let usd = Money(minorUnits: 100, currencyCode: "USD")
+        await #expect(throws: LedgerError.currencyMismatch(expected: "CAD", actual: "USD")) {
+            try await service.purchaseWishlistItem(id, actualPrice: usd, occurredAt: now, categoryID: nil, now: now)
+        }
+        await #expect(throws: LedgerError.currencyMismatch(expected: "CAD", actual: "USD")) {
+            try await service.updateWishlistItem(id, with: WishlistDraft(name: "Lamp", estimatedPrice: usd), now: now)
+        }
+        #expect(try fixture.transactions().isEmpty)
+    }
+
+    @Test func wishlistItemsLockTheCurrency() async throws {
+        let fixture = try await makeFixture()
+        _ = try await addItem("Lamp", 4_000, to: fixture)
+        await #expect(throws: LedgerError.currencyLockedByExistingRecords) {
+            try await fixture.service.completeOnboarding(
+                currencyCode: "USD", startingBalance: Money(minorUnits: 0, currencyCode: "USD"), asOf: now, now: now)
+        }
+    }
+
+    @Test func mediaReferencesAreValidatedAndHandedBack() async throws {
+        let fixture = try await makeFixture()
+        let service = fixture.service
+        let id = try await addItem("Lamp", 4_000, to: fixture)
+        await #expect(throws: WishlistError.invalidMediaReference) {
+            try await service.setWishlistMedia("../escape.jpg", item: id, now: now)
+        }
+        let first = try await service.setWishlistMedia("Wishlist/a.jpg", item: id, now: now)
+        #expect(first == nil)
+        let replaced = try await service.setWishlistMedia("Wishlist/b.jpg", item: id, now: now)
+        #expect(replaced == "Wishlist/a.jpg")
+        let deleted = try await service.deleteWishlistItem(id, now: now)
+        #expect(deleted == "Wishlist/b.jpg")
+    }
+
+    @Test func deletingThePurchaseOfAnArchivedItemKeepsItArchived() async throws {
+        let fixture = try await makeFixture()
+        let service = fixture.service
+        let id = try await addItem("Lamp", 4_000, to: fixture)
+        let transactionID = try await buy(id, 3_799, in: fixture)
+        try await service.setWishlistItemArchived(true, item: id, now: now)
+        try await service.deleteTransaction(transactionID, alsoDisableSeries: false, now: now)
+        let item = try fixture.item(id)
+        #expect(item.status == .archived)
+        #expect(item.purchasedTransactionID == nil)
+        try await service.setWishlistItemArchived(false, item: id, now: now)
+        #expect(try fixture.item(id).status == .wanted)
+    }
+
     @Test func purchaseMovesTheBalance() async throws {
         let fixture = try await makeFixture()
         let service = fixture.service
@@ -240,13 +335,18 @@ struct WishlistServiceTests {
             name: "Gadgets", icon: "desktopcomputer", color: .black, kind: .expense, now: now)
         let draft = WishlistDraft(name: "Lamp", estimatedPrice: cad(100), categoryID: custom)
         let id = try await fixture.service.createWishlistItem(draft, now: now)
-        await #expect(throws: LedgerError.categoryInUse(transactionCount: 1)) {
+        await #expect(throws: LedgerError.categoryInUse(referenceCount: 1)) {
             try await fixture.categories.delete(category: custom)
         }
         await #expect(throws: LedgerError.categoryKindMismatch(.income, .expense)) {
             try await fixture.categories.update(
                 category: custom, name: "Gadgets", icon: "desktopcomputer", color: .black, kind: .income, now: now)
         }
+        let salary = try categoryID(named: "Salary", in: fixture)
+        await #expect(throws: LedgerError.categoryKindMismatch(.income, .expense)) {
+            try await fixture.categories.reassign(from: custom, to: salary, now: now)
+        }
+        #expect(try fixture.item(id).categoryID == custom)
         let shopping = try categoryID(named: "Shopping", in: fixture)
         _ = try await fixture.categories.reassign(from: custom, to: shopping, now: now)
         #expect(try fixture.item(id).categoryID == shopping)

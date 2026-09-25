@@ -30,8 +30,7 @@ extension TransactionService {
             checked.status = .wanted
         }
         try checked.validate()
-        let settings = try requireSettings()
-        try requireCurrency(draft.estimatedPrice, settings)
+        try requireItemCurrency(draft.estimatedPrice, item)
         if let categoryID = draft.categoryID {
             try requireUsableCategory(categoryID, for: .expense, allowArchived: categoryID == item.categoryID)
         }
@@ -76,6 +75,9 @@ extension TransactionService {
     /// Records the media reference after the image file has been written (spec §5.5). Returns the replaced reference.
     @discardableResult
     public func setWishlistMedia(_ reference: String?, item id: UUID, now: Date) throws -> String? {
+        if let reference {
+            guard ImageStore.isValidReference(reference) else { throw WishlistError.invalidMediaReference }
+        }
         let item = try requireWishlistItem(id)
         let previous = item.mediaReference
         item.mediaReference = reference
@@ -96,8 +98,7 @@ extension TransactionService {
         }
         guard item.status != .archived else { throw WishlistError.archived }
         guard actualPrice.minorUnits > 0 else { throw LedgerError.nonPositiveAmount }
-        let settings = try requireSettings()
-        try requireCurrency(actualPrice, settings)
+        try requireItemCurrency(actualPrice, item)
         if let categoryID {
             try requireUsableCategory(categoryID, for: .expense, allowArchived: categoryID == item.categoryID)
         }
@@ -144,6 +145,14 @@ extension TransactionService {
             item.status = .wanted
         }
         item.updatedAt = now
+    }
+
+    /// Item amounts are read back in the item's own currency, which must also still be the household's.
+    private func requireItemCurrency(_ money: Money, _ item: WishlistItem) throws {
+        try requireCurrency(money, try requireSettings())
+        guard money.currencyCode == item.currencyCode else {
+            throw LedgerError.currencyMismatch(expected: item.currencyCode, actual: money.currencyCode)
+        }
     }
 
     private func apply(_ draft: WishlistDraft, to item: WishlistItem) {

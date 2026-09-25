@@ -45,17 +45,24 @@ public struct ImageStore: Sendable {
         let fullURL = try url(for: reference)
         let thumbURL = try thumbnailURL(for: reference)
         try write(full, to: fullURL)
-        try write(thumbnail, to: thumbURL)
+        do {
+            try write(thumbnail, to: thumbURL)
+        } catch {
+            try? FileManager.default.removeItem(at: fullURL)
+            throw error
+        }
         return reference
     }
 
-    public func url(for reference: String) throws -> URL {
-        let parts = reference.split(separator: "/")
+    /// Exactly "<folder>/<file>" with no hidden or parent-directory component, so a reference cannot escape root.
+    public static func isValidReference(_ reference: String) -> Bool {
+        let parts = reference.split(separator: "/", omittingEmptySubsequences: false)
         let folders = [Folder.wishlist.rawValue, Folder.receipts.rawValue]
-        // Exactly "<folder>/<file>" with no hidden or parent-directory component, so a reference cannot escape root.
-        guard parts.count == 2, folders.contains(String(parts[0])), !parts[1].hasPrefix(".") else {
-            throw ImageStoreError.invalidReference
-        }
+        return parts.count == 2 && folders.contains(String(parts[0])) && !parts[1].isEmpty && !parts[1].hasPrefix(".")
+    }
+
+    public func url(for reference: String) throws -> URL {
+        guard Self.isValidReference(reference) else { throw ImageStoreError.invalidReference }
         return root.appending(path: reference, directoryHint: .notDirectory)
     }
 

@@ -38,14 +38,26 @@ struct TransactionEditorView: View {
         categories.filter { ($0.id == categoryID || !$0.isArchived) && $0.kind.allows(type) }
     }
 
+    private var isPurchase: Bool { record.source == .wishlistPurchase || record.wishlistItemID != nil }
+
+    /// Cancelling a purchase is refused by the service; deleting it reverts the wishlist item instead.
+    private var selectableStatuses: [TransactionStatus] {
+        isPurchase ? [.posted, .pending] : TransactionStatus.allCases
+    }
+
     var body: some View {
         Form {
             Section {
-                Picker("Type", selection: $type) {
-                    Text("Expense").tag(TransactionType.expense)
-                    Text("Income").tag(TransactionType.income)
+                // A wishlist purchase stays one expense (spec §8.1), so its type is not offered for change.
+                if isPurchase {
+                    LabeledContent("Type", value: String(localized: "Wishlist purchase"))
+                } else {
+                    Picker("Type", selection: $type) {
+                        Text("Expense").tag(TransactionType.expense)
+                        Text("Income").tag(TransactionType.income)
+                    }
+                    .pickerStyle(.segmented)
                 }
-                .pickerStyle(.segmented)
                 LabeledContent("Amount") {
                     TextField("0.00", text: $amountText)
                         .keyboardType(.decimalPad)
@@ -54,7 +66,7 @@ struct TransactionEditorView: View {
                 }
                 DatePicker("Date", selection: $occurredAt, displayedComponents: [.date, .hourAndMinute])
                 Picker("Status", selection: $status) {
-                    ForEach(TransactionStatus.allCases, id: \.self) { status in
+                    ForEach(selectableStatuses, id: \.self) { status in
                         Text(LedgerFormat.statusLabel(status)).tag(status)
                     }
                 }

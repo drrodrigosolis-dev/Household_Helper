@@ -53,7 +53,8 @@ public actor TransactionService {
         if settings.currencyCode != currency.code {
             let records = try modelContext.fetchCount(FetchDescriptor<TransactionRecord>())
             let series = try modelContext.fetchCount(FetchDescriptor<RecurringTransaction>())
-            guard records + series == 0 else { throw LedgerError.currencyLockedByExistingRecords }
+            let wishes = try modelContext.fetchCount(FetchDescriptor<WishlistItem>())
+            guard records + series + wishes == 0 else { throw LedgerError.currencyLockedByExistingRecords }
             settings.currencyCode = currency.code
         }
         settings.startingBalanceMinorUnits = startingBalance.minorUnits
@@ -108,6 +109,7 @@ public actor TransactionService {
     /// Replaces the user-editable fields of an existing transaction. Provenance (source, recurring link) is kept.
     public func update(_ id: UUID, with draft: TransactionDraft, now: Date) throws {
         let record = try requireTransaction(id)
+        try requirePurchaseInvariant(record, type: draft.type, status: draft.status)
         var checked = draft
         checked.source = .manual
         try checked.validate()
@@ -142,6 +144,7 @@ public actor TransactionService {
 
     public func setStatus(_ status: TransactionStatus, forTransaction id: UUID, now: Date) throws {
         let record = try requireTransaction(id)
+        try requirePurchaseInvariant(record, type: record.type, status: status)
         record.status = status
         record.updatedAt = now
         try commit()
@@ -342,6 +345,15 @@ public actor TransactionService {
         let descriptor = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.id == id })
         guard let record = try modelContext.fetch(descriptor).first else { throw LedgerError.unknownTransaction }
         return record
+    }
+
+    /// A wishlist purchase must remain one live expense while it is linked (spec §8.1).
+    func requirePurchaseInvariant(
+        _ record: TransactionRecord, type: TransactionType, status: TransactionStatus
+    ) throws {
+        guard record.source == .wishlistPurchase || record.wishlistItemID != nil else { return }
+        guard type == .expense else { throw LedgerError.purchaseMustStayExpense }
+        guard status != .cancelled else { throw LedgerError.purchaseCannotBeCancelled }
     }
 
     private func recurringSeries(_ id: UUID) throws -> RecurringTransaction? {

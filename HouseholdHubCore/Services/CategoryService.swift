@@ -89,7 +89,7 @@ public actor CategoryService {
         let category = try requireCategory(id)
         guard !category.isSystem else { throw LedgerError.systemCategoryIsPermanent }
         let references = try referenceCount(id)
-        guard references == 0 else { throw LedgerError.categoryInUse(transactionCount: references) }
+        guard references == 0 else { throw LedgerError.categoryInUse(referenceCount: references) }
         modelContext.delete(category)
         try commit()
     }

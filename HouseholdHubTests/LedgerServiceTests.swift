@@ -456,7 +456,7 @@ struct LedgerServiceTests {
         try await fixture.transactions.create(draft, now: now)
 
         await #expect(throws: LedgerError.systemCategoryIsPermanent) { try await categories.delete(category: dining) }
-        await #expect(throws: LedgerError.categoryInUse(transactionCount: 1)) {
+        await #expect(throws: LedgerError.categoryInUse(referenceCount: 1)) {
             try await categories.delete(category: coffee)
         }
         await #expect(throws: LedgerError.categoryKindMismatch(.income, .expense)) {

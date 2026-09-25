@@ -35,6 +35,7 @@ public enum WishlistError: Error, Equatable, Sendable {
     case statusRequiresDedicatedPath(WishlistStatus)
     case alreadyPurchased
     case archived
+    case invalidMediaReference
 }
 
 /// The user-editable fields of a wishlist item. Status is limited to `wanted` / `pending` here.

@@ -121,7 +121,7 @@ private struct FilteredTransactions: View {
         }
         if record.wishlistItemID != nil {
             return String(
-                localized: "It will be removed from history and balances; the wishlist item returns to Wanted.")
+                localized: "It will be removed from history and balances; its wishlist item is no longer purchased.")
         }
         return String(localized: "It will be removed from your history and balances.")
     }

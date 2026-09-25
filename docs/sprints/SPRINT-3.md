@@ -16,11 +16,16 @@ for review. Starts only once Phase 3 is CI green and walked (§28). Binding: §7
    preference outside backups per §7.11), cards with thumbnail, name, priority, estimated price.
 6. Quick Add gains the Wishlist segment: the text's amount becomes the estimated price, the description the name.
 7. No lanes (same reasons as Sprint 2).
+8. Added during the sprint: wishlist writes live on `TransactionService` (not a separate `WishlistService`), because
+   purchase and deletion change an item and a transaction together; one serial writer keeps each a single save.
+9. Added after the data-safety review: a purchase transaction cannot become income or be cancelled (the editor hides
+   both). Deleting it is the way to undo a purchase, and reverts the item. Alternative the owner may prefer: allow
+   cancel and revert the item on cancel.
 
 ## Items
 | # | Item | Spec | Built (CI green) | Walked |
 |---|---|---|---|---|
-| 1 | `WishlistItem` model, `WishlistStatus`, `Priority`; schema update | §7.7 | ☐ | tests |
+| 1 | `WishlistItem` model, `WishlistStatus`, `Priority`; schema update | §7.7 | pending CI | tests |
 | 2 | `WishlistService`: create/update/archive/delete with §8.2 rules | §7.7, §8.2 | ☐ | tests |
 | 3 | Purchase conversion: one atomic linked expense, never duplicated | §8.1 | ☐ | tests |
 | 4 | `ImageStore` (save, thumbnail, delete) with in-memory test double | §5.5 | ☐ | tests |
