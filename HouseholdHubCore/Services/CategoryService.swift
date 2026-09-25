@@ -47,7 +47,8 @@ public actor CategoryService {
         return record.id
     }
 
-    /// Edits a category. Changing its kind is refused if existing transactions or series would no longer fit.
+    /// Edits a category. Changing its kind is refused if existing transactions, series, or wishlist items would no
+    /// longer fit.
     public func update(
         category id: UUID, name: String, icon: String, color: ColorToken, kind: CategoryKind, now: Date
     ) throws {
@@ -60,7 +61,11 @@ public actor CategoryService {
                 FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.categoryID == target }))
             let series = try modelContext.fetch(
                 FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.categoryID == target }))
-            if let misfit = (transactions.map(\.type) + series.map(\.type)).first(where: { !kind.allows($0) }) {
+            let wishes = try modelContext.fetchCount(
+                FetchDescriptor<WishlistItem>(predicate: #Predicate { $0.categoryID == target }))
+            let wishTypes = Array(repeating: TransactionType.expense, count: wishes)
+            let types = transactions.map(\.type) + series.map(\.type) + wishTypes
+            if let misfit = types.first(where: { !kind.allows($0) }) {
                 throw LedgerError.categoryKindMismatch(kind, misfit)
             }
         }
@@ -99,8 +104,11 @@ public actor CategoryService {
             FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.categoryID == sourceID }))
         let series = try modelContext.fetch(
             FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.categoryID == sourceID }))
+        let wishes = try modelContext.fetch(
+            FetchDescriptor<WishlistItem>(predicate: #Predicate { $0.categoryID == sourceID }))
         // Validate everything before mutating: a throw mid-loop would leave unsaved edits in this actor's context.
-        let types = transactions.map(\.type) + series.map(\.type)
+        // Wishlist items are future expenses, so they need an expense-capable destination.
+        let types = transactions.map(\.type) + series.map(\.type) + wishes.map { _ in TransactionType.expense }
         if let mismatch = types.first(where: { !target.kind.allows($0) }) {
             throw LedgerError.categoryKindMismatch(target.kind, mismatch)
         }
@@ -109,6 +117,10 @@ public actor CategoryService {
             record.updatedAt = now
         }
         for item in series {
+            item.categoryID = destination
+            item.updatedAt = now
+        }
+        for item in wishes {
             item.categoryID = destination
             item.updatedAt = now
         }
@@ -136,7 +148,9 @@ public actor CategoryService {
         let target: UUID? = id
         let transactions = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.categoryID == target })
         let series = FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.categoryID == target })
+        let wishes = FetchDescriptor<WishlistItem>(predicate: #Predicate { $0.categoryID == target })
         return try modelContext.fetchCount(transactions) + modelContext.fetchCount(series)
+            + modelContext.fetchCount(wishes)
     }
 }
 

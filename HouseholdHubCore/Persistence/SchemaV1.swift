@@ -6,7 +6,10 @@ public enum SchemaV1: VersionedSchema {
     public static var versionIdentifier: Schema.Version { Schema.Version(1, 0, 0) }
 
     public static var models: [any PersistentModel.Type] {
-        [AppSettings.self, CategoryRecord.self, Merchant.self, TransactionRecord.self, RecurringTransaction.self]
+        [
+            AppSettings.self, CategoryRecord.self, Merchant.self, TransactionRecord.self, RecurringTransaction.self,
+            WishlistItem.self,
+        ]
     }
 }
 

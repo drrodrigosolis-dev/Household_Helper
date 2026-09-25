@@ -132,6 +132,11 @@ public actor TransactionService {
         record.merchantID = merchantID
         record.merchantNameSnapshot = merchantID == nil ? nil : name
         record.updatedAt = now
+        // A purchase's item records the price actually paid; keep it in step with the edited transaction.
+        if let itemID = record.wishlistItemID, let item = try wishlistItem(itemID), item.purchasedTransactionID == id {
+            item.actualPriceMinorUnits = draft.amount.minorUnits
+            item.updatedAt = now
+        }
         try commit()
     }
 
@@ -156,6 +161,7 @@ public actor TransactionService {
             record.status = .cancelled
             record.updatedAt = now
         } else {
+            try revertPurchase(linkedTo: record, now: now)
             modelContext.delete(record)
         }
         try commit()
@@ -304,7 +310,7 @@ public actor TransactionService {
     // MARK: Persistence
 
     /// Saves, or discards every pending edit if the save fails, so no later save can persist a failed operation.
-    private func commit() throws {
+    func commit() throws {
         do {
             try modelContext.save()
         } catch {
@@ -321,18 +327,18 @@ public actor TransactionService {
         return try modelContext.fetch(descriptor).first
     }
 
-    private func requireSettings() throws -> AppSettings {
+    func requireSettings() throws -> AppSettings {
         guard let settings = try settings() else { throw LedgerError.settingsMissing }
         return settings
     }
 
-    private func requireCurrency(_ money: Money, _ settings: AppSettings) throws {
+    func requireCurrency(_ money: Money, _ settings: AppSettings) throws {
         guard money.currencyCode == settings.currencyCode else {
             throw LedgerError.currencyMismatch(expected: settings.currencyCode, actual: money.currencyCode)
         }
     }
 
-    private func requireTransaction(_ id: UUID) throws -> TransactionRecord {
+    func requireTransaction(_ id: UUID) throws -> TransactionRecord {
         let descriptor = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.id == id })
         guard let record = try modelContext.fetch(descriptor).first else { throw LedgerError.unknownTransaction }
         return record
@@ -343,7 +349,7 @@ public actor TransactionService {
         return try modelContext.fetch(descriptor).first
     }
 
-    private func requireUsableCategory(_ id: UUID, for type: TransactionType, allowArchived: Bool = false) throws {
+    func requireUsableCategory(_ id: UUID, for type: TransactionType, allowArchived: Bool = false) throws {
         let descriptor = FetchDescriptor<CategoryRecord>(predicate: #Predicate { $0.id == id })
         guard let category = try modelContext.fetch(descriptor).first else { throw LedgerError.unknownCategory }
         guard allowArchived || !category.isArchived else { throw LedgerError.archivedCategory }
