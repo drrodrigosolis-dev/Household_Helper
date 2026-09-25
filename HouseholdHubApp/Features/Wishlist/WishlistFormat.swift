@@ -58,7 +58,7 @@ struct WishlistThumbnail: View {
                         .foregroundStyle(.secondary)
                 }
             }
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
             .accessibilityHidden(true)
             .task(id: reference) { await load() }
     }

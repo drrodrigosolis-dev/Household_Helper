@@ -127,8 +127,10 @@ struct WishlistEditorView: View {
 
     private var photoSection: some View {
         Section("Photo") {
+            // Resolved here, on the main actor: PhotosPicker's label closure is Sendable.
+            let title = photoActionTitle
             PhotosPicker(selection: $photoItem, matching: .images) {
-                Label(photoActionTitle, systemImage: "photo")
+                Label(title, systemImage: "photo")
             }
             if hasPhoto {
                 Button("Remove photo", role: .destructive) {
