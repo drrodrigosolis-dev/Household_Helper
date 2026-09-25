@@ -7,4 +7,6 @@ enum LaunchArguments {
     static let uiTesting = "-uiTesting"
     /// UI tests that are not about onboarding start from a completed setup (CAD, zero balance).
     static let skipOnboarding = "-uiTestingSkipOnboarding"
+    /// Screenshot walk: render in dark mode. The simulator ignores XCUIDevice appearance changes during a run.
+    static let darkMode = "-uiTestingDarkMode"
 }

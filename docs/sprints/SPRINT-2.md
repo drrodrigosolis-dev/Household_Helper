@@ -54,6 +54,12 @@ Planned 2026-09-25 (cloud session); owner answered "run" (all defaults). Starts 
 Logged, not fixed: `update` clears a series-set `merchantID` without a snapshot name — unreachable today (no UI sets
 a series merchant); revisit when one does. Not covered by a UI test: the double-tap race itself (guarded in code).
 
+## Walk findings (screenshots from run 36197720269)
+- Dark captures were identical to light: `XCUIDevice.shared.appearance` does not take effect during a run. Walk now
+  launches with `-uiTestingDarkMode`, which makes the root view prefer dark (`nil`, i.e. system, otherwise).
+- Onboarding at the largest text size truncated the currency to "US D…(USD)": picker is now navigation-link style.
+- Artifacts download needs `*.blob.core.windows.net` in the environment's allowed domains (owner added it).
+
 ## Close-out
 ☐ CI green on final head · ☐ walk screenshots reviewed · ☐ data-safety review (delete flows) · ☐ PROGRESS + PR ·
 ☐ WALK-QUEUE updated

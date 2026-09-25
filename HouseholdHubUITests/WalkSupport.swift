@@ -16,6 +16,9 @@ extension XCTestCase {
         if onboarded {
             arguments.append("-uiTestingSkipOnboarding")
         }
+        if variant == .dark {
+            arguments.append("-uiTestingDarkMode")
+        }
         if variant == .largeText {
             arguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }

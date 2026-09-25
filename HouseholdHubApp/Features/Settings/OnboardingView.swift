@@ -16,11 +16,14 @@ struct OnboardingView: View {
         NavigationStack {
             Form {
                 Section {
+                    // Navigation-link style: full currency names get their own list instead of truncating in the
+                    // row at large accessibility text sizes.
                     Picker("Currency", selection: $currencyCode) {
                         ForEach(OnboardingView.currencyChoices, id: \.self) { code in
                             Text(OnboardingView.currencyLabel(code)).tag(code)
                         }
                     }
+                    .pickerStyle(.navigationLink)
                 } footer: {
                     Text("Amounts are stored in this currency. It can't be changed once you've recorded anything.")
                 }

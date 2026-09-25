@@ -10,6 +10,8 @@ struct HouseholdHubApp: App {
     }
 
     private let store: Result<LoadedStore, any Error>
+    private let forcedScheme: ColorScheme? =
+        ProcessInfo.processInfo.arguments.contains(LaunchArguments.darkMode) ? .dark : nil
 
     init() {
         let inMemory = ProcessInfo.processInfo.arguments.contains(LaunchArguments.uiTesting)
@@ -22,14 +24,18 @@ struct HouseholdHubApp: App {
 
     var body: some Scene {
         WindowGroup {
-            switch store {
-            case .success(let loaded):
-                AppRootView()
-                    .environment(\.services, loaded.services)
-                    .modelContainer(loaded.container)
-            case .failure(let error):
-                StoreUnavailableView(error: error)
+            Group {
+                switch store {
+                case .success(let loaded):
+                    AppRootView()
+                        .environment(\.services, loaded.services)
+                        .modelContainer(loaded.container)
+                case .failure(let error):
+                    StoreUnavailableView(error: error)
+                }
             }
+            // nil follows the system setting; only the UI-test walk forces dark.
+            .preferredColorScheme(forcedScheme)
         }
     }
 }
