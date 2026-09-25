@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git fetch *)",
+      "Bash(git pull origin build/v1*)",
+      "Bash(git push origin build/v1)",
+      "Bash(git push -u origin build/v1)",
+      "Bash(git checkout build/v1)",
+      "Bash(git branch --show-current)",
+      "Bash(git rev-parse *)",
+      "Bash(Scripts/*)",
+      "Bash(./Scripts/*)",
+      "Bash(python3 Scripts/split-spec.py*)",
+      "Bash(gh pr checks *)",
+      "Bash(gh pr view *)",
+      "Bash(gh run list *)",
+      "Bash(gh run view *)",
+      "Bash(gh run watch *)",
+      "mcp__github__actions_list",
+      "mcp__github__actions_get",
+      "mcp__github__get_job_logs",
+      "mcp__github__get_check_run",
+      "mcp__github__pull_request_read",
+      "mcp__github__list_commits",
+      "mcp__github__get_commit",
+      "mcp__github__update_pull_request"
+    ],
+    "ask": [
+      "Bash(rm *)",
+      "Bash(git rm *)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push origin main*)",
+      "Bash(git reset --hard*)",
+      "Bash(git rebase*)",
+      "Bash(git clean *)",
+      "Bash(git branch -D *)",
+      "Bash(gh pr merge*)",
+      "Bash(gh repo edit*)",
+      "Bash(brew install *)",
+      "Bash(claude mcp *)",
+      "Edit(.mcp.json)",
+      "Edit(**/*.entitlements)",
+      "Edit(.claude/settings.json)",
+      "Edit(.claude/hooks/**)",
+      "mcp__github__merge_pull_request",
+      "mcp__github__enable_pr_auto_merge",
+      "mcp__github__delete_file"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|NotebookEdit|mcp__github__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/swift-format-check.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

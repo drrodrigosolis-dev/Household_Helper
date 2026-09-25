@@ -1,10 +1,10 @@
 import SwiftUI
 
 @main
-struct HouseholdHelperApp: App {
+struct HouseholdHubApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
         }
     }
 }

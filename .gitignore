@@ -1,6 +1,7 @@
-# Xcode
+# Xcode / build outputs
 build/
 DerivedData/
+*.xcresult
 *.pbxuser
 *.mode1v3
 *.mode2v3
@@ -12,16 +13,22 @@ xcuserdata/
 
 # Generated project (XcodeGen regenerates this from project.yml)
 *.xcodeproj/
+*.xcworkspace/
 
 # Swift Package Manager
 .build/
 .swiftpm/
 
-# CocoaPods (uncomment if adopted later)
-# Pods/
+# Claude Code: personal overrides and local state never committed
+.claude/settings.local.json
+.claude/worktrees/
 
-# macOS
+# Secrets (never committed; spec §15.8)
+.env
+.env.*
+*.p12
+*.mobileprovision
+
+# macOS / Python
 .DS_Store
-
-# XcodeGen cache
-.xcodegen/
+__pycache__/

@@ -1,0 +1,101 @@
+name: verify
+
+# Authoritative "does it work" gate for this project (see CLAUDE.md, "Autonomous CI-driven operation").
+# Changing `on:` or `permissions:` requires the owner's confirmation (.claude/hooks/guard.py enforces this).
+on:
+  push:
+    branches: [build/v1]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify (build, unit, UI, lint)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      HH_SKIP_BUILD: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Select Xcode (iOS 26+ SDK) and report environment
+        id: toolchain
+        run: |
+          source Scripts/lib/common.sh
+          select_xcode
+          Scripts/doctor.sh
+
+      - name: Install XcodeGen
+        id: xcodegen
+        run: |
+          brew install xcodegen || { echo "::error title=Install XcodeGen failed::brew install xcodegen failed; see log above"; exit 1; }
+          xcodegen --version
+
+      - name: Generate Xcode project
+        id: generate
+        run: Scripts/generate.sh
+
+      - name: Lint (spec split, shell, swift-format)
+        id: lint
+        if: ${{ !cancelled() && steps.toolchain.outcome == 'success' }}
+        run: Scripts/lint.sh
+
+      - name: Build for iOS Simulator
+        id: build
+        if: ${{ !cancelled() && steps.generate.outcome == 'success' }}
+        run: Scripts/build.sh
+
+      - name: Unit tests (Swift Testing)
+        id: unit
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: Scripts/test.sh
+
+      - name: UI tests (XCTest)
+        id: ui
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: Scripts/ui-test.sh
+
+      - name: Upload logs and result bundles
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/logs/
+            build/results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Summary
+        if: ${{ always() }}
+        env:
+          R_TOOLCHAIN: ${{ steps.toolchain.outcome }}
+          R_XCODEGEN: ${{ steps.xcodegen.outcome }}
+          R_GENERATE: ${{ steps.generate.outcome }}
+          R_LINT: ${{ steps.lint.outcome }}
+          R_BUILD: ${{ steps.build.outcome }}
+          R_UNIT: ${{ steps.unit.outcome }}
+          R_UI: ${{ steps.ui.outcome }}
+        run: |
+          {
+            echo "## verify results"
+            echo "| Step | Outcome |"
+            echo "|---|---|"
+            echo "| Toolchain | $R_TOOLCHAIN |"
+            echo "| XcodeGen | $R_XCODEGEN |"
+            echo "| Generate | $R_GENERATE |"
+            echo "| Lint | $R_LINT |"
+            echo "| Build | $R_BUILD |"
+            echo "| Unit tests | $R_UNIT |"
+            echo "| UI tests | $R_UI |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "toolchain=$R_TOOLCHAIN xcodegen=$R_XCODEGEN generate=$R_GENERATE lint=$R_LINT build=$R_BUILD unit=$R_UNIT ui=$R_UI"
