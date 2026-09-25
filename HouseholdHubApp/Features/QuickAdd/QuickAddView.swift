@@ -44,15 +44,22 @@ extension View {
 }
 
 /// Quick Add sheet (spec §24.3): one autofocused field parsed by the §25 grammar, progressive details, and a
-/// Save button that stays disabled until the draft is valid.
+/// Save button that stays disabled until the draft is valid. The Wishlist segment turns the same text into a
+/// wishlist item: the amount becomes the estimated price and the description the name.
 struct QuickAddView: View {
+    enum Entry: Hashable {
+        case expense
+        case income
+        case wishlist
+    }
+
     @Environment(\.services) private var services
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
 
     @State private var text = ""
-    @State private var type = TransactionType.expense
+    @State private var entry = Entry.expense
     @State private var amountText = ""
     @State private var categoryID: UUID?
     @State private var occurredAt = Date.now
@@ -68,6 +75,18 @@ struct QuickAddView: View {
 
     private var currencyCode: String { settings.first?.currencyCode ?? "CAD" }
     private var amount: Money? { LedgerFormat.parseAmount(amountText, currencyCode: currencyCode) }
+    private var type: TransactionType { entry == .income ? .income : .expense }
+    private var trimmedNotes: String { notes.trimmingCharacters(in: .whitespaces) }
+
+    /// A wishlist item needs a name; its price may be left empty (unknown) but not malformed.
+    private var canSave: Bool {
+        guard !isSaving else { return false }
+        if entry == .wishlist {
+            let priceIsValid = amountText.trimmingCharacters(in: .whitespaces).isEmpty || amount != nil
+            return !trimmedNotes.isEmpty && priceIsValid
+        }
+        return amount != nil
+    }
 
     var body: some View {
         NavigationStack {
@@ -79,9 +98,10 @@ struct QuickAddView: View {
                         .accessibilityLabel("Quick entry")
                         .accessibilityHint("Type an amount and a description, for example 47.50 coffee")
                         .accessibilityIdentifier("quickadd.text")
-                    Picker("Type", selection: $type) {
-                        Text("Expense").tag(TransactionType.expense)
-                        Text("Income").tag(TransactionType.income)
+                    Picker("Type", selection: $entry) {
+                        Text("Expense").tag(Entry.expense)
+                        Text("Income").tag(Entry.income)
+                        Text("Wishlist").tag(Entry.wishlist)
                     }
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("quickadd.type")
@@ -104,7 +124,7 @@ struct QuickAddView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { Task { await save() } }
-                        .disabled(amount == nil || isSaving)
+                        .disabled(!canSave)
                         .accessibilityIdentifier("quickadd.save")
                 }
             }
@@ -115,8 +135,8 @@ struct QuickAddView: View {
 
     private var detailsSection: some View {
         Section("Details") {
-            LabeledContent("Amount") {
-                TextField("0.00", text: $amountText)
+            LabeledContent(amountLabel) {
+                TextField(amountPrompt, text: $amountText)
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
                     .accessibilityIdentifier("quickadd.amount")
@@ -127,14 +147,20 @@ struct QuickAddView: View {
                     Text(category.name).tag(UUID?.some(category.id))
                 }
             }
-            DatePicker("Date", selection: $occurredAt, displayedComponents: [.date, .hourAndMinute])
-            LabeledContent("Notes") {
+            if entry != .wishlist {
+                DatePicker("Date", selection: $occurredAt, displayedComponents: [.date, .hourAndMinute])
+            }
+            LabeledContent(notesLabel) {
                 TextField("Optional", text: $notes)
                     .multilineTextAlignment(.trailing)
                     .accessibilityIdentifier("quickadd.notes")
             }
         }
     }
+
+    private var amountLabel: LocalizedStringKey { entry == .wishlist ? "Estimated price" : "Amount" }
+    private var amountPrompt: LocalizedStringKey { entry == .wishlist ? "Optional" : "0.00" }
+    private var notesLabel: LocalizedStringKey { entry == .wishlist ? "Name" : "Notes" }
 
     private var usableCategories: [CategoryRecord] {
         categories.filter { !$0.isArchived && $0.kind.allows(type) }
@@ -149,11 +175,12 @@ struct QuickAddView: View {
         let parser = QuickAddParser(
             currency: currency, categories: options, calendar: HouseholdCalendar(timeZone: .current))
         let parsed = parser.parse(text, now: .now)
-        if parsed.type == .income {
-            type = .income
+        // The Wishlist segment is an explicit choice; a leading "+" never switches away from it.
+        if parsed.type == .income, entry != .wishlist {
+            entry = .income
             typeFromText = true
-        } else if typeFromText {
-            type = .expense
+        } else if typeFromText, entry == .income {
+            entry = .expense
             typeFromText = false
         }
         if let parsedAmount = parsed.amount {
@@ -176,16 +203,20 @@ struct QuickAddView: View {
     }
 
     private func save() async {
-        guard let services, let amount, !isSaving else { return }
+        guard let services, canSave else { return }
         isSaving = true
         defer { isSaving = false }
+        if entry == .wishlist {
+            await saveWishlistItem(services)
+            return
+        }
+        guard let amount else { return }
         if let categoryID, let category = categories.first(where: { $0.id == categoryID }),
             !category.kind.allows(type)
         {
             errorMessage = String(localized: "\(category.name) can't be used for this type. Choose another category.")
             return
         }
-        let trimmedNotes = notes.trimmingCharacters(in: .whitespaces)
         let draft = TransactionDraft(
             amount: amount, type: type, occurredAt: occurredAt, categoryID: categoryID,
             notes: trimmedNotes.isEmpty ? nil : trimmedNotes)
@@ -194,6 +225,18 @@ struct QuickAddView: View {
             dismiss()
         } catch {
             errorMessage = String(localized: "This couldn't be saved. Check the amount and category.")
+        }
+    }
+
+    private func saveWishlistItem(_ services: AppServices) async {
+        let price = amount ?? Money(minorUnits: 0, currencyCode: currencyCode)
+        let category = categories.first { $0.id == categoryID && $0.kind.allows(.expense) }
+        let draft = WishlistDraft(name: trimmedNotes, estimatedPrice: price, categoryID: category?.id)
+        do {
+            try await services.transactions.createWishlistItem(draft, now: .now)
+            dismiss()
+        } catch {
+            errorMessage = String(localized: "This couldn't be saved. Check the name and price.")
         }
     }
 }

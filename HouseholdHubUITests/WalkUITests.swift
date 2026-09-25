@@ -41,6 +41,39 @@ final class WalkUITests: XCTestCase {
             captureScreen(app, named: "\(variant.rawValue)-\(tab)")
         }
         walkSecondaryScreens(app, variant)
+        walkWishlist(app, variant)
+    }
+
+    /// Wishlist editor, list, grid, detail, and the Mark Purchased sheet, plus Quick Add's Wishlist segment.
+    @MainActor
+    private func walkWishlist(_ app: XCUIApplication, _ variant: WalkVariant) {
+        let prefix = variant.rawValue
+        addWishlistItem(app, name: "Standing desk", estimate: "450", capture: "\(prefix)-WishlistEditor")
+        addWishlistItem(app, name: "Espresso machine", estimate: "")
+        captureScreen(app, named: "\(prefix)-Wishlist-list")
+        app.buttons["wishlist.layout"].tap()
+        captureScreen(app, named: "\(prefix)-Wishlist-grid")
+        app.buttons["wishlist.layout"].tap()
+        wishlistRow(app, containing: "Standing desk").tap()
+        XCTAssertTrue(app.buttons["wishlist.markPurchased"].waitForExistence(timeout: 5))
+        captureScreen(app, named: "\(prefix)-WishlistDetail")
+        app.buttons["wishlist.markPurchased"].tap()
+        XCTAssertTrue(app.buttons["wishlist.purchase.confirm"].waitForExistence(timeout: 5))
+        captureScreen(app, named: "\(prefix)-WishlistPurchase")
+        app.buttons["wishlist.purchase.confirm"].tap()
+        XCTAssertTrue(app.staticTexts["Purchased"].waitForExistence(timeout: 10))
+        captureScreen(app, named: "\(prefix)-WishlistDetail-purchased")
+        app.tabBars.buttons["Dashboard"].tap()
+        captureScreen(app, named: "\(prefix)-Dashboard-activity")
+
+        app.buttons["quickadd.button"].tap()
+        let field = app.textFields["quickadd.text"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("80 plant stand")
+        app.segmentedControls["quickadd.type"].buttons["Wishlist"].tap()
+        captureScreen(app, named: "\(prefix)-QuickAdd-wishlist")
+        app.buttons["Cancel"].tap()
     }
 
     /// Recurring, Settings and Categories, including their editors.

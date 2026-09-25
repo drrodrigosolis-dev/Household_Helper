@@ -11,6 +11,7 @@ struct DashboardView: View {
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
     @Query private var recent: [TransactionRecord]
+    @Query private var recentWishes: [WishlistItem]
     @State private var summary: DashboardSummary?
     @State private var loadFailed = false
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -19,6 +20,34 @@ struct DashboardView: View {
         var descriptor = FetchDescriptor<TransactionRecord>(sortBy: [SortDescriptor(\.occurredAt, order: .reverse)])
         descriptor.fetchLimit = 5
         _recent = Query(descriptor)
+        var wishes = FetchDescriptor<WishlistItem>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
+        wishes.fetchLimit = 5
+        _recentWishes = Query(wishes)
+    }
+
+    private enum Activity: Identifiable {
+        case transaction(TransactionRecord)
+        case wishlist(WishlistItem)
+
+        var id: String {
+            switch self {
+            case .transaction(let record): return "t-\(record.id)"
+            case .wishlist(let item): return "w-\(item.id)"
+            }
+        }
+
+        var date: Date {
+            switch self {
+            case .transaction(let record): return record.occurredAt
+            case .wishlist(let item): return item.updatedAt
+            }
+        }
+    }
+
+    /// The five latest entries across transactions and wishlist changes (spec §24.2); tasks join in Phase 5.
+    private var activity: [Activity] {
+        let all = recent.map(Activity.transaction) + recentWishes.map(Activity.wishlist)
+        return Array(all.sorted { $0.date > $1.date }.prefix(5))
     }
 
     private var includePending: Bool { settings.first?.includePendingInProjection ?? false }
@@ -123,12 +152,17 @@ struct DashboardView: View {
         DashboardCard(title: "Recent activity", identifier: "dashboard.recent") {
             router.showBudget(.transactions)
         } content: {
-            if recent.isEmpty {
+            if activity.isEmpty {
                 Text("No transactions yet. Tap + to add one.").foregroundStyle(.secondary)
             } else {
                 VStack(spacing: 8) {
-                    ForEach(recent) { record in
-                        TransactionRow(record: record, category: categories.first { $0.id == record.categoryID })
+                    ForEach(activity) { entry in
+                        switch entry {
+                        case .transaction(let record):
+                            TransactionRow(record: record, category: categories.first { $0.id == record.categoryID })
+                        case .wishlist(let item):
+                            WishlistRow(item: item)
+                        }
                     }
                 }
             }

@@ -79,7 +79,7 @@ private struct FilteredTransactions: View {
         ) { record in
             deleteActions(for: record)
         } message: { record in
-            Text(record.recurringSeriesID == nil ? deleteMessage : recurringDeleteMessage)
+            Text(deleteMessage(for: record))
         }
     }
 
@@ -114,12 +114,16 @@ private struct FilteredTransactions: View {
         Button("Cancel", role: .cancel) {}
     }
 
-    private var deleteMessage: String {
-        String(localized: "It will be removed from your history and balances.")
-    }
-
-    private var recurringDeleteMessage: String {
-        String(localized: "This occurrence will be marked as skipped. The series keeps running unless you disable it.")
+    private func deleteMessage(for record: TransactionRecord) -> String {
+        if record.recurringSeriesID != nil {
+            return String(
+                localized: "This occurrence will be marked as skipped. The series keeps running unless you disable it.")
+        }
+        if record.wishlistItemID != nil {
+            return String(
+                localized: "It will be removed from history and balances; the wishlist item returns to Wanted.")
+        }
+        return String(localized: "It will be removed from your history and balances.")
     }
 
     private var deleteDialogShown: Binding<Bool> {
