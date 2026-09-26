@@ -95,24 +95,34 @@ struct DashboardView: View {
     @ViewBuilder
     private func balanceCards(_ summary: DashboardSummary) -> some View {
         let posted = TransactionFilter(status: .posted)
-        DashboardCard(title: "Current balance", identifier: "dashboard.current") {
+        DashboardCard(
+            title: "Current balance", identifier: "dashboard.current", value: summary.balance.current.formatted()
+        ) {
             router.showBudget(.transactions, filter: posted)
         } content: {
             AmountText(summary.balance.current.formatted(), font: .largeTitle.bold())
         }
         pairLayout {
-            DashboardCard(title: "Pending impact", identifier: "dashboard.pending") {
+            DashboardCard(
+                title: "Pending impact", identifier: "dashboard.pending",
+                value: summary.balance.pendingImpact.formatted()
+            ) {
                 router.showBudget(.transactions, filter: TransactionFilter(status: .pending))
             } content: {
                 AmountText(summary.balance.pendingImpact.formatted(), font: .title3)
             }
-            DashboardCard(title: "Spent this week", identifier: "dashboard.week") {
+            DashboardCard(
+                title: "Spent this week", identifier: "dashboard.week", value: summary.spentThisWeek.formatted()
+            ) {
                 router.showBudget(.transactions, filter: TransactionFilter(period: .thisWeek, status: .posted))
             } content: {
                 AmountText(summary.spentThisWeek.formatted(), font: .title3)
             }
         }
-        DashboardCard(title: "Projected in 30 days", identifier: "dashboard.projected") {
+        DashboardCard(
+            title: "Projected in 30 days", identifier: "dashboard.projected",
+            value: summary.balance.projected.formatted()
+        ) {
             router.showBudget(.recurring)
         } content: {
             VStack(alignment: .leading, spacing: 8) {
@@ -122,6 +132,13 @@ struct DashboardView: View {
                     .accessibilityIdentifier("dashboard.includePending")
             }
         }
+    }
+
+    private var rowLayout: AnyLayout {
+        if typeSize.isAccessibilitySize {
+            return AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+        }
+        return AnyLayout(HStackLayout())
     }
 
     /// Side-by-side cards stack at accessibility text sizes so titles and amounts never break mid-word.
@@ -141,9 +158,12 @@ struct DashboardView: View {
             } else {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(upcoming) { item in
-                        HStack {
+                        // Stacks at accessibility sizes so title, date, and amount never squeeze each other.
+                        rowLayout {
                             Text(item.title ?? String(localized: "Recurring item"))
-                            Spacer()
+                            if !typeSize.isAccessibilitySize {
+                                Spacer()
+                            }
                             Text(item.date.formatted(.dateTime.weekday(.abbreviated).day()))
                                 .foregroundStyle(.secondary)
                             Text(LedgerFormat.signedAmount(item.amount, type: item.type))
@@ -206,15 +226,18 @@ struct DashboardView: View {
 private struct DashboardCard<Content: View>: View {
     let title: LocalizedStringKey
     let identifier: String
+    /// The card's figure, read with its title on the button so VoiceOver hears "Current balance, $1,234".
+    let value: String?
     let action: () -> Void
     let content: () -> Content
 
     init(
-        title: LocalizedStringKey, identifier: String, action: @escaping () -> Void,
+        title: LocalizedStringKey, identifier: String, value: String? = nil, action: @escaping () -> Void,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.title = title
         self.identifier = identifier
+        self.value = value
         self.action = action
         self.content = content
     }
@@ -233,6 +256,7 @@ private struct DashboardCard<Content: View>: View {
                 }
             }
             .buttonStyle(.plain)
+            .accessibilityValue(value.map { Text($0) } ?? Text(""))
             .accessibilityHint("Opens the matching Budget view")
             .accessibilityIdentifier(identifier)
             content()
