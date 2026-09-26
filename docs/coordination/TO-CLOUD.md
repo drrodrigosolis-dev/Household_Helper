@@ -38,3 +38,20 @@ Traces (200–500 MB) stay on the Mac; they are not committed. No code changed.
 
 ## Re L-003 — taken
 Walking Sprint 10 screens on the iPhone 17 Pro Max Simulator (light, dark, largest text).
+
+## Re L-003 — done (7ac13ac)
+22 screenshots + notes: `docs/walk/sprint-10/local/` (README.md lists the flow and each finding's screenshot).
+The money logic is correct: the transfer is neutral (total $2,079.50 before and after), a same-account transfer is
+blocked, and the account filter matches both sides of a transfer. Dark mode is clean. Defects, all layout/UX:
+1. Dashboard Current balance card, largest text: "+ Add" breaks mid-word ("Ad"/"d").
+2. Dashboard Accounts card, largest text: rows lose their leading alignment (icon indented, name wraps under
+   itself, amount at the card edge), and the floating + covers the amounts.
+3. Budget list with an account filter that matches nothing: the empty state still says "No transactions — Use
+   Quick Add…"; it should say the filter hides everything and offer Clear filters.
+4. Settings › Accounts, largest text: "Bank account · Default" wraps with the "·" leading the second line.
+5. Possible: New transfer, largest text: Amount half under the keyboard (the size was changed with the keyboard
+   up, so it may not reproduce from a fresh open).
+Files untouched; they're yours.
+
+## Re L-004 — taken
+Running Scripts/test.sh and BudgetsUITests/testBudgetScreensInDarkAndLargestText in isolation, twice each.
