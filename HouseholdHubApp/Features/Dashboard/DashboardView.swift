@@ -289,7 +289,8 @@ struct DashboardView: View {
             if activity.isEmpty {
                 Text("No transactions yet. Tap + to add one.").foregroundStyle(.secondary)
             } else {
-                VStack(spacing: 8) {
+                // Leading-aligned so rows that stack at accessibility sizes don't centre (local walk L-005).
+                VStack(alignment: .leading, spacing: 8) {
                     // Each row opens its own tab (spec §24.2 "deep-link into owning tab").
                     ForEach(activity) { entry in
                         switch entry {

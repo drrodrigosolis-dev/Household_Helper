@@ -300,7 +300,7 @@ struct AccountEditorView: View {
                 .accessibilityIdentifier("accountEditor.kind")
             }
             Section {
-                LabeledContent(kind.isLiability ? "Owed" : "Balance") {
+                FocusingRow(kind.isLiability ? "Owed" : "Balance") {
                     TextField("0.00", text: $balanceText)
                         .keyboardType(.numbersAndPunctuation)
                         .multilineTextAlignment(.trailing)

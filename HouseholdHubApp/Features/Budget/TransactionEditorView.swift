@@ -65,7 +65,7 @@ struct TransactionEditorView: View {
                     }
                     .pickerStyle(.segmented)
                 }
-                LabeledContent("Amount") {
+                FocusingRow("Amount") {
                     TextField("0.00", text: $amountText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
@@ -95,11 +95,11 @@ struct TransactionEditorView: View {
                         Text(category.name).tag(UUID?.some(category.id))
                     }
                 }
-                LabeledContent("Merchant") {
+                FocusingRow("Merchant") {
                     TextField("Optional", text: $merchant)
                         .multilineTextAlignment(.trailing)
                 }
-                LabeledContent("Notes") {
+                FocusingRow("Notes") {
                     TextField("Optional", text: $notes, axis: .vertical)
                         .multilineTextAlignment(.trailing)
                 }

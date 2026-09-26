@@ -33,7 +33,6 @@ struct GoalEditorView: View {
     @State private var targetDate: Date
     @State private var wishlistItemID: UUID?
     @State private var isConfirmingDelete = false
-    @FocusState private var targetFocused: Bool
     @State private var isSaving = false
     @State private var errorMessage: String?
 
@@ -94,16 +93,12 @@ struct GoalEditorView: View {
             Section {
                 TextField("Name", text: $name)
                     .accessibilityIdentifier("goalEditor.name")
-                LabeledContent("Target") {
+                FocusingRow("Target") {
                     TextField("0.00", text: $targetText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
-                        .focused($targetFocused)
                         .accessibilityIdentifier("goalEditor.target")
                 }
-                // At accessibility sizes the label stacks above the field; a tap anywhere on the row edits it.
-                .contentShape(Rectangle())
-                .onTapGesture { targetFocused = true }
                 Picker("Account", selection: accountBinding) {
                     ForEach(eligibleAccounts) { account in
                         Text(account.name).tag(UUID?.some(account.id))

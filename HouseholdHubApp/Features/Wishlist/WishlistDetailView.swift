@@ -260,7 +260,7 @@ struct WishlistPurchaseView: View {
     var body: some View {
         Form {
             Section {
-                LabeledContent("Price paid") {
+                FocusingRow("Price paid") {
                     TextField("0.00", text: $priceText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)

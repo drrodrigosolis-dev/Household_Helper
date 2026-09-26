@@ -292,7 +292,7 @@ struct TaskEditorView: View {
     var body: some View {
         Form {
             Section {
-                LabeledContent("Title") {
+                FocusingRow("Title") {
                     TextField("Required", text: $title)
                         .multilineTextAlignment(.trailing)
                         .accessibilityIdentifier("task.editor.title")
@@ -338,7 +338,7 @@ struct TaskEditorView: View {
                     }
                 }
                 .accessibilityIdentifier("task.editor.transaction")
-                LabeledContent("Notes") {
+                FocusingRow("Notes") {
                     TextField("Optional", text: $notes, axis: .vertical)
                         .multilineTextAlignment(.trailing)
                 }

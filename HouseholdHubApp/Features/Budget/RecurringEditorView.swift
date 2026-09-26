@@ -110,7 +110,7 @@ struct RecurringEditorView: View {
         NavigationStack {
             Form {
                 Section {
-                    LabeledContent("Name") {
+                    FocusingRow("Name") {
                         TextField("e.g. Rent", text: $name)
                             .multilineTextAlignment(.trailing)
                             .accessibilityIdentifier("recurringEditor.name")
@@ -124,7 +124,7 @@ struct RecurringEditorView: View {
                     }
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("recurringEditor.type")
-                    LabeledContent("Amount") {
+                    FocusingRow("Amount") {
                         TextField("0.00", text: $amountText)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)

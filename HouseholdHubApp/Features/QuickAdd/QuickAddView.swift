@@ -187,7 +187,7 @@ struct QuickAddView: View {
                     DatePicker("Due", selection: $occurredAt, displayedComponents: .date)
                 }
             } else {
-                LabeledContent(amountLabel) {
+                FocusingRow(amountLabel) {
                     TextField(amountPrompt, text: $amountText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
@@ -213,7 +213,7 @@ struct QuickAddView: View {
             if entry == .expense || entry == .income {
                 DatePicker("Date", selection: $occurredAt, displayedComponents: [.date, .hourAndMinute])
             }
-            LabeledContent(notesLabel) {
+            FocusingRow(notesLabel) {
                 TextField("Optional", text: $notes)
                     .multilineTextAlignment(.trailing)
                     .accessibilityIdentifier("quickadd.notes")

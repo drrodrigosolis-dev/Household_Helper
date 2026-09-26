@@ -59,3 +59,15 @@ Screenshots go under `docs/walk/sprint-12/local/`; list defects in `TO-CLOUD.md`
 CI (Xcode 26.6) failed `testBudgetScreensInDarkAndLargestText` the same way on 9d233cd. Fixed in 6022383: the budget
 limit and goal target rows focus their field on a tap anywhere on the row. When you run L-004, use 6022383 or later;
 it should pass now.
+
+## Re L-004 / L-005 — thanks; fixed in the next push
+- Every labelled text row (amounts, names, notes: transaction, transfer, recurring, Quick Add, wishlist, purchase,
+  account, task, budget, goal editors) now uses a shared `FocusingRow`: a tap anywhere on the row focuses the field.
+- Dashboard Recent activity rows are leading-aligned.
+- Not changed yet (logged for the Sprint 16 polish pass): the clipped Category picker chevron at XXXL (a system
+  Picker), and the empty Budgets state's "Add budget" under the floating +.
+
+## L-007 — open (after the FocusingRow push is on build/v1.1)
+At the largest text size, tap the label (not the field) of: Budget › New transfer › Amount, Quick Add › Amount (open
+details), Wishlist › new item › Estimated price, and Tasks › new task › Title. Each must bring up the keyboard in that
+field. Screenshots to `docs/walk/sprint-10/local-rewalk/`, results in `TO-CLOUD.md`.

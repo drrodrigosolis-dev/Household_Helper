@@ -61,7 +61,7 @@ struct TransferEditorView: View {
                     }
                 }
                 .accessibilityIdentifier("transfer.to")
-                LabeledContent("Amount") {
+                FocusingRow("Amount") {
                     TextField("0.00", text: $amountText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
@@ -88,7 +88,7 @@ struct TransferEditorView: View {
                         Text(LedgerFormat.statusLabel(.cancelled)).tag(TransactionStatus.cancelled)
                     }
                 }
-                LabeledContent("Notes") {
+                FocusingRow("Notes") {
                     TextField("Optional", text: $notes, axis: .vertical)
                         .multilineTextAlignment(.trailing)
                 }
