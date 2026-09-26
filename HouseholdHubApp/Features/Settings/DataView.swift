@@ -16,9 +16,10 @@ struct DataView: View {
     @State private var pendingRestore: PendingRestore?
     @State private var message: String?
     @State private var isWorking = false
+    @State private var isRestoring = false
     private let calendar = HouseholdCalendar(timeZone: .current)
 
-    struct PendingRestore {
+    struct PendingRestore: Sendable {
         let backup: BackupDTO
         let media: [String: Data]
     }
@@ -47,6 +48,10 @@ struct DataView: View {
         }
         .disabled(isWorking)
         .navigationTitle("Data")
+        .fullScreenCover(isPresented: $isRestoring) {
+            ProgressView("Restoring…")
+                .interactiveDismissDisabled()
+        }
         .fileExporter(
             isPresented: backupShown, document: backupDocument, contentType: .folder,
             defaultFilename: BackupPackage.folderName(for: .now, calendar: calendar)
@@ -61,7 +66,7 @@ struct DataView: View {
         }
         .fileImporter(isPresented: $isImporting, allowedContentTypes: [.folder]) { result in
             if case .success(let url) = result {
-                load(url)
+                Task { await load(url) }
             }
         }
         .confirmationDialog(
@@ -76,20 +81,21 @@ struct DataView: View {
 
     // MARK: Backup
 
+    private var flow: BackupFlow? {
+        services.map { BackupFlow(service: $0.backup, images: $0.images) }
+    }
+
     private func prepareBackup() async {
-        guard let services else { return }
+        guard let flow else { return }
         isWorking = true
         defer { isWorking = false }
-        let images = services.images
         do {
-            let backup = try await services.backup.snapshot(now: .now, appVersion: AppInfo.version) { reference in
-                images?.fileSize(of: reference)
+            let prepared = try await flow.prepareBackup(now: .now, appVersion: AppInfo.version)
+            if prepared.unreadablePhotos > 0 {
+                let count = prepared.unreadablePhotos
+                message = String(localized: "\(count) photos couldn't be read and are left out of this backup.")
             }
-            var media: [String: Data] = [:]
-            for entry in backup.mediaManifest {
-                media[entry.reference] = try? images?.data(for: entry.reference)
-            }
-            backupDocument = BackupFolderDocument(backup: backup, media: media)
+            backupDocument = BackupFolderDocument(backup: prepared.backup, media: prepared.media)
         } catch {
             message = String(localized: "The backup couldn't be prepared. Your data is unchanged.")
         }
@@ -97,54 +103,51 @@ struct DataView: View {
 
     // MARK: Restore
 
-    private func load(_ url: URL) {
-        let scoped = url.startAccessingSecurityScopedResource()
-        defer {
-            if scoped {
-                url.stopAccessingSecurityScopedResource()
+    /// Reads off the main actor: `backup.json` first, then only the files its manifest lists, within size limits.
+    private func load(_ url: URL) async {
+        isWorking = true
+        defer { isWorking = false }
+        let result = await Task.detached { () -> Result<PendingRestore, any Error> in
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer {
+                if scoped {
+                    url.stopAccessingSecurityScopedResource()
+                }
             }
-        }
-        do {
-            let folder = try FileWrapper(url: url, options: .immediate)
-            let read = try BackupPackage.read(folder)
-            // Validate the whole file before offering to restore (spec §26.1); the service checks again.
-            try BackupValidator.validate(read.backup)
-            pendingRestore = PendingRestore(backup: read.backup, media: read.media)
-        } catch {
-            message = String(localized: "That folder isn't a Household Hub backup this version can restore.")
+            return Result {
+                let read = try BackupFlow.read(folder: url)
+                // Validate the whole file before offering to restore (spec §26.1); the restore checks again.
+                try BackupValidator.validate(read.backup)
+                return PendingRestore(backup: read.backup, media: read.media)
+            }
+        }.value
+        switch result {
+        case .success(let pending): pendingRestore = pending
+        case .failure: message = String(localized: "That folder isn't a Household Hub backup this version can restore.")
         }
     }
 
     private func restoreMessage(_ backup: BackupDTO) -> String {
         let date = backup.exportedAt.formatted(date: .abbreviated, time: .shortened)
         let count = backup.transactions.count
-        return String(
-            localized: "All data is replaced by the backup from \(date) (\(count) transactions). This can't be undone.")
+        let currency = backup.settings.currencyCode
+        let contents = String(localized: "\(count) transactions, \(currency)")
+        let replaced = String(localized: "Everything is replaced by the \(date) backup (\(contents)).")
+        return replaced + " " + String(localized: "This can't be undone.")
     }
 
-    /// Images first (a failed write leaves at worst an unreferenced file), then the store in one save, then images
-    /// nothing refers to any more.
+    /// The app is covered while restoring, so no other screen writes or shows a record mid-restore.
     private func restore(_ pending: PendingRestore) async {
-        guard let services else { return }
+        guard let flow else { return }
         pendingRestore = nil
-        isWorking = true
-        defer { isWorking = false }
-        var available = Set<String>()
-        for (reference, data) in pending.media {
-            if (try? services.images?.restore(data, as: reference)) != nil {
-                available.insert(reference)
-            }
-        }
+        isRestoring = true
+        defer { isRestoring = false }
         do {
-            let summary = try await services.backup.restore(pending.backup, availableMedia: available, now: .now)
-            let kept = Set(pending.backup.wishlistItems.compactMap(\.mediaReference)).intersection(available)
-            for reference in services.images?.references(in: .wishlist) ?? [] where !kept.contains(reference) {
-                try? services.images?.delete(reference)
-            }
+            let summary = try await flow.restore(pending.backup, media: pending.media, now: .now)
             if summary.missingMedia == 0 {
                 message = String(localized: "Restored \(summary.transactions) transactions.")
             } else {
-                message = String(localized: "Restored. \(summary.missingMedia) photos were missing from the backup.")
+                message = String(localized: "Restored. \(summary.missingMedia) photos could not be restored.")
             }
         } catch {
             message = String(localized: "The restore failed. Your data is unchanged.")

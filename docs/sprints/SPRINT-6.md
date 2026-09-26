@@ -17,6 +17,13 @@ for review. Binding: §26 (backup DTO v1 and rules), §7.12, §5.5 (media), §21
    result says how many. Existing data is never touched when validation fails.
 5. CSV export covers transactions (date, type, status, amount, currency, category, merchant, notes), RFC 4180
    quoting, and text cells starting with `= + - @` are prefixed with `'` so spreadsheets don't run them as formulas.
+7. Added after the data-safety review: restore **merges by id** in one save (update records in both, insert new,
+   delete the rest), so restoring this device's own backup never depends on how SwiftData resolves a unique-id
+   clash; the app is covered while restoring. The validator also enforces the services' invariants (purchase links
+   both ways, purchases stay live expenses, category kinds, task completion vs the done column, recurring records
+   carry their occurrence, one file per photo). Photo references must be `<folder>/<UUID>.jpg`. A backup is
+   validated before it is offered for saving, unreadable photos are reported, and a restore reads only the files
+   its manifest lists, within size limits.
 6. **Google Sheets export is not built** in this sprint: it needs Google OAuth configuration and a network
    dependency, both on the owner's confirm-first list. Listed for the owner in WALK-QUEUE.
 

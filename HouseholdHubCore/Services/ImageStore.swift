@@ -54,11 +54,14 @@ public struct ImageStore: Sendable {
         return reference
     }
 
-    /// Exactly "<folder>/<file>" with no hidden or parent-directory component, so a reference cannot escape root.
+    /// Exactly "<folder>/<UUID>.jpg", so a reference cannot escape root or collide with a thumbnail.
     public static func isValidReference(_ reference: String) -> Bool {
         let parts = reference.split(separator: "/", omittingEmptySubsequences: false)
         let folders = [Folder.wishlist.rawValue, Folder.receipts.rawValue]
-        return parts.count == 2 && folders.contains(String(parts[0])) && !parts[1].isEmpty && !parts[1].hasPrefix(".")
+        // The file is "<UUID>.jpg", as `save` names it: nothing else (a hidden file, "..", or another item's
+        // "-thumb.jpg") can be addressed through a reference.
+        guard parts.count == 2, folders.contains(String(parts[0])), parts[1].hasSuffix(".jpg") else { return false }
+        return UUID(uuidString: String(parts[1].dropLast(4))) != nil
     }
 
     public func url(for reference: String) throws -> URL {
@@ -67,7 +70,8 @@ public struct ImageStore: Sendable {
     }
 
     public func thumbnailURL(for reference: String) throws -> URL {
-        try url(for: thumbnailReference(for: reference))
+        guard Self.isValidReference(reference) else { throw ImageStoreError.invalidReference }
+        return root.appending(path: thumbnailReference(for: reference), directoryHint: .notDirectory)
     }
 
     /// Size in bytes of a stored image, or nil when its file is missing (backup manifest, spec §26).

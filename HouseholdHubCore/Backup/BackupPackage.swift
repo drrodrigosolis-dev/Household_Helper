@@ -101,12 +101,13 @@ public enum TransactionCSV {
     }
 
     static func formulaSafe(_ value: String) -> String {
-        guard let first = value.first, "=+-@\t\r".contains(first) else { return value }
+        // Checked on Unicode scalars: "\r\n" is one Character in Swift and would slip past a Character comparison.
+        guard let first = value.unicodeScalars.first, "=+-@\t\r\n".unicodeScalars.contains(first) else { return value }
         return "'" + value
     }
 
     static func cell(_ value: String) -> String {
-        guard value.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" || $0 == "\r" }) else { return value }
+        guard value.contains(where: { $0 == "," || $0 == "\"" || $0.isNewline }) else { return value }
         return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
     }
 

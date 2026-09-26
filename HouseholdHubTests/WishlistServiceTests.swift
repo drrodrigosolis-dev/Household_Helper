@@ -248,12 +248,14 @@ struct WishlistServiceTests {
         await #expect(throws: WishlistError.invalidMediaReference) {
             try await service.setWishlistMedia("../escape.jpg", item: id, now: now)
         }
-        let first = try await service.setWishlistMedia("Wishlist/a.jpg", item: id, now: now)
+        let photoA = "Wishlist/00000000-0000-0000-0000-00000000000A.jpg"
+        let photoB = "Wishlist/00000000-0000-0000-0000-00000000000B.jpg"
+        let first = try await service.setWishlistMedia(photoA, item: id, now: now)
         #expect(first == nil)
-        let replaced = try await service.setWishlistMedia("Wishlist/b.jpg", item: id, now: now)
-        #expect(replaced == "Wishlist/a.jpg")
+        let replaced = try await service.setWishlistMedia(photoB, item: id, now: now)
+        #expect(replaced == photoA)
         let deleted = try await service.deleteWishlistItem(id, now: now)
-        #expect(deleted == "Wishlist/b.jpg")
+        #expect(deleted == photoB)
     }
 
     @Test func deletingThePurchaseOfAnArchivedItemKeepsItArchived() async throws {

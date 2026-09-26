@@ -7,12 +7,15 @@ public enum BackupError: Error, Equatable, Sendable {
     case invalidValue(entity: String, field: String, value: String)
     case missingReference(entity: String, field: String)
     case currencyMismatch(entity: String)
+    /// Two records that must point at each other don't (e.g. a purchase and its wishlist item, spec §8.1).
+    case inconsistentLink(entity: String, field: String)
     case notABackup
+    case tooLarge(String)
 }
 
 /// Checks a whole backup before anything is written (spec §26.1: "validate the entire file … before writing
-/// anything"). Every rule the services enforce on the way in is checked here too, so a restored store is one the app
-/// could have produced itself.
+/// anything"). References must exist, and the invariants the services keep (purchase links both ways, category kinds,
+/// task completion, one file per photo) must hold, so a restored store is one the app could have produced itself.
 public enum BackupValidator {
     public static func validate(_ backup: BackupDTO) throws {
         guard backup.schemaVersion == BackupDTO.currentSchemaVersion else {
@@ -101,6 +104,76 @@ public enum BackupValidator {
         }
         for entry in backup.mediaManifest where !ImageStore.isValidReference(entry.reference) {
             throw BackupError.invalidValue(entity: "mediaManifest", field: "reference", value: entry.reference)
+        }
+        try validateRules(backup)
+    }
+
+    /// The invariants the services keep, beyond "every reference exists".
+    private static func validateRules(_ backup: BackupDTO) throws {
+        let kinds = Dictionary(backup.categories.map { ($0.id, $0.kind) }, uniquingKeysWith: { first, _ in first })
+        func allows(_ categoryID: UUID?, _ type: String, _ entity: String) throws {
+            guard let categoryID, let kind = kinds[categoryID].flatMap(CategoryKind.init(rawValue:)),
+                let transactionType = TransactionType(rawValue: type)
+            else { return }
+            guard kind.allows(transactionType) else {
+                throw BackupError.inconsistentLink(entity: entity, field: "categoryID")
+            }
+        }
+        let transactions = Dictionary(backup.transactions.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let wishes = Dictionary(backup.wishlistItems.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        for record in backup.transactions {
+            try allows(record.categoryID, record.type, "transactions")
+            if record.source == TransactionSource.recurring.rawValue {
+                guard record.recurringSeriesID != nil, record.scheduledOccurrence != nil else {
+                    throw BackupError.inconsistentLink(entity: "transactions", field: "recurringSeriesID")
+                }
+            }
+            // A purchase and its item point at each other (spec §8.1).
+            if let wishID = record.wishlistItemID, wishes[wishID]?.purchasedTransactionID != record.id {
+                throw BackupError.inconsistentLink(entity: "transactions", field: "wishlistItemID")
+            }
+        }
+        for item in backup.recurringTransactions {
+            try allows(item.categoryID, item.type, "recurringTransactions")
+        }
+        var media = Set<String>()
+        for wish in backup.wishlistItems {
+            try allows(wish.categoryID, TransactionType.expense.rawValue, "wishlistItems")
+            if let transactionID = wish.purchasedTransactionID {
+                let purchase = transactions[transactionID]
+                guard purchase?.wishlistItemID == wish.id else {
+                    throw BackupError.inconsistentLink(entity: "wishlistItems", field: "purchasedTransactionID")
+                }
+                // A purchase stays one live expense (Sprint 3 defaults 9).
+                guard purchase?.type == TransactionType.expense.rawValue,
+                    purchase?.status != TransactionStatus.cancelled.rawValue
+                else {
+                    throw BackupError.inconsistentLink(entity: "wishlistItems", field: "purchasedTransactionID")
+                }
+            } else if wish.status == WishlistStatus.purchased.rawValue {
+                throw BackupError.inconsistentLink(entity: "wishlistItems", field: "status")
+            }
+            if let reference = wish.mediaReference {
+                // Two items sharing a file would lose it when either one is deleted.
+                guard media.insert(reference).inserted else { throw BackupError.duplicateID(entity: "mediaReference") }
+            }
+            if let taskID = wish.linkedTaskID,
+                backup.taskItems.first(where: { $0.id == taskID })?.linkedWishlistItemID != wish.id
+            {
+                throw BackupError.inconsistentLink(entity: "wishlistItems", field: "linkedTaskID")
+            }
+        }
+        let manifest = backup.mediaManifest.map(\.reference)
+        guard Set(manifest).count == manifest.count else { throw BackupError.duplicateID(entity: "mediaManifest") }
+        guard Set(manifest).isSubset(of: media) else {
+            throw BackupError.inconsistentLink(entity: "mediaManifest", field: "reference")
+        }
+        // Tasks on the board are complete exactly when they are in the last column (Sprint 4 default 2).
+        let done = backup.boardColumns.max { $0.sortOrder < $1.sortOrder }?.id
+        for task in backup.taskItems where task.archivedAt == nil {
+            guard (task.columnID == done) == (task.completedAt != nil) else {
+                throw BackupError.inconsistentLink(entity: "taskItems", field: "completedAt")
+            }
         }
     }
 
