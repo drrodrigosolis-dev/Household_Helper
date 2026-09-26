@@ -13,6 +13,11 @@ roll over by default, with a per-budget toggle**. SchemaV1 is still editable, so
    what was left unspent adds to the next month, an overspend takes from it — accumulating from the month the
    budget was created. Off = a plain monthly limit. (Owner may narrow it to "leftovers only".)
 5. **History:** one limit per category for every month; changing it re-reads past months against the new limit.
+   Data-safety review follow-ups (defaults taken, owner may overrule at phase end): turning rollover back on starts
+   counting afresh that month, so months it was off never add carry; raising the limit re-grants every past month
+   since the start (decision 5 as written, and the effect can be large); months a category spent archived still
+   carry the full limit (nothing could be spent then). The start is stored as a year and month, not an instant, so
+   moving the device between time zones can't shift it.
 6. **Screens:** Budget tab gets a third segment, Transactions / Recurring / Budgets, with each budget's progress
    (spent, available, left or over) and add / edit / remove; a Dashboard Budgets card with the three closest to or
    over their limit, each opening that category's transactions; Analytics' category breakdown shows the limit.

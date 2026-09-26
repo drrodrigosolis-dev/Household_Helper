@@ -75,6 +75,23 @@ public enum BackupValidator {
         for budget in budgetList {
             try required(budget.categoryID, in: categories, "budgets", "categoryID")
             try positive(budget.limitMinorUnits, "budgets", "limitMinorUnits")
+            // Bounded, so a hand-edited file can't overflow the rollover sums or make them loop over centuries: a
+            // limit up to one billion in major units, a start month between 2000 and the backup's own month.
+            guard budget.limitMinorUnits <= maxBudgetMinorUnits else {
+                throw BackupError.invalidValue(
+                    entity: "budgets", field: "limitMinorUnits", value: "\(budget.limitMinorUnits)")
+            }
+            let exported = Calendar(identifier: .gregorian).dateComponents(
+                in: TimeZone(identifier: "UTC")!, from: backup.exportedAt)
+            let start = BudgetMonth(year: budget.startYear, month: budget.startMonth)
+            // One month of slack: the export instant is read in UTC, the start month in the household's zone.
+            let exportMonth = exported.month ?? 1
+            let latest = BudgetMonth(
+                year: (exported.year ?? 2000) + (exportMonth == 12 ? 1 : 0), month: exportMonth % 12 + 1)
+            guard (1...12).contains(budget.startMonth), start >= BudgetMonth(year: 2000, month: 1), start <= latest
+            else {
+                throw BackupError.invalidValue(entity: "budgets", field: "start", value: "\(start.year)-\(start.month)")
+            }
             try sameCurrency(budget.currencyCode, currency, "budgets")
             let category = backup.categories.first { $0.id == budget.categoryID }
             guard category.flatMap({ CategoryKind(rawValue: $0.kind) })?.allows(.expense) == true else {
@@ -237,6 +254,9 @@ public enum BackupValidator {
         guard unique.count == values.count else { throw BackupError.duplicateID(entity: entity) }
         return unique
     }
+
+    /// Largest budget limit a backup may carry: one billion in major units of a two-decimal currency.
+    static let maxBudgetMinorUnits: Int64 = 100_000_000_000
 
     /// A transfer names two different accounts and no category; nothing else names a destination (Sprint 10).
     private static func transferShape(

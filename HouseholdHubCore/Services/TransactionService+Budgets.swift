@@ -11,7 +11,8 @@ extension TransactionService {
         let active = Set(categories.filter { !$0.isArchived }.map(\.id))
         let rules = try modelContext.fetch(FetchDescriptor<CategoryBudget>()).map(\.rule)
             .filter { active.contains($0.categoryID) }
-        guard let earliest = rules.map(\.startMonth).min() else { return [] }
+        guard let first = rules.map(\.start).min() else { return [] }
+        let earliest = first.start(in: calendar)
         let budgeted = Set(rules.map(\.categoryID))
         let expense = TransactionType.expense.rawValue
         let posted = TransactionStatus.posted.rawValue

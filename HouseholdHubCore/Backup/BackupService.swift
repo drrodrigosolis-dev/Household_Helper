@@ -334,14 +334,14 @@ extension BackupService {
     static func dto(_ model: CategoryBudget) -> BackupDTO.BudgetDTO {
         BackupDTO.BudgetDTO(
             id: model.id, categoryID: model.categoryID, limitMinorUnits: model.limitMinorUnits,
-            currencyCode: model.currencyCode, rollsOver: model.rollsOver, startMonth: model.startMonth,
-            createdAt: model.createdAt, updatedAt: model.updatedAt)
+            currencyCode: model.currencyCode, rollsOver: model.rollsOver, startYear: model.startYear,
+            startMonth: model.startMonthOfYear, createdAt: model.createdAt, updatedAt: model.updatedAt)
     }
 
     static func make(_ dto: BackupDTO.BudgetDTO) -> CategoryBudget {
         let model = CategoryBudget(
             id: dto.id, categoryID: dto.categoryID, limit: .zero(dto.currencyCode), rollsOver: dto.rollsOver,
-            startMonth: dto.startMonth, now: dto.createdAt)
+            start: BudgetMonth(year: dto.startYear, month: dto.startMonth), now: dto.createdAt)
         apply(dto, to: model)
         return model
     }
@@ -351,7 +351,7 @@ extension BackupService {
         model.limitMinorUnits = dto.limitMinorUnits
         model.currencyCode = dto.currencyCode
         model.rollsOver = dto.rollsOver
-        model.startMonth = dto.startMonth
+        model.start = BudgetMonth(year: dto.startYear, month: dto.startMonth)
         model.createdAt = dto.createdAt
         model.updatedAt = dto.updatedAt
     }

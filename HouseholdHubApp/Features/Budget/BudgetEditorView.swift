@@ -81,10 +81,16 @@ struct BudgetEditorView: View {
                 Toggle("Roll over", isOn: $rollsOver)
                     .accessibilityIdentifier("budgetEditor.rollsOver")
             } footer: {
-                Text(
-                    rollsOver
-                        ? "What's left at the end of a month adds to the next one; an overspend takes from it."
-                        : "Each month starts again at the limit.")
+                if rollsOver {
+                    Text(
+                        """
+                        What's left at the end of a month adds to the next one; an overspend takes from it. Turning \
+                        this back on starts counting again this month.
+                        """
+                    )
+                } else {
+                    Text("Each month starts again at the limit.")
+                }
             }
             if isEditing {
                 Section {
@@ -122,11 +128,17 @@ struct BudgetEditorView: View {
         defer { isSaving = false }
         do {
             try await services.categories.setBudget(
-                for: categoryID, limit: limit, rollsOver: rollsOver, currencyCode: currencyCode, now: .now,
+                for: categoryID, limit: limit, rollsOver: rollsOver, now: .now,
                 calendar: HouseholdCalendar(timeZone: .current))
             dismiss()
+        } catch LedgerError.nonPositiveAmount {
+            errorMessage = String(localized: "Enter a limit above zero.")
+        } catch LedgerError.archivedCategory {
+            errorMessage = String(localized: "That category is archived. Restore it to budget for it.")
+        } catch LedgerError.categoryKindMismatch {
+            errorMessage = String(localized: "Only spending categories can have a budget.")
         } catch {
-            errorMessage = String(localized: "The budget couldn't be saved. Check the limit.")
+            errorMessage = String(localized: "The budget couldn't be saved.")
         }
     }
 

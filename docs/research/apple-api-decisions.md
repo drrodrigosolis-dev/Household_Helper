@@ -17,7 +17,9 @@ availability conditions, deprecations, fallback. Verified against official Apple
 - **`RecurrenceRule` stored as JSON `Data`**: enums with associated values have been unreliable as SwiftData
   composite attributes. `ColorToken` (a plain Codable struct) is stored directly.
 - **No `.unique` on `Merchant.normalizedName`**: a unique-constraint clash in SwiftData upserts (silently replaces
-  the existing row). Uniqueness is enforced by `TransactionService.findOrCreateMerchant`.
+  the existing row). Uniqueness is enforced by `TransactionService.findOrCreateMerchant`. The same holds for
+  `CategoryBudget.categoryID` (Sprint 11): one budget per category is kept by `CategoryService.setBudget` and the
+  backup validator, so a restore's merge-by-id never meets an upsert.
 - **UUID references, not relationships**, as §7 lists them; services enforce integrity and backup DTOs (§26) map
   one-to-one.
 - **Services are `@ModelActor` actors** created through `make(container:)`, so the app never depends on the

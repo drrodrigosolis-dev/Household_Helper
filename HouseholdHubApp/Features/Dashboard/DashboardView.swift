@@ -304,7 +304,8 @@ struct DashboardView: View {
         do {
             let calendar = HouseholdCalendar(timeZone: .current)
             summary = try await services.transactions.dashboardSummary(now: .now, calendar: calendar)
-            let report = try await services.transactions.budgetReport(month: .now, calendar: calendar)
+            // The budget card fails on its own: a budget problem must not hide the balances.
+            let report = (try? await services.transactions.budgetReport(month: .now, calendar: calendar)) ?? []
             budgets = Array(report.sorted { $0.usedFraction > $1.usedFraction }.prefix(3))
             loadFailed = false
         } catch {

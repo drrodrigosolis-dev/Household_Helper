@@ -20,7 +20,8 @@ struct BudgetsListView: View {
 
     var body: some View {
         Group {
-            if budgets.isEmpty {
+            // Budgets of archived categories are hidden, so an empty report is an empty screen.
+            if statuses.isEmpty, !loadFailed {
                 ContentUnavailableView {
                     Label("No budgets", systemImage: "chart.bar.doc.horizontal")
                 } description: {

@@ -128,7 +128,8 @@ public struct BackupDTO: Codable, Equatable, Sendable {
         public var limitMinorUnits: Int64
         public var currencyCode: String
         public var rollsOver: Bool
-        public var startMonth: Date
+        public var startYear: Int
+        public var startMonth: Int
         public var createdAt: Date
         public var updatedAt: Date
     }
