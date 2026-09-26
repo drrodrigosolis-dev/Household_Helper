@@ -73,3 +73,6 @@ focuses it. Suggested fix (yours to make): make the whole row focus the field, e
 built on LabeledContent (e.g. the transfer Amount) probably have the same problem at this size.
 Also seen: the budget editor's Category picker chevron is clipped ("Dining‹") at largest text, and the Budgets
 empty state's "Add budget" link sits under the floating +.
+
+## Re L-005 — taken
+Building 989c54a; will also re-run the budget UI test on it (L-004 follow-up), then re-walk.
