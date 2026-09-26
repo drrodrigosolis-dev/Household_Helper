@@ -34,6 +34,8 @@ struct AnalyticsView: View {
                     }
                 }
                 .accessibilityIdentifier("analytics.period")
+                Toggle("Include pending", isOn: includePendingBinding)
+                    .accessibilityIdentifier("analytics.includePending")
             }
             if let loaded, loaded.period == selectedPeriod {
                 content(loaded.report)
@@ -61,8 +63,10 @@ struct AnalyticsView: View {
         if report.income.minorUnits == 0 && report.expense.minorUnits == 0 {
             Section {
                 ContentUnavailableView(
-                    "Nothing posted in this period", systemImage: "chart.pie",
-                    description: Text("Posted income and expenses appear here. Pending items are not counted."))
+                    "Nothing recorded in this period", systemImage: "chart.pie",
+                    description: includesPending
+                        ? Text("Posted and pending income and expenses appear here.")
+                        : Text("Posted income and expenses appear here. Turn on Include pending to count those too."))
             }
         } else {
             if settings.first?.aiInsightsEnabled == true, OnDeviceModel.isAvailable {
@@ -100,6 +104,14 @@ struct AnalyticsView: View {
             periodTitle: AnalyticsFormat.periodTitle(selectedPeriod), income: report.income.formatted(),
             expense: report.expense.formatted(), net: report.net.formatted(), balance: balance,
             topCategories: Array(top), topMerchants: merchants)
+    }
+
+    private var includesPending: Bool { settings.first?.analyticsIncludesPending ?? false }
+
+    private var includePendingBinding: Binding<Bool> {
+        Binding(
+            get: { includesPending },
+            set: { value in Task { try? await services?.transactions.setAnalyticsIncludesPending(value, now: .now) } })
     }
 
     private var periodBinding: Binding<AnalyticsPeriod> {

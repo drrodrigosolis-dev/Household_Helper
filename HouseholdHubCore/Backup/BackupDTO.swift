@@ -35,6 +35,8 @@ public struct BackupDTO: Codable, Equatable, Sendable {
         public var aiInsightsEnabled: Bool?
         /// Optional for the same reason (absent = on, the default).
         public var widgetShowsBalance: Bool?
+        /// Absent = off.
+        public var analyticsIncludesPending: Bool?
         /// Optional for the same reason (absent = default: system theme, app accent, Expense).
         public var selectedTheme: String?
         public var accentColorHex: String?

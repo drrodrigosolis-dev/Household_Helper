@@ -38,6 +38,7 @@ public actor AnalyticsService {
                 categoryID: record.categoryID, merchantID: record.merchantID, merchantName: record.merchantNameSnapshot)
         }
         return try AnalyticsEngine().report(
-            entries, period: period, now: now, calendar: calendar, currencyCode: settings.currencyCode)
+            entries, period: period, now: now, calendar: calendar, currencyCode: settings.currencyCode,
+            includePending: settings.analyticsIncludesPending)
     }
 }

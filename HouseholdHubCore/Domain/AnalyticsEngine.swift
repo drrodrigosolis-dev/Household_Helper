@@ -102,7 +102,8 @@ public struct AnalyticsReport: Sendable, Hashable {
 }
 
 /// Deterministic analytics (spec §2): posted income and expenses that have happened (dated up to `now`), in integer
-/// minor units (Sprint 5 default 2). Future-dated posted items belong to the projection, as in `BalanceCalculator`.
+/// minor units (Sprint 5 default 2). Future-dated items belong to the projection, as in `BalanceCalculator`. Pending
+/// items dated up to now count too when the owner turns that on (owner decision 2026-09-26); cancelled never do.
 public struct AnalyticsEngine: Sendable {
     public var merchantLimit = 5
 
@@ -110,11 +111,11 @@ public struct AnalyticsEngine: Sendable {
 
     public func report(
         _ entries: [AnalyticsEntry], period: AnalyticsPeriod, now: Date, calendar: HouseholdCalendar,
-        currencyCode: String
+        currencyCode: String, includePending: Bool = false
     ) throws -> AnalyticsReport {
         let interval = period.interval(now: now, calendar: calendar)
         let counted = entries.filter {
-            $0.status == .posted && $0.type != .transfer && $0.occurredAt >= interval.start
+            ($0.status == .posted || (includePending && $0.status == .pending)) && $0.type != .transfer && $0.occurredAt >= interval.start
                 && $0.occurredAt < interval.end && $0.occurredAt <= now
         }
         for entry in counted where entry.amount.currencyCode != currencyCode {

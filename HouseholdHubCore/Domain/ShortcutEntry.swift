@@ -21,6 +21,6 @@ public enum ShortcutEntry {
         guard let amount = parsed.amount else { throw ShortcutEntryError.noAmount }
         return TransactionDraft(
             amount: amount, type: parsed.type, occurredAt: parsed.occurredAt,
-            notes: parsed.description.isEmpty ? nil : parsed.description, source: .widget)
+            notes: parsed.description.isEmpty ? nil : parsed.description, source: .shortcut)
     }
 }

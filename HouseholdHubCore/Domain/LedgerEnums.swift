@@ -22,6 +22,8 @@ public enum TransactionSource: String, Codable, Sendable, CaseIterable {
     case imported
     case widget
     case naturalLanguage
+    /// Recorded through the Log Transaction shortcut or Siri (owner decision 2026-09-26).
+    case shortcut
 }
 
 public enum CategoryKind: String, Codable, Sendable, CaseIterable {

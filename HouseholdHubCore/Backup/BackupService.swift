@@ -54,7 +54,8 @@ public actor BackupService {
                 defaultAnalyticsPeriod: settings.defaultAnalyticsPeriodRawValue,
                 aiCategorizationEnabled: settings.aiCategorizationEnabled,
                 naturalLanguageEnabled: settings.naturalLanguageEnabled, aiInsightsEnabled: settings.aiInsightsEnabled,
-                widgetShowsBalance: settings.widgetShowsBalance, selectedTheme: settings.selectedThemeRawValue,
+                widgetShowsBalance: settings.widgetShowsBalance,
+                analyticsIncludesPending: settings.analyticsIncludesPending, selectedTheme: settings.selectedThemeRawValue,
                 accentColorHex: settings.accentColorHex, defaultQuickAddType: settings.defaultQuickAddTypeRawValue,
                 createdAt: settings.createdAt, updatedAt: settings.updatedAt),
             categories: sorted(try fetch(CategoryRecord.self).map(Self.dto), by: \.id),
@@ -186,6 +187,7 @@ extension BackupService {
         model.naturalLanguageEnabled = dto.naturalLanguageEnabled ?? false
         model.aiInsightsEnabled = dto.aiInsightsEnabled ?? false
         model.widgetShowsBalance = dto.widgetShowsBalance ?? true
+        model.analyticsIncludesPending = dto.analyticsIncludesPending ?? false
         // Preferences are normalized on the way in: a missing or unknown value is stored as the default, so the store
         // never holds a value no screen can show.
         model.selectedThemeRawValue = (dto.selectedTheme.flatMap(ThemePreference.init(rawValue:)) ?? .system).rawValue

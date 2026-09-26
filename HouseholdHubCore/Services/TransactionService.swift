@@ -93,6 +93,14 @@ public actor TransactionService {
         try commit()
     }
 
+    public func setAnalyticsIncludesPending(_ include: Bool, now: Date) throws {
+        begin()
+        let settings = try requireSettings()
+        settings.analyticsIncludesPending = include
+        settings.updatedAt = now
+        try commit()
+    }
+
     public func setDefaultQuickAddType(_ type: QuickAddType, now: Date) throws {
         begin()
         let settings = try requireSettings()

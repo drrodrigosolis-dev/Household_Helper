@@ -259,4 +259,22 @@ struct AnalyticsTests {
         }
         #expect(elapsed < .seconds(1), "All five periods took \(elapsed)")
     }
+
+    /// Owner decision 2026-09-26: pending items dated up to now count when asked; cancelled and future never do.
+    @Test func pendingItemsCountOnlyWhenIncluded() throws {
+        let day = now.addingTimeInterval(-3_600)
+        var pending = expense(1_000, on: day, category: nil, merchant: "Pending")
+        pending.status = .pending
+        var cancelled = expense(500, on: day, category: nil, merchant: "Cancelled")
+        cancelled.status = .cancelled
+        var future = expense(700, on: now.addingTimeInterval(86_400), category: nil, merchant: "Later")
+        future.status = .pending
+        let entries = [expense(4_750, on: day, category: nil, merchant: "Posted"), pending, cancelled, future]
+        let excluded = try AnalyticsEngine().report(
+            entries, period: .thisMonth, now: now, calendar: calendar, currencyCode: "CAD")
+        let included = try AnalyticsEngine().report(
+            entries, period: .thisMonth, now: now, calendar: calendar, currencyCode: "CAD", includePending: true)
+        #expect(excluded.expense == Money(minorUnits: 4_750, currencyCode: "CAD"))
+        #expect(included.expense == Money(minorUnits: 5_750, currencyCode: "CAD"))
+    }
 }

@@ -15,6 +15,8 @@ extension SchemaV1 {
         public var includePendingInProjection: Bool = false
         /// The Analytics period last chosen (spec §7.11 `defaultAnalyticsPeriod`), stored as its raw value.
         public var defaultAnalyticsPeriodRawValue: String = AnalyticsPeriod.thisMonth.rawValue
+        /// Whether Analytics also counts pending transactions (owner decision 2026-09-26). Off by default.
+        public var analyticsIncludesPending: Bool = false
         /// On-device AI switches (spec §7.11, §12). Off until the user turns them on (Sprint 7 default 1).
         public var aiCategorizationEnabled: Bool = false
         public var naturalLanguageEnabled: Bool = false

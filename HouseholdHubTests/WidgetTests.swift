@@ -157,11 +157,11 @@ struct ShortcutEntryTests {
     ]
 
     @Test(arguments: cases)
-    func entriesBecomeWidgetSourcedDraftsInTheHouseholdCurrency(_ entry: Case) throws {
+    func entriesBecomeShortcutSourcedDraftsInTheHouseholdCurrency(_ entry: Case) throws {
         let draft = try ShortcutEntry.draft(text: entry.text, settings: settings(), now: now, calendar: calendar)
         #expect(draft.amount == Money(minorUnits: entry.minorUnits, currencyCode: "CAD"))
         #expect(draft.type == (entry.income ? .income : .expense))
-        #expect(draft.source == .widget)
+        #expect(draft.source == .shortcut)
         #expect(draft.categoryID == nil)
         #expect(draft.notes == entry.notes)
         #expect(draft.occurredAt == calendar.calendar.date(byAdding: .day, value: -entry.daysBack, to: now))
@@ -190,7 +190,7 @@ struct ShortcutEntryTests {
         try await ledger.create(draft, now: now)
         let records = try ModelContext(container).fetch(FetchDescriptor<TransactionRecord>())
         #expect(records.count == 1)
-        #expect(records.first?.source == .widget)
+        #expect(records.first?.source == .shortcut)
     }
 
     /// The widget's figures are the Dashboard's, and hiding amounts removes them (Sprint 8 review).
