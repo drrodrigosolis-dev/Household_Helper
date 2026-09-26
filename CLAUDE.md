@@ -4,8 +4,9 @@ Spec: `docs/Household_Hub_iOS_App_Specs_Enhanced_v3.1.md` (source of truth). Loa
 numbered file(s) the task needs (§29.2); do not load the full spec by default. Progress: `docs/PROGRESS.md`.
 
 ## 1. Product purpose
-Local-first, private iPhone app (iOS 26+, iPhone 16 Pro Max design target) combining budget/transactions, a wishlist
-whose purchases become real transactions, and a Kanban task board. v1 scope is §2.1; non-goals in §2.2 are never
+Local-first, private iPhone app (iOS 26+; design/test reference iPhone 17 Pro Max, an owner decision replacing
+§27's 16 Pro Max) combining budget/transactions, a wishlist whose purchases become real transactions, and a Kanban
+task board. v1 scope is §2.1; non-goals in §2.2 are never
 built as hidden assumptions. Screens and navigation are fixed by §24; do not invent screens.
 
 ## 2. Zero-cost constraint
@@ -22,8 +23,9 @@ Never set or use `ANTHROPIC_API_KEY`; Claude Code runs on the owner's subscripti
 
 ## 4. Persistence rules
 SwiftData, one authoritative container from one factory (§5.2); in-memory config for tests/previews; no CloudKit;
-explicit `VersionedSchema` + `SchemaMigrationPlan`, never destructive migration. No raw `ModelContext` across actors.
-Images live under Application Support/Media with a relative reference in SwiftData (§5.5). Tokens go in Keychain.
+explicit `VersionedSchema` + `SchemaMigrationPlan`, never destructive migration. SchemaV1 stays editable only until
+the first install on the owner's device (owner decision); after that every model change is a new schema version.
+No raw `ModelContext` across actors. Images live under Application Support/Media with a relative reference in SwiftData (§5.5). Tokens go in Keychain.
 
 ## 5. Money / accounting rules
 Money is `Int64` minor units + ISO currency code; `Decimal` only at input boundaries; never `Double`. All arithmetic in

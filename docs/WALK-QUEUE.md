@@ -10,9 +10,6 @@ result, and why it could not be walked automatically. Emptied at the next walk o
   Expected: a confirmation that says everything will be replaced; afterwards balances, wishlist (with photo), and
   tasks match the original. Why queued: the system document picker cannot be driven reliably by UI tests; the
   backup format, validation, and restore are covered by unit tests.
-- **Owner decision — Google Sheets export (Phase 7, optional in spec §2.1).** Not built: it needs a Google Cloud
-  OAuth client and a network dependency, both on the confirm-first list. Say whether to add it and who owns the
-  Google project.
 
 - **Sprint 7 (Phase 8) — on-device AI on a device with Apple Intelligence.** Settings › Intelligence: turn on all
   three switches. Quick Add: type "twelve dollars lunch" (amount and Dining should be suggested and labelled), then
@@ -38,5 +35,6 @@ result, and why it could not be walked automatically. Emptied at the next walk o
   fallback. Why queued: the CI simulator has no passcode, so the switch is unavailable there.
 
 ## Done
+- ~~Owner decision — Google Sheets export.~~ Dropped from v1 (owner, 2026-09-26); CSV covers it.
 - ~~Sprint 0/1 (Phases 0–1) — visual pass of the tab shell.~~ Covered by the automated screenshot walks from Sprint 2
   on (every tab and More › Analytics / Settings in light, dark, and largest text; `docs/walk/`).

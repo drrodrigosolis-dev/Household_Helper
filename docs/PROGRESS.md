@@ -18,3 +18,15 @@ that completes it (CLAUDE.md, "Autonomous CI-driven operation"; spec §28). Mirr
 | 10 — Hardening | in progress | Reviews done: privacy, accessibility, destructive actions, Sprint 8 data safety and compile. Fixed: restore could delete an intact local photo (blocking); Face ID gate + app-switcher cover (v1 scope gap); non-drag reordering for subtasks and columns; VoiceOver chart/row/filter labels; dark-mode chart contrast; rollback guard on every service write; atomic category move-and-delete; link cleanup on delete; privacy manifests. Sprint 9 (`docs/sprints/SPRINT-9.md`) closes the remaining v1 gaps: task↔transaction link, appearance, default Quick Add type, About. Tests added: on-disk reopen through the migration plan, balance performance, launch metric, post-restore writes. |
 
 Statuses: not started / in progress / CI green / blocked.
+
+## Owner decisions (2026-09-26)
+1. **Widget on a free-team device shows the sample figures** (spec §5.2/§24.4 as written), not an amount-free
+   placeholder. Advisor's note on record: on a real phone those figures can be mistaken for the real balance.
+2. **SchemaV1 freezes at the first install on the owner's device.** Until then fields may still be added to it
+   directly; from that install on, every model change is a new `VersionedSchema` with a migration stage.
+3. **Google Sheets export is dropped from v1.** CSV export covers spreadsheets; no OAuth, no network.
+4. **iPhone 17 Pro Max is the v1 design and test reference** (same 6.9" class as the spec's 16 Pro Max, which the CI
+   runner doesn't offer).
+5. **Stay on the free Personal Team for v1.** App Groups, TestFlight, and CloudKit stay deferred; the widget keeps
+   its fixture path.
+

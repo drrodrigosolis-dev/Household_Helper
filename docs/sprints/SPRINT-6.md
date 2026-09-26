@@ -24,8 +24,8 @@ for review. Binding: §26 (backup DTO v1 and rules), §7.12, §5.5 (media), §21
    carry their occurrence, one file per photo). Photo references must be `<folder>/<UUID>.jpg`. A backup is
    validated before it is offered for saving, unreadable photos are reported, and a restore reads only the files
    its manifest lists, within size limits.
-6. **Google Sheets export is not built** in this sprint: it needs Google OAuth configuration and a network
-   dependency, both on the owner's confirm-first list. Listed for the owner in WALK-QUEUE.
+6. **Google Sheets export is not built**: it needs Google OAuth configuration and a network dependency. Owner
+   decision 2026-09-26: dropped from v1 (CSV covers it).
 
 ## Items
 | # | Item | Spec | Built (CI green) | Walked |
