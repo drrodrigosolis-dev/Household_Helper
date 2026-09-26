@@ -24,3 +24,16 @@ Everything lives in git on `build/v1`; nothing needs copying out of a cloud cont
 - The swift-format PostToolUse hook becomes active (it is a no-op without Xcode).
 - Reading CI uses `gh` (`gh pr checks`, `gh run watch`, `gh run view --log-failed`) instead of the GitHub MCP tools.
 - The sprint walk can run on the Simulator with control of the Mac (see the sprint skill), instead of CI screenshots.
+
+## Checks only a Mac or device can do (also listed in `docs/WALK-QUEUE.md`)
+- **Delete any earlier install first.** SchemaV1 is still editable before the first release, so a store written by
+  an older build may not open ("store unavailable").
+- **Live on-device AI fixtures:** `TEST_RUNNER_HH_LIVE_AI=1 Scripts/test.sh` on a Mac or device with Apple
+  Intelligence ready. CI never runs them (its simulator's model is unreliable).
+- **Launch baseline:** run `LaunchPerformanceUITests.testLaunchPerformance` in Xcode and set a baseline so launch
+  regressions fail.
+- **Face ID gate:** needs a device (or a simulator with a passcode and enrolled Face ID).
+- **Widget and Shortcuts:** add the widget to the Home Screen and try "Log a transaction in Household Hub".
+  Under the free Personal Team the widget shows sample figures; live figures need an App Group, which needs a
+  paid team: set `HH_APP_GROUP` in `project.yml` to the group id, add the App Groups capability to the app and the
+  widget, and regenerate (`xcodegen`). Nothing else changes.
