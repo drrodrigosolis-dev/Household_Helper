@@ -67,4 +67,42 @@ final class BudgetUITests: XCTestCase {
         let edited = transactionRow(app, containing: "25.00")
         XCTAssertTrue(edited.waitForExistence(timeout: 10), "Edited amount not shown in the list")
     }
+
+    /// Spec §24.2: the filter menu narrows the list in the store. A category filter keeps only that category's rows;
+    /// Clear filters brings the rest back.
+    @MainActor
+    func testCategoryFilterShowsOnlyMatchingTransactions() {
+        let app = launchApp()
+        addViaQuickAdd(app, "12 coffee #dining")
+        addViaQuickAdd(app, "+ 500 paycheck #salary")
+        app.tabBars.buttons["Budget"].tap()
+        let coffee = transactionRow(app, containing: "coffee")
+        let paycheck = transactionRow(app, containing: "paycheck")
+        XCTAssertTrue(coffee.waitForExistence(timeout: 10), "Expense missing from Budget")
+        XCTAssertTrue(paycheck.waitForExistence(timeout: 10), "Income missing from Budget")
+
+        let filter = app.buttons["budget.filter"]
+        XCTAssertTrue(filter.waitForExistence(timeout: 5), "Budget has no filter menu")
+        XCTAssertEqual(filter.value as? String, "Off")
+        filter.tap()
+        // A picker inside a menu lists its options inline; if this OS nests it instead, open the Category submenu.
+        let dining = app.buttons["Dining"].firstMatch
+        if !dining.waitForExistence(timeout: 3) {
+            app.buttons["Category"].firstMatch.tap()
+        }
+        XCTAssertTrue(dining.waitForExistence(timeout: 5), "The filter menu should list the categories")
+        dining.tap()
+
+        let on = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "On"), object: filter)
+        XCTAssertEqual(XCTWaiter().wait(for: [on], timeout: 5), .completed, "Filter should read as on")
+        XCTAssertTrue(coffee.waitForExistence(timeout: 10), "The Dining expense should stay listed")
+        XCTAssertTrue(paycheck.waitForNonExistence(timeout: 10), "The Salary income should be filtered out")
+
+        filter.tap()
+        let clear = app.buttons["Clear filters"].firstMatch
+        XCTAssertTrue(clear.waitForExistence(timeout: 5), "An active filter should offer Clear filters")
+        clear.tap()
+        XCTAssertTrue(paycheck.waitForExistence(timeout: 10), "Clearing the filter should list the income again")
+        XCTAssertTrue(coffee.exists)
+    }
 }

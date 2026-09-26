@@ -60,6 +60,49 @@ final class TasksUITests: XCTestCase {
         app.tabBars.buttons["Tasks"].tap()
         XCTAssertTrue(taskCard(app, containing: "call plumber").waitForExistence(timeout: 10), "Task missing")
     }
+
+    /// Spec §7.10, §8.5: a custom column can be added, renamed, and deleted after choosing where its tasks go.
+    /// Each row's actions menu is labeled "Actions for <name>", which is how the rows are found.
+    @MainActor
+    func testColumnCanBeAddedRenamedAndDeleted() {
+        let app = launchApp()
+        let tasksTab = app.tabBars.buttons["Tasks"]
+        XCTAssertTrue(tasksTab.waitForExistence(timeout: 30), "Tab bar never appeared")
+        tasksTab.tap()
+        let columnsButton = app.buttons["tasks.columns"]
+        XCTAssertTrue(columnsButton.waitForExistence(timeout: 10), "Tasks has no Columns button")
+        columnsButton.tap()
+        XCTAssertTrue(app.navigationBars["Columns"].waitForExistence(timeout: 5), "Columns sheet did not open")
+
+        let newName = app.textFields["columns.newName"]
+        XCTAssertTrue(scrollUntilExists(app, newName), "New column field missing")
+        focusAndType(newName, "Errands")
+        app.buttons["Add column"].tap()
+        let errands = app.buttons["Actions for Errands"]
+        XCTAssertTrue(errands.waitForExistence(timeout: 10), "New column not listed")
+
+        errands.tap()
+        let rename = app.buttons["Rename"].firstMatch
+        XCTAssertTrue(rename.waitForExistence(timeout: 5), "Column menu should offer Rename")
+        rename.tap()
+        let alert = app.alerts["Rename column"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5), "Rename alert did not appear")
+        replaceText(in: alert.textFields.firstMatch, with: "Chores")
+        alert.buttons["Save"].tap()
+        let chores = app.buttons["Actions for Chores"]
+        XCTAssertTrue(chores.waitForExistence(timeout: 10), "Renamed column not listed")
+        XCTAssertTrue(errands.waitForNonExistence(timeout: 5), "The old name should be gone")
+
+        chores.tap()
+        let delete = app.buttons["Delete"].firstMatch
+        XCTAssertTrue(delete.waitForExistence(timeout: 5), "A custom column's menu should offer Delete")
+        delete.tap()
+        let move = app.buttons["Move tasks to To Do and delete"]
+        XCTAssertTrue(move.waitForExistence(timeout: 5), "Delete must ask where the column's tasks go")
+        move.tap()
+        XCTAssertTrue(chores.waitForNonExistence(timeout: 10), "Deleted column still listed")
+        XCTAssertTrue(app.buttons["Actions for To Do"].exists, "The default columns stay")
+    }
 }
 
 extension XCTestCase {

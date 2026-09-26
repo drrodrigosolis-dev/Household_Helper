@@ -292,6 +292,7 @@ struct TaskEditorView: View {
                         Text(wish.name).tag(UUID?.some(wish.id))
                     }
                 }
+                .accessibilityIdentifier("task.editor.wishlist")
                 Picker("Transaction", selection: $transactionID) {
                     Text("None").tag(UUID?.none)
                     ForEach(linkableTransactions) { record in

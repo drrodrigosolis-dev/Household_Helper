@@ -63,6 +63,98 @@ final class WishlistUITests: XCTestCase {
         app.tabBars.buttons["Budget"].tap()
         XCTAssertFalse(transactionRow(app, containing: "new bike").waitForExistence(timeout: 2), "No expense yet")
     }
+
+    /// Spec §24.2: the status chip filters the list (Active by default hides purchased items), and the layout
+    /// toggle switches between list and grid without losing the cards.
+    @MainActor
+    func testStatusFilterChipsAndGridListToggle() {
+        let app = launchApp()
+        addWishlistItem(app, name: "Desk lamp", estimate: "40")
+        addWishlistItem(app, name: "Rug", estimate: "120")
+        let lamp = wishlistRow(app, containing: "Desk lamp")
+        let rug = wishlistRow(app, containing: "Rug")
+        lamp.tap()
+        let markPurchased = app.buttons["wishlist.markPurchased"]
+        XCTAssertTrue(markPurchased.waitForExistence(timeout: 5), "Item detail did not open")
+        markPurchased.tap()
+        let confirm = app.buttons["wishlist.purchase.confirm"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Purchase sheet did not open")
+        confirm.tap()
+        XCTAssertTrue(waitForRow(app, identifier: "wishlist.status", toRead: "Purchased"))
+        app.navigationBars.buttons["Wishlist"].tap()
+
+        let status = app.buttons["wishlist.statusFilter"]
+        XCTAssertTrue(status.waitForExistence(timeout: 5), "Status filter chip missing")
+        XCTAssertEqual(status.value as? String, "Active", "The list starts on Active items")
+        XCTAssertTrue(rug.waitForExistence(timeout: 10), "A wanted item is active")
+        XCTAssertTrue(lamp.waitForNonExistence(timeout: 10), "A purchased item is not active")
+
+        chooseWishlistStatus(app, "Purchased")
+        XCTAssertTrue(lamp.waitForExistence(timeout: 10), "Purchased filter should list the purchased item")
+        XCTAssertTrue(rug.waitForNonExistence(timeout: 10), "Purchased filter should hide the wanted item")
+        chooseWishlistStatus(app, "All")
+        XCTAssertTrue(lamp.waitForExistence(timeout: 10) && rug.waitForExistence(timeout: 10), "All lists both")
+
+        // The layout is remembered on the device (@AppStorage), so start from the list whatever an earlier run left.
+        let layout = app.buttons["wishlist.layout"]
+        XCTAssertTrue(layout.waitForExistence(timeout: 5), "Layout toggle missing")
+        if layout.label == "Show as list" {
+            layout.tap()
+        }
+        XCTAssertTrue(waitForLabel(layout, "Show as grid"), "List layout should offer the grid")
+        layout.tap()
+        XCTAssertTrue(waitForLabel(layout, "Show as list"), "Grid layout should offer the list")
+        XCTAssertTrue(lamp.waitForExistence(timeout: 10) && rug.waitForExistence(timeout: 10), "Grid shows both")
+        layout.tap()
+        XCTAssertTrue(waitForLabel(layout, "Show as grid"), "Toggling again should return to the list")
+        XCTAssertTrue(rug.waitForExistence(timeout: 10), "List shows the items again")
+    }
+
+    /// Links go both ways (spec §2.1): a task that links a wishlist item from its editor is listed on that item.
+    @MainActor
+    func testItemDetailListsTheTasksThatLinkIt() {
+        let app = launchApp()
+        addWishlistItem(app, name: "Desk lamp", estimate: "40")
+        addTask(app, title: "Measure the desk")
+        taskCard(app, containing: "Measure the desk").tap()
+        let edit = app.buttons["Edit"]
+        XCTAssertTrue(edit.waitForExistence(timeout: 5), "Task detail did not open")
+        edit.tap()
+        let picker = app.buttons["task.editor.wishlist"]
+        XCTAssertTrue(scrollUntilExists(app, picker), "Wishlist item picker missing from the task editor")
+        picker.tap()
+        let option = app.buttons["Desk lamp"].firstMatch
+        XCTAssertTrue(option.waitForExistence(timeout: 5), "The open wishlist item is not offered")
+        option.tap()
+        app.buttons["task.editor.save"].tap()
+        XCTAssertTrue(waitForRow(app, identifier: "task.column", toRead: "To Do"), "Editor did not return to detail")
+
+        app.tabBars.buttons["Wishlist"].tap()
+        let row = wishlistRow(app, containing: "Desk lamp")
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        let linked = app.descendants(matching: .any).matching(identifier: "wishlist.linkedTask").firstMatch
+        XCTAssertTrue(scrollUntilExists(app, linked), "The item should list the task that links it")
+        XCTAssertTrue(linked.label.contains("Measure the desk"), "Linked task row reads '\(linked.label)'")
+    }
+
+    @MainActor
+    private func chooseWishlistStatus(_ app: XCUIApplication, _ title: String) {
+        let chip = app.buttons["wishlist.statusFilter"]
+        chip.tap()
+        let option = app.buttons[title].firstMatch
+        XCTAssertTrue(option.waitForExistence(timeout: 5), "Status menu should offer '\(title)'")
+        option.tap()
+        let chosen = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", title), object: chip)
+        XCTAssertEqual(XCTWaiter().wait(for: [chosen], timeout: 5), .completed, "Chip should read '\(title)'")
+    }
+
+    @MainActor
+    private func waitForLabel(_ element: XCUIElement, _ label: String) -> Bool {
+        let predicate = NSPredicate(format: "label == %@", label)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter().wait(for: [expectation], timeout: 5) == .completed
+    }
 }
 
 extension XCTestCase {
