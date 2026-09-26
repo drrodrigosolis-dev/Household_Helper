@@ -27,6 +27,7 @@ struct BudgetEditorView: View {
     @State private var limitText: String
     @State private var rollsOver: Bool
     @State private var isConfirmingRemove = false
+    @FocusState private var limitFocused: Bool
     @State private var isSaving = false
     @State private var errorMessage: String?
 
@@ -76,8 +77,12 @@ struct BudgetEditorView: View {
                     TextField("0.00", text: $limitText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
+                        .focused($limitFocused)
                         .accessibilityIdentifier("budgetEditor.limit")
                 }
+                // At accessibility sizes the label stacks above the field; a tap anywhere on the row edits it.
+                .contentShape(Rectangle())
+                .onTapGesture { limitFocused = true }
                 Toggle("Roll over", isOn: $rollsOver)
                     .accessibilityIdentifier("budgetEditor.rollsOver")
             } footer: {
