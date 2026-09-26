@@ -262,6 +262,22 @@ struct TaskBoardServiceTests {
         #expect(try fixture.context().fetch(FetchDescriptor<SubtaskItem>()).map(\.title) == ["Keep step"])
     }
 
+    /// Sprint 9: a task can link a transaction; a link to one that doesn't exist is dropped, not stored.
+    @Test func tasksLinkExistingTransactionsOnly() async throws {
+        let fixture = try await makeFixture()
+        try await fixture.ledger.ensureSettings(currencyCode: "CAD", now: now)
+        let spent = try await fixture.ledger.create(
+            TransactionDraft(amount: Money(minorUnits: 4_000, currencyCode: "CAD"), type: .expense, occurredAt: now),
+            now: now)
+        let linked = try await fixture.board.createTask(
+            TaskDraft(title: "Return lamp", linkedTransactionID: spent), now: now)
+        #expect(try fixture.task(linked).linkedTransactionID == spent)
+        let stale = try await fixture.board.createTask(TaskDraft(title: "Ghost", linkedTransactionID: UUID()), now: now)
+        #expect(try fixture.task(stale).linkedTransactionID == nil)
+        try await fixture.board.updateTask(linked, with: TaskDraft(title: "Return lamp"), now: now)
+        #expect(try fixture.task(linked).linkedTransactionID == nil, "Saving without a link clears it")
+    }
+
     /// Phase 10 review: deleting either end of a task link clears the other side, so no backup carries a dangling id.
     @Test func deletingLinkedRecordsClearsTheLinks() async throws {
         let fixture = try await makeFixture()

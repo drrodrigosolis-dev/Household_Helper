@@ -48,6 +48,9 @@ struct TaskDetailView: View {
                 if let wish = wishes.first(where: { $0.id == task.linkedWishlistItemID }) {
                     LabeledContent("Wishlist item", value: wish.name)
                 }
+                if let transactionID = task.linkedTransactionID {
+                    LinkedTransactionRow(id: transactionID)
+                }
                 if let notes = task.notes {
                     Text(notes)
                 }
@@ -221,6 +224,9 @@ struct TaskEditorView: View {
     @Environment(\.services) private var services
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \WishlistItem.name) private var wishes: [WishlistItem]
+    /// The most recent transactions offered for linking, plus the linked one (fetched separately below).
+    @Query private var recentTransactions: [TransactionRecord]
+    @Query private var linkedTransactions: [TransactionRecord]
 
     @State private var title: String
     @State private var notes: String
@@ -228,10 +234,18 @@ struct TaskEditorView: View {
     @State private var hasDueDate: Bool
     @State private var dueDate: Date
     @State private var wishID: UUID?
+    @State private var transactionID: UUID?
     @State private var errorMessage: String?
     @State private var isSaving = false
 
     init(task: TaskItem?) {
+        var recent = FetchDescriptor<TransactionRecord>(sortBy: [SortDescriptor(\.occurredAt, order: .reverse)])
+        recent.fetchLimit = 50
+        _recentTransactions = Query(recent)
+        // A fresh UUID matches nothing when there is no link, keeping the predicate non-optional.
+        let linked = task?.linkedTransactionID ?? UUID()
+        _linkedTransactions = Query(filter: #Predicate<TransactionRecord> { $0.id == linked })
+        _transactionID = State(initialValue: task?.linkedTransactionID)
         self.task = task
         _title = State(initialValue: task?.title ?? "")
         _notes = State(initialValue: task?.notes ?? "")
@@ -242,6 +256,11 @@ struct TaskEditorView: View {
     }
 
     private var canSave: Bool { !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSaving }
+
+    private var linkableTransactions: [TransactionRecord] {
+        let recent = recentTransactions
+        return linkedTransactions.filter { linked in !recent.contains { $0.id == linked.id } } + recent
+    }
 
     /// Open wishlist items, plus the currently linked one whatever its status.
     private var linkableWishes: [WishlistItem] {
@@ -273,6 +292,13 @@ struct TaskEditorView: View {
                         Text(wish.name).tag(UUID?.some(wish.id))
                     }
                 }
+                Picker("Transaction", selection: $transactionID) {
+                    Text("None").tag(UUID?.none)
+                    ForEach(linkableTransactions) { record in
+                        Text(TaskEditorView.transactionTitle(record)).tag(UUID?.some(record.id))
+                    }
+                }
+                .accessibilityIdentifier("task.editor.transaction")
                 LabeledContent("Notes") {
                     TextField("Optional", text: $notes, axis: .vertical)
                         .multilineTextAlignment(.trailing)
@@ -296,6 +322,13 @@ struct TaskEditorView: View {
         }
     }
 
+    /// "Café Luna · Sep 21 · −CA$47.50": what it was, when, and how much.
+    static func transactionTitle(_ record: TransactionRecord) -> String {
+        let what = record.merchantNameSnapshot ?? record.notes ?? String(localized: "Transaction")
+        let when = record.occurredAt.formatted(.dateTime.month(.abbreviated).day())
+        return "\(what) · \(when) · \(LedgerFormat.signedAmount(record.amount, type: record.type))"
+    }
+
     private func save() async {
         guard let services, canSave else { return }
         isSaving = true
@@ -303,7 +336,8 @@ struct TaskEditorView: View {
         // A due date is a calendar day (spec §10): stored as the start of that day in the household calendar.
         let due = hasDueDate ? HouseholdCalendar(timeZone: .current).startOfDay(for: dueDate) : nil
         let draft = TaskDraft(
-            title: title, notes: notes, priority: priority, dueDate: due, linkedWishlistItemID: wishID)
+            title: title, notes: notes, priority: priority, dueDate: due, linkedWishlistItemID: wishID,
+            linkedTransactionID: transactionID)
         do {
             if let task {
                 try await services.board.updateTask(task.id, with: draft, now: .now)
@@ -313,6 +347,22 @@ struct TaskEditorView: View {
             dismiss()
         } catch {
             errorMessage = String(localized: "This task couldn't be saved. Check the title.")
+        }
+    }
+}
+
+/// The task's linked transaction, fetched by id only.
+private struct LinkedTransactionRow: View {
+    @Query private var matches: [TransactionRecord]
+
+    init(id: UUID) {
+        _matches = Query(filter: #Predicate<TransactionRecord> { $0.id == id })
+    }
+
+    var body: some View {
+        if let record = matches.first {
+            LabeledContent("Transaction", value: TaskEditorView.transactionTitle(record))
+                .accessibilityIdentifier("task.transaction")
         }
     }
 }

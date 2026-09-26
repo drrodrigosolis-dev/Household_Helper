@@ -19,16 +19,19 @@ public struct TaskDraft: Equatable, Sendable {
     public var priority: Priority
     public var dueDate: Date?
     public var linkedWishlistItemID: UUID?
+    /// A transaction the task is about (spec §2.1, §7.8); a link to one that no longer exists is dropped on save.
+    public var linkedTransactionID: UUID?
 
     public init(
         title: String, notes: String? = nil, priority: Priority = .medium, dueDate: Date? = nil,
-        linkedWishlistItemID: UUID? = nil
+        linkedWishlistItemID: UUID? = nil, linkedTransactionID: UUID? = nil
     ) {
         self.title = title
         self.notes = notes
         self.priority = priority
         self.dueDate = dueDate
         self.linkedWishlistItemID = linkedWishlistItemID
+        self.linkedTransactionID = linkedTransactionID
     }
 
     public var trimmedTitle: String { title.trimmingCharacters(in: .whitespacesAndNewlines) }

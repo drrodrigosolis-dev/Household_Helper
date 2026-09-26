@@ -104,6 +104,7 @@ public actor TaskBoardService {
         try draft.validate()
         var draft = draft
         draft.linkedWishlistItemID = try existingWishlistLink(draft.linkedWishlistItemID)
+        draft.linkedTransactionID = try existingTransactionLink(draft.linkedTransactionID)
         let ordered = try columns()
         let wanted = columnID.map { id in ordered.first { $0.id == id } } ?? ordered.first
         guard let column = wanted else { throw TaskBoardError.unknownColumn }
@@ -123,6 +124,7 @@ public actor TaskBoardService {
         try draft.validate()
         var draft = draft
         draft.linkedWishlistItemID = try existingWishlistLink(draft.linkedWishlistItemID)
+        draft.linkedTransactionID = try existingTransactionLink(draft.linkedTransactionID)
         let task = try requireTask(id)
         task.title = draft.trimmedTitle
         task.priority = draft.priority
@@ -268,6 +270,7 @@ public actor TaskBoardService {
         task.notes = notes?.isEmpty == false ? notes : nil
         task.dueDate = draft.dueDate
         task.linkedWishlistItemID = draft.linkedWishlistItemID
+        task.linkedTransactionID = draft.linkedTransactionID
     }
 
     private func renumber(_ ordered: [BoardColumn], now: Date) {
@@ -296,6 +299,12 @@ public actor TaskBoardService {
 
     /// A link is optional metadata: one to an item deleted meanwhile (e.g. from another screen while an editor was
     /// open) is dropped rather than blocking the save.
+    private func existingTransactionLink(_ id: UUID?) throws -> UUID? {
+        guard let id else { return nil }
+        let descriptor = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.id == id })
+        return try modelContext.fetchCount(descriptor) > 0 ? id : nil
+    }
+
     private func existingWishlistLink(_ id: UUID?) throws -> UUID? {
         guard let id else { return nil }
         let descriptor = FetchDescriptor<WishlistItem>(predicate: #Predicate { $0.id == id })
