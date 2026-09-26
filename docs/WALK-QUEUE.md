@@ -30,6 +30,13 @@ result, and why it could not be walked automatically. Emptied at the next walk o
   (App Launch) and check whether container creation or seeding blocks the first frame. Why queued: needs
   Instruments; the CI simulator is shared and noisy.
 
+- **Before any on-device walk: delete the app first.** SchemaV1 stays editable until the first release (recorded
+  decision) and has gained fields since early sprints (AI switches, widget and Face ID settings). A store written by
+  an older build may not open with the new model ("store unavailable" screen). CI always starts fresh.
+- **Face ID gate (Phase 10).** Settings › Privacy › Require Face ID: turning it on asks for Face ID first; leave
+  the app and come back — it must lock, the app switcher must show only the lock, and the passcode must work as a
+  fallback. Why queued: the CI simulator has no passcode, so the switch is unavailable there.
+
 ## Done
 - ~~Sprint 0/1 (Phases 0–1) — visual pass of the tab shell.~~ Covered by the automated screenshot walks from Sprint 2
   on (every tab and More › Analytics / Settings in light, dark, and largest text; `docs/walk/`).

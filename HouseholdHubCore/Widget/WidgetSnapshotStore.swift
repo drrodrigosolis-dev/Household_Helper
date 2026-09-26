@@ -13,8 +13,8 @@ public struct WidgetSnapshotStore: Sendable {
         url = directory.appending(path: Self.fileName, directoryHint: .notDirectory)
     }
 
-    /// The store in the App Group container, or nil when no identifier is configured or the entitlement is missing
-    /// (the container URL is then nil).
+    /// The store in the App Group container, or nil when no identifier is configured or the system gives no container
+    /// (on a device, when the entitlement is missing; the Simulator does not enforce it).
     public static func appGroup(_ identifier: String?) -> WidgetSnapshotStore? {
         guard let identifier, !identifier.isEmpty,
             let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: identifier)

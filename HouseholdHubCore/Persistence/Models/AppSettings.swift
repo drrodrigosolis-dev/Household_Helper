@@ -21,6 +21,9 @@ extension SchemaV1 {
         public var aiInsightsEnabled: Bool = false
         /// Whether the Home Screen widget shows amounts (spec §7.11). On by default (Sprint 8 default 4).
         public var widgetShowsBalance: Bool = true
+        /// Optional Face ID / passcode gate (spec §2.1, §7.11). Device configuration: never written to a backup
+        /// (§26.1), and a restore leaves this device's value as it is.
+        public var faceIDEnabled: Bool = false
         public var createdAt: Date
         public var updatedAt: Date
 

@@ -1,14 +1,78 @@
 import HouseholdHubCore
+import SwiftData
 import SwiftUI
 
 /// Tab structure is fixed by spec §24.1; each tab owns its NavigationStack.
 struct AppRootView: View {
     @Environment(\.services) private var services
     @Environment(\.scenePhase) private var scenePhase
+    @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
     @State private var needsOnboarding = false
     @State private var router = AppRouter.shared
+    /// Face ID gate state. The app starts locked when the gate is on; leaving it locks it again.
+    @State private var isUnlocked = false
+    @State private var isAuthenticating = false
+    @State private var unlockFailed = false
+    @State private var pendingQuickAdd = false
+
+    private var lockEnabled: Bool { settings.first?.faceIDEnabled == true }
+    private var isLocked: Bool { lockEnabled && !isUnlocked }
 
     var body: some View {
+        Group {
+            // While locked nothing of the app is in the hierarchy, sheets included, so no figure can show.
+            if isLocked {
+                LockView(failed: unlockFailed, isAuthenticating: isAuthenticating) { Task { await unlock() } }
+                    .task(id: scenePhase) {
+                        if scenePhase == .active, !unlockFailed {
+                            await unlock()
+                        }
+                    }
+            } else {
+                tabs
+            }
+        }
+        .onOpenURL { url in
+            // The only link the app handles: the widget's Quick Add (spec §24.4). Not while onboarding; after
+            // unlocking when the gate is on.
+            guard url == WidgetSnapshot.quickAddURL, !needsOnboarding else { return }
+            if isLocked {
+                pendingQuickAdd = true
+            } else {
+                router.isQuickAddPresented = true
+            }
+        }
+        // App switcher: cover the screen whenever the gated app isn't frontmost.
+        .overlay {
+            if lockEnabled, scenePhase != .active, !isAuthenticating {
+                LockView.cover
+            }
+        }
+        .onChange(of: scenePhase) {
+            if scenePhase == .background {
+                isUnlocked = false
+                unlockFailed = false
+                // Leaving the app is when the Home Screen becomes visible; refresh the widget's figures then.
+                Task { await WidgetSync.refresh(services) }
+            }
+        }
+    }
+
+    private func unlock() async {
+        guard isLocked, !isAuthenticating else { return }
+        isAuthenticating = true
+        let reason = String(localized: "Unlock Household Hub")
+        let success = await BiometricGate.authenticate(reason: reason)
+        isAuthenticating = false
+        unlockFailed = !success
+        isUnlocked = success
+        if success, pendingQuickAdd {
+            pendingQuickAdd = false
+            router.isQuickAddPresented = true
+        }
+    }
+
+    private var tabs: some View {
         TabView(selection: $router.tab) {
             Tab("Dashboard", systemImage: "house", value: AppRouter.AppTab.dashboard) {
                 DashboardView()
@@ -29,18 +93,6 @@ struct AppRootView: View {
         .environment(router)
         .task { await bootstrap() }
         .sheet(isPresented: $router.isQuickAddPresented) { QuickAddView() }
-        .onOpenURL { url in
-            // The only link the app handles: the widget's Quick Add (spec §24.4). Not while onboarding.
-            if url == WidgetSnapshot.quickAddURL, !needsOnboarding {
-                router.isQuickAddPresented = true
-            }
-        }
-        .onChange(of: scenePhase) {
-            // Leaving the app is when the Home Screen becomes visible; refresh the widget's figures then.
-            if scenePhase == .background {
-                Task { await WidgetSync.refresh(services) }
-            }
-        }
         .sheet(isPresented: $needsOnboarding) {
             OnboardingView { needsOnboarding = false }
                 .interactiveDismissDisabled()

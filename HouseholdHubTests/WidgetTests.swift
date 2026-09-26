@@ -74,9 +74,13 @@ struct WidgetTests {
         try? FileManager.default.removeItem(at: directory)
     }
 
+    /// Without an identifier there is no store. An unentitled identifier may still get a container URL on the
+    /// Simulator, which does not enforce App Group entitlements, so for it only the fallback is checked.
     @Test(arguments: [nil, "", "group.invalid.householdhub.test"])
     func withoutAnEntitledAppGroupTheFixtureIsUsed(_ identifier: String?) {
-        #expect(WidgetSnapshotStore.appGroup(identifier) == nil)
+        if identifier?.isEmpty ?? true {
+            #expect(WidgetSnapshotStore.appGroup(identifier) == nil)
+        }
         let provider = WidgetDataSource.provider(groupIdentifier: identifier)
         #expect(provider.snapshot(now: now) == WidgetSnapshot.sample(now: now))
     }

@@ -79,6 +79,13 @@ public actor TransactionService {
         try commit()
     }
 
+    public func setFaceIDEnabled(_ enabled: Bool, now: Date) throws {
+        let settings = try requireSettings()
+        settings.faceIDEnabled = enabled
+        settings.updatedAt = now
+        try commit()
+    }
+
     public func setWidgetShowsBalance(_ shows: Bool, now: Date) throws {
         let settings = try requireSettings()
         settings.widgetShowsBalance = shows

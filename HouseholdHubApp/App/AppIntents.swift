@@ -22,6 +22,8 @@ struct LogTransactionIntent: AppIntent {
     static let description: IntentDescription? = IntentDescription(
         "Records an expense or income written like Quick Add, for example “47.50 coffee”.")
     static let supportedModes: IntentModes = .background
+    /// Never from the Lock Screen: recording money needs an unlocked device (and an unlocked store).
+    static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
     @Parameter(title: "Entry", requestValueDialog: "What should be recorded? For example, 47.50 coffee")
     var text: String

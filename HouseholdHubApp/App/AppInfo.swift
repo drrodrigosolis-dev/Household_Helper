@@ -1,5 +1,5 @@
-import HouseholdHubCore
 import Foundation
+import HouseholdHubCore
 
 enum AppInfo {
     static let displayName = "Household Hub"

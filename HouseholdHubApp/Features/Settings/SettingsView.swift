@@ -41,7 +41,20 @@ struct SettingsView: View {
                     }
                 }
                 Section {
-                    Toggle("Show amounts in widget", isOn: widgetShowsBalance(current))
+                    Toggle("Require \(BiometricGate.methodName)", isOn: faceIDBinding)
+                        .disabled(!BiometricGate.isAvailable && !current.faceIDEnabled)
+                        .accessibilityIdentifier("settings.faceID")
+                } header: {
+                    Text("Privacy")
+                } footer: {
+                    if BiometricGate.isAvailable {
+                        Text("Household Hub locks when you leave it. Your device passcode always works as a fallback.")
+                    } else {
+                        Text("Set a passcode on this device to lock Household Hub.")
+                    }
+                }
+                Section {
+                    Toggle("Show amounts in widget", isOn: widgetShowsBalanceBinding)
                         .accessibilityIdentifier("settings.widgetShowsBalance")
                 } header: {
                     Text("Widget")
@@ -53,9 +66,24 @@ struct SettingsView: View {
         .navigationTitle("Settings")
     }
 
-    private func widgetShowsBalance(_ current: AppSettings) -> Binding<Bool> {
+    /// Turning the gate on asks for authentication first, so it can't be enabled on a device the owner can't unlock.
+    private var faceIDBinding: Binding<Bool> {
         Binding(
-            get: { current.widgetShowsBalance },
+            get: { settings.first?.faceIDEnabled ?? false },
+            set: { value in
+                Task {
+                    if value {
+                        let reason = String(localized: "Turn on the lock for Household Hub")
+                        guard await BiometricGate.authenticate(reason: reason) else { return }
+                    }
+                    try? await services?.transactions.setFaceIDEnabled(value, now: .now)
+                }
+            })
+    }
+
+    private var widgetShowsBalanceBinding: Binding<Bool> {
+        Binding(
+            get: { settings.first?.widgetShowsBalance ?? true },
             set: { value in
                 Task {
                     try? await services?.transactions.setWidgetShowsBalance(value, now: .now)

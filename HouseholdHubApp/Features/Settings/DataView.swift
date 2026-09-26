@@ -34,7 +34,11 @@ struct DataView: View {
             } header: {
                 Text("Backup")
             } footer: {
-                Text("A backup is a folder with all your data and wishlist photos. Restoring replaces everything.")
+                Text(
+                    """
+                    A backup is a folder with all your data and wishlist photos. It isn't encrypted, so keep it \
+                    somewhere you trust. Restoring replaces everything.
+                    """)
             }
             Section("Export") {
                 Button("Export transactions as CSV", systemImage: "tablecells") { prepareCSV() }

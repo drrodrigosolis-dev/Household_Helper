@@ -60,13 +60,16 @@ struct SummaryWidgetView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("Current").font(.caption).foregroundStyle(.secondary)
+                    .accessibilityLabel("Current balance")
                 Spacer()
                 Image(systemName: "plus.circle.fill").foregroundStyle(.tint).accessibilityHidden(true)
             }
             amount(snapshot.current)
                 .font(.title2.weight(.semibold))
+                .privacySensitive()
             Spacer(minLength: 0)
-            Text(pendingLine).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            Text(pendingLine).font(.caption).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
+                .privacySensitive()
         }
         .widgetURL(WidgetSnapshot.quickAddURL)
         .accessibilityElement(children: .combine)
@@ -84,7 +87,7 @@ struct SummaryWidgetView: View {
                 }
             }
             VStack(alignment: .leading, spacing: 6) {
-                Text("Upcoming").font(.caption).foregroundStyle(.secondary)
+                Text("Upcoming").font(.caption).foregroundStyle(.secondary).accessibilityAddTraits(.isHeader)
                 if snapshot.upcoming.isEmpty {
                     Text("Nothing due soon").font(.caption)
                 }
@@ -94,13 +97,14 @@ struct SummaryWidgetView: View {
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .contain)
         }
     }
 
     private func figure(_ title: LocalizedStringKey, _ money: Money?) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(title).font(.caption).foregroundStyle(.secondary)
-            amount(money).font(.headline)
+            amount(money).font(.headline).privacySensitive()
         }
         .accessibilityElement(children: .combine)
     }
@@ -117,6 +121,7 @@ struct SummaryWidgetView: View {
             }
             .font(.caption2).foregroundStyle(.secondary)
         }
+        .privacySensitive()
         .accessibilityElement(children: .combine)
     }
 

@@ -60,7 +60,7 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
     }
     public var projected: Money? { projectedMinorUnits.map { Money(minorUnits: $0, currencyCode: currencyCode) } }
 
-    /// The widget's view of `summary`. With `showAmounts` off, every amount is left out of the snapshot.
+    /// The widget's view of `summary`. With `showAmounts` off, every amount and every item title is left out.
     public static func make(
         from summary: DashboardSummary, showAmounts: Bool, now: Date, calendar: HouseholdCalendar
     ) -> WidgetSnapshot {
@@ -70,7 +70,7 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
         ).day ?? 30
         let upcoming = summary.upcoming.prefix(2).map { item in
             Upcoming(
-                title: item.title, date: item.date, amountMinorUnits: showAmounts ? abs(item.amount.minorUnits) : nil,
+                title: showAmounts ? item.title : nil, date: item.date, amountMinorUnits: showAmounts ? abs(item.amount.minorUnits) : nil,
                 isIncome: item.type == .income)
         }
         return WidgetSnapshot(
