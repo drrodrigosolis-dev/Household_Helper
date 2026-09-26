@@ -146,5 +146,16 @@ final class WalkUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Data"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["data.backup"].exists && app.buttons["data.restore"].exists)
         captureScreen(app, named: "\(prefix)-Data")
+        app.navigationBars.buttons["Settings"].tap()
+        app.buttons["settings.intelligence"].tap()
+        XCTAssertTrue(app.navigationBars["Intelligence"].waitForExistence(timeout: 5))
+        captureScreen(app, named: "\(prefix)-Intelligence")
+        app.navigationBars.buttons["Settings"].tap()
+        // The lower Settings sections: Privacy, Appearance, Quick Add, Widget, About.
+        let about = app.staticTexts["About"]
+        XCTAssertTrue(scrollUntilExists(app, app.switches["settings.widgetShowsBalance"]))
+        captureScreen(app, named: "\(prefix)-Settings-preferences")
+        _ = scrollUntilExists(app, about)
+        captureScreen(app, named: "\(prefix)-Settings-about")
     }
 }
