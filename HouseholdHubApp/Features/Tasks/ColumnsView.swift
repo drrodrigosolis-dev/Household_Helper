@@ -34,7 +34,7 @@ struct ColumnsView: View {
                 }
                 .onMove { source, destination in move(from: source, to: destination) }
             } footer: {
-                Text("Tasks in the last column count as complete. Drag the handles to reorder.")
+                Text("Tasks in the last column count as complete. Drag the handles or use a column's menu to reorder.")
             }
             Section {
                 HStack {
@@ -96,6 +96,7 @@ struct ColumnsView: View {
             .layoutPriority(1)
             Spacer(minLength: 8)
             Menu {
+                columnMoves(column)
                 Button("Rename", systemImage: "pencil") {
                     renameText = column.name
                     renaming = column
@@ -108,6 +109,7 @@ struct ColumnsView: View {
                     .labelStyle(.iconOnly)
             }
         }
+        .accessibilityActions { columnMoves(column) }
         .accessibilityIdentifier("columns.row")
     }
 
@@ -148,6 +150,22 @@ struct ColumnsView: View {
         let name = renameText
         renaming = nil
         run { try await $0.board.renameColumn(id, to: name, now: .now) }
+    }
+
+    /// Non-drag reordering (spec §24.5), through the same path as a drag so the done-column confirmation still runs.
+    /// Destinations use `onMove`'s convention (counted before removal).
+    @ViewBuilder
+    private func columnMoves(_ column: BoardColumn) -> some View {
+        if let index = columns.firstIndex(where: { $0.id == column.id }) {
+            if index > 0 {
+                Button("Move up", systemImage: "arrow.up") { move(from: IndexSet(integer: index), to: index - 1) }
+            }
+            if index < columns.count - 1 {
+                Button("Move down", systemImage: "arrow.down") {
+                    move(from: IndexSet(integer: index), to: index + 2)
+                }
+            }
+        }
     }
 
     private func move(from source: IndexSet, to destination: Int) {

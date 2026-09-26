@@ -131,6 +131,32 @@ struct TaskDetailView: View {
         .foregroundStyle(.primary)
         .accessibilityValue(subtask.isCompleted ? Text("Done") : Text("Not done"))
         .accessibilityIdentifier("task.subtask")
+        // Non-drag alternatives for reordering (spec §24.5) and a non-swipe delete.
+        .contextMenu {
+            subtaskMoves(subtask)
+            Button("Delete", systemImage: "trash", role: .destructive) {
+                let id = subtask.id
+                run { try await $0.board.deleteSubtasks([id]) }
+            }
+        }
+        .accessibilityActions { subtaskMoves(subtask) }
+    }
+
+    @ViewBuilder
+    private func subtaskMoves(_ subtask: SubtaskItem) -> some View {
+        if let index = subtasks.firstIndex(where: { $0.id == subtask.id }) {
+            let id = subtask.id
+            if index > 0 {
+                Button("Move up", systemImage: "arrow.up") {
+                    run { try await $0.board.moveSubtask(id, to: index - 1, now: .now) }
+                }
+            }
+            if index < subtasks.count - 1 {
+                Button("Move down", systemImage: "arrow.down") {
+                    run { try await $0.board.moveSubtask(id, to: index + 1, now: .now) }
+                }
+            }
+        }
     }
 
     private func addSubtask(to task: TaskItem) {

@@ -57,8 +57,13 @@ struct RecurringListView: View {
                 }
                 Button(toggleTitle(item), systemImage: "pause.circle") { toggle(item) }
             }
-            .accessibilityAction(named: "Post next occurrence") { post(item) }
-            .accessibilityAction(named: toggleTitle(item)) { toggle(item) }
+            // The same actions as the swipe and menu, no more: a disabled series offers no posting.
+            .accessibilityActions {
+                if item.isEnabled, item.nextOccurrence != nil {
+                    Button("Post next occurrence") { post(item) }
+                }
+                Button(toggleTitle(item)) { toggle(item) }
+            }
     }
 
     private func toggleTitle(_ item: RecurringTransaction) -> LocalizedStringKey {
@@ -66,7 +71,7 @@ struct RecurringListView: View {
     }
 
     private func post(_ item: RecurringTransaction) {
-        guard let services, let occurrence = item.nextOccurrence else { return }
+        guard let services, item.isEnabled, let occurrence = item.nextOccurrence else { return }
         let id = item.id
         Task {
             do {
