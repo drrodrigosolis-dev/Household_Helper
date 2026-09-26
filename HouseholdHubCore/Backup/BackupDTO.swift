@@ -33,6 +33,8 @@ public struct BackupDTO: Codable, Equatable, Sendable {
         public var aiCategorizationEnabled: Bool?
         public var naturalLanguageEnabled: Bool?
         public var aiInsightsEnabled: Bool?
+        /// Optional for the same reason (absent = on, the default).
+        public var widgetShowsBalance: Bool?
         public var createdAt: Date
         public var updatedAt: Date
     }

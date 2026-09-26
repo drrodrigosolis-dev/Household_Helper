@@ -93,6 +93,10 @@ in a cloud container, scratchpad, session memory, or a cloud-only tool. Push `bu
   before committing and again before pushing, because Auto-fix pushes to the same branch.
 - A DoD item (§18) or a phase (§21) is complete only when CI is green on the commit that contains it. Phase gates
   (§28) use CI, not memory: before starting phase N+1, confirm the latest run on `build/v1` head is green.
+- **Never idle (owner rule, 2026-09-26):** while CI verifies phase N, keep working on anything that can proceed
+  (next phase's Core code, tests, docs, research); phase N+1 may be *built* before N is green but is not *closed*
+  until its own green run. Pushing while CI runs is fine: a running `verify` run always finishes, and a push only
+  replaces the one queued behind it, which then tests the newer head (a superset). A cancelled run is not a failure.
 - After each phase: update `docs/PROGRESS.md` and mirror its table into the PR description.
 - Check in with the owner only for: (a) end of each phase (log in PROGRESS.md; do not wait for a reply unless
   something is ambiguous); (b) any require-confirmation action (`.claude/settings.json` "ask" list or the guard

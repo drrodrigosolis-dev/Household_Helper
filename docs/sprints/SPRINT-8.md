@@ -23,11 +23,15 @@ no App Group, no paid capability may become a dependency), §9 (current vs pendi
    30-day, next two recurring items. Labels say "Current", "Pending", "In 30 days" — never three "balances" (§9).
 4. **`widgetShowsBalance` defaults to on** and lives in Settings › Widget; off shows "Hidden" in place of amounts
    (the snapshot then carries no amounts at all). Backed up with the other settings as an optional field.
-5. **Quick Add from the widget** is a deep link (`householdhub://quickadd`, a URL scheme — no entitlement) wrapped
-   by an App Intent `OpenQuickAddIntent` for the widget button and Shortcuts. The app opens the Quick Add sheet.
+5. **Quick Add from the widget** is a deep link (`householdhub://quickadd`, a URL scheme — no entitlement): `Link`
+   on the medium widget, `widgetURL` on the small one. Apple asks that widget buttons "do more than open the app",
+   and a widget `Button(intent:)` runs in the extension process, so the widget has no intent button. Shortcuts get
+   `OpenQuickAddIntent` (`supportedModes = .foreground(.immediate)`, iOS 26; `openAppWhenRun` is deprecated),
+   which asks a main-actor navigator (registered with `AppDependencyManager`) to show the Quick Add sheet.
 6. **Shortcuts intent `LogTransactionIntent`** takes one text parameter in the §25 grammar ("47.50 coffee"),
    parses it with `QuickAddParser` (never the model), and asks for confirmation showing the parsed amount, type and
-   date before saving through `TransactionService` with source `.widget`. No amount → the intent fails with a
+   date (`requestConfirmation(conditions:actionName:dialog:)`) before saving through `TransactionService` with source
+   `.widget`. No amount → the intent fails with a
    message and saves nothing. It runs in the app process (no App Group needed).
 7. No Lock Screen / Control Center / Live Activity surfaces in v1 (not in §24.4).
 

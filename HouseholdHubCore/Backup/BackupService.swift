@@ -54,6 +54,7 @@ public actor BackupService {
                 defaultAnalyticsPeriod: settings.defaultAnalyticsPeriodRawValue,
                 aiCategorizationEnabled: settings.aiCategorizationEnabled,
                 naturalLanguageEnabled: settings.naturalLanguageEnabled, aiInsightsEnabled: settings.aiInsightsEnabled,
+                widgetShowsBalance: settings.widgetShowsBalance,
                 createdAt: settings.createdAt, updatedAt: settings.updatedAt),
             categories: sorted(try fetch(CategoryRecord.self).map(Self.dto), by: \.id),
             merchants: sorted(try fetch(Merchant.self).map(Self.dto), by: \.id),
@@ -177,6 +178,7 @@ extension BackupService {
         model.aiCategorizationEnabled = dto.aiCategorizationEnabled ?? false
         model.naturalLanguageEnabled = dto.naturalLanguageEnabled ?? false
         model.aiInsightsEnabled = dto.aiInsightsEnabled ?? false
+        model.widgetShowsBalance = dto.widgetShowsBalance ?? true
         model.createdAt = dto.createdAt
         model.updatedAt = dto.updatedAt
     }

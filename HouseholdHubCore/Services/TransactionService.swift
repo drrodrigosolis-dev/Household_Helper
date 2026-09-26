@@ -79,6 +79,13 @@ public actor TransactionService {
         try commit()
     }
 
+    public func setWidgetShowsBalance(_ shows: Bool, now: Date) throws {
+        let settings = try requireSettings()
+        settings.widgetShowsBalance = shows
+        settings.updatedAt = now
+        try commit()
+    }
+
     public enum AISwitch: Sendable {
         case categorization
         case naturalLanguage

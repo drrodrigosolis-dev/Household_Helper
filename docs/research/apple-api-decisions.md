@@ -56,6 +56,32 @@ availability conditions, deprecations, fallback. Verified against official Apple
   `#if canImport(FoundationModels)` and an availability check; every call returns nil when unavailable.
 - **Generated fields are plain strings and an integer**, not optionals or Double (amount travels as text and is
   parsed as `Decimal`), to keep the structured output simple and money exact.
-- **Not verified against Apple documentation in this session** (no docs access from the cloud container): the API
-  shape above is from memory of the iOS 26 SDK. CI compiling it is the first check; behaviour needs a device with
-  Apple Intelligence (WALK-QUEUE). The CI simulator reports the model unavailable, so live fixtures are skipped.
+- **Verified 2026-09-26 against Apple's documentation** (foundationmodels/systemlanguagemodel/availability-swift.enum,
+  foundationmodels/languagemodelsession, "Generating Swift data structures with guided generation", WWDC25 286):
+  availability is `.available` / `.unavailable(.deviceNotEligible | .appleIntelligenceNotEnabled | .modelNotReady)`;
+  `respond(to:generating:)` returns a `Response` read through `.content`; `@Guide(description:)` is valid on `Int`
+  fields (a `.range` guide is also available). Context window 4,096 tokens; one request per session at a time, so
+  a new session per call is correct. Behaviour still needs a device with Apple Intelligence (WALK-QUEUE). The CI
+  simulator is unreliable (usually unavailable; once available and failing every request), so live fixtures are
+  opt-in (`TEST_RUNNER_HH_LIVE_AI=1`).
+
+## Widget and App Intents — Sprint 8, 2026-09-26
+- **Verified against Apple's documentation** (widgetkit/timelineprovider, widgetkit/staticconfiguration,
+  widgetkit/linking-to-specific-app-scenes-from-your-widget-or-live-activity,
+  widgetkit/adding-interactivity-to-widgets-and-live-activities, appintents/appintent, appintents/supportedmodes,
+  appintents/openappwhenrun, appintents/requestconfirmation(conditions:actionname:dialog:), xcode/configuring-app-groups,
+  foundation/filemanager/containerurl(forsecurityapplicationgroupidentifier:), WWDC25 275 and 244).
+- **Widget:** `StaticConfiguration` + `TimelineProvider` (completion-handler API; the async one belongs to
+  configurable widgets), `.supportedFamilies([.systemSmall, .systemMedium])`, `containerBackground(for: .widget)`,
+  timeline policy `.never` with `WidgetCenter.shared.reloadTimelines(ofKind:)` after the app writes a snapshot.
+  Taps: one `widgetURL` per hierarchy (small), `Link` (medium); both arrive in `onOpenURL`. No entitlement needed.
+- **Data:** the widget reads a JSON snapshot the app writes (Sprint 8 default 1), never the store.
+  `containerURL(forSecurityApplicationGroupIdentifier:)` is nil on iOS when the group is invalid or not entitled;
+  App Groups need a paid team, so the identifier is a build setting, empty by default, and the fixture provider is
+  used whenever the URL is nil (§5.2).
+- **App Intents (iOS 26):** `openAppWhenRun` is deprecated in favour of `supportedModes` (`.background`,
+  `.foreground(.immediate)`); confirmation is `requestConfirmation(conditions:actionName:dialog:)`. Intents behind a
+  widget `Button(intent:)` run in the extension, so the widget has no intent button; Shortcuts intents live in the
+  app target and reach app state through `@Dependency` (`AppDependencyManager`).
+- **Unverified (CI decides):** the extension building and running unsigned in the Simulator; the exact XcodeGen
+  embedding (`app-extension` target, app `dependencies` with embed) and the `NSExtension` Info.plist dictionary.

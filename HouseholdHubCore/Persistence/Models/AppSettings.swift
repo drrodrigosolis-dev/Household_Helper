@@ -19,6 +19,8 @@ extension SchemaV1 {
         public var aiCategorizationEnabled: Bool = false
         public var naturalLanguageEnabled: Bool = false
         public var aiInsightsEnabled: Bool = false
+        /// Whether the Home Screen widget shows amounts (spec §7.11). On by default (Sprint 8 default 4).
+        public var widgetShowsBalance: Bool = true
         public var createdAt: Date
         public var updatedAt: Date
 
