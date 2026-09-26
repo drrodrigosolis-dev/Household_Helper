@@ -35,3 +35,6 @@ is the runner. Top main-thread costs: (1) dyld_sim image load/binding 170–700 
 code); (2) `HouseholdContainerFactory.makeContainer` inside `HouseholdHubApp.init`, 60–120 ms, synchronous
 before the first frame; (3) other App/Scene setup, about 30–40 ms. No iPhone connected, so no device numbers yet.
 Traces (200–500 MB) stay on the Mac; they are not committed. No code changed.
+
+## Re L-003 — taken
+Walking Sprint 10 screens on the iPhone 17 Pro Max Simulator (light, dark, largest text).
