@@ -77,6 +77,8 @@ struct RecurringTaskTests {
         let container = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
         let board = TaskBoardService.make(container: container)
         try await board.seedDefaultColumnsIfNeeded(now: now)
+        // Backups need the household settings row, as the app always has one.
+        try await TransactionService.make(container: container).ensureSettings(currencyCode: "CAD", now: now)
         let ordered = FetchDescriptor<BoardColumn>(sortBy: [SortDescriptor(\.sortOrder)])
         let columns = try ModelContext(container).fetch(ordered).map(\.id)
         return Fixture(container: container, board: board, columns: columns)
