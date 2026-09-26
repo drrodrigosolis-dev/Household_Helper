@@ -28,15 +28,18 @@ into SchemaV1 directly; no migration stage is needed yet. Built serially during 
 ## Items
 | # | Item | Built (CI green) | Walked |
 |---|---|---|---|
-| 1 | `Account` model + kinds; `accountID` / `transferAccountID` on transactions and series; default account in settings | ☐ | tests |
-| 2 | Per-account and household balances (current / pending impact / projected) in Core, transfers neutral | ☐ | tests |
-| 3 | Account service: create, edit, archive, delete-if-unused, set default; onboarding + Household use the default | ☐ | tests |
-| 4 | Transfers: drafts, validation, create/edit, recurring transfers, materialize, delete | ☐ | tests |
-| 5 | Backup v2 + v1 restore into "Main account"; validator rules; CSV columns | ☐ | tests |
-| 6 | Settings › Accounts screens | ☐ | ☐ |
-| 7 | Dashboard Accounts card; Budget account filter; account on rows when >1 account | ☐ | ☐ |
-| 8 | Account pickers: Quick Add details, transaction editor, recurring editor, wishlist purchase; New transfer sheet | ☐ | ☐ |
-| 9 | Data-safety review + migration audit (SchemaV1 edit, backup v2) | ☐ | — |
+| 1 | `Account` model + kinds; `accountID` / `transferAccountID` on transactions and series; default account in settings | ☑ | tests |
+| 2 | Per-account and household balances (current / pending impact / projected) in Core, transfers neutral | ☑ | tests |
+| 3 | Account service: create, edit, archive, delete-if-unused, set default; onboarding + Household use the default | ☑ | tests |
+| 4 | Transfers: drafts, validation, create/edit, recurring transfers, materialize, delete | ☑ | tests |
+| 5 | Backup v2 + v1 restore into "Main account"; validator rules; CSV columns | ☑ | tests |
+| 6 | Settings › Accounts screens | ☑ | ☐ |
+| 7 | Dashboard Accounts card; Budget account filter; account on rows when >1 account | ☑ | ☐ |
+| 8 | Account pickers: Quick Add details, transaction editor, recurring editor, wishlist purchase; New transfer sheet | ☑ | ☐ |
+| 9 | Data-safety review + migration audit (SchemaV1 edit, backup v2) | ☑ | — |
 
 ## Close-out
-☐ CI green · ☐ walk screenshots (`docs/walk/sprint-10/`) · ☐ data-safety review · ☐ migration audit · ☐ PROGRESS + PR
+☑ CI green: run 36251732218 on `e5ddfb7` (review fixes; run 36251261145 on `ffd3b8a` before them) · ◐ walk
+(`docs/walk/sprint-10/run-36251261145`: light and dark seen and correct; the largest-text Accounts row broke words,
+fixed in `f17d88a`, re-walk on its green run) · ☑ data-safety review (3 blocking + should-fixes, all fixed) ·
+☑ migration audit (SchemaV1 edited in place, owner decision 15) · ☐ PROGRESS + PR

@@ -83,8 +83,8 @@ where money sits. Each is one sprint (`docs/sprints/SPRINT-10…`), closed only 
 
 | Sprint | Feature | Status |
 |---|---|---|
-| 10 | Multiple accounts + transfers (household balance = sum of accounts; §9 terms per account) | in progress |
-| 11 | Category budgets (monthly limits, progress on Dashboard and Analytics) | not started |
+| 10 | Multiple accounts + transfers (household balance = sum of accounts; §9 terms per account) | CI green (run 36251732218 on `e5ddfb7`); large-text re-walk pending |
+| 11 | Category budgets (monthly limits, rollover on by default, progress on Dashboard and Analytics) | built, review fixes pushed; awaiting CI |
 | 12 | Savings goals (target and date, monthly amount needed; can point at a wishlist item) | not started |
 | 13 | Recurring tasks (reuse the recurrence rules) | not started |
 | 14 | Search (deterministic) + local reminders (task due dates, upcoming bills) | not started |
