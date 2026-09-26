@@ -11,10 +11,10 @@ that completes it (CLAUDE.md, "Autonomous CI-driven operation"; spec §28). Mirr
 | 3 — Core UX | CI green | Sprint 2, run 36205435799 on `9635f01`. Walked in light/dark/largest text (`docs/walk/`); dark capture and large-text layout fixed along the way. Judgment call: category management goes under More › Settings › Categories (no §24.2 screen for it). |
 | 4 — Wishlist | CI green | Sprint 3, run 36205435799 on `9635f01`. Purchase conversion is one atomic save on the transaction service; data-safety review (1 blocking, 3 should-fix) fixed before green. Default taken: a purchase transaction cannot be cancelled or turned into income (delete it instead). |
 | 5 — Tasks | CI green | Sprint 4, run 36205565139 on `1c11590` (the push-triggered run 36205561992 on the same commit failed one timing-dependent UI test, the long-press Move to; fixed in `c08fcd2` with a plain menu path; re-confirmed on the next green head). Kanban board with drag and non-drag moves, subtasks, columns (delete moves tasks first), Quick Add Task. Data-safety review (1 blocking: missing invariant tests; 3 should-fix) fixed before green. Default for review: the last column is the done column (`docs/sprints/SPRINT-4.md`). |
-| 6 — Analytics | in progress | Sprint 5 (`docs/sprints/SPRINT-5.md`). Posted transactions only; charts carry audio-graph descriptors and tables. |
-| 7 — Backup/export | not started | |
-| 8 — Intelligence | not started | |
-| 9 — Optional system surfaces | not started | |
-| 10 — Hardening | not started | |
+| 6 — Analytics | built, awaiting CI | Sprint 5 (`docs/sprints/SPRINT-5.md`). Posted transactions only; charts carry audio-graph descriptors and tables. Data-safety review fixed (future-dated items, DST buckets, strict reads, stale UI). Unit tests pass in CI; UI walks were red on test-side issues (More tab stack, lazy rows at large text), fixed and awaiting a green run. |
+| 7 — Backup/export | built, awaiting CI | Sprint 6. Folder backup (DTO v1 + media), validated restore that merges by id in one save, CSV with formula guard. Data-safety review fixed. Google Sheets export not built (needs OAuth + network: owner decision, WALK-QUEUE). |
+| 8 — Intelligence | built, awaiting CI | Sprint 7. On-device only, all switches off by default, deterministic fallback everywhere. Data-safety review blocked on two findings (AI date overwrite; narrative figure check), both fixed: suggestions never replace named or user-set values, narrative figures are app-filled placeholders. Live model fixtures are opt-in (`TEST_RUNNER_HH_LIVE_AI=1`). |
+| 9 — Optional system surfaces | built, awaiting CI | Sprint 8 (`docs/sprints/SPRINT-8.md`), built while Phases 6–8 were in CI (owner rule: never idle). Widget (small + medium) reads an app-written snapshot, fixture under the free team; Quick Add link; Shortcuts intents (parser-only log with confirmation). Reviews running. |
+| 10 — Hardening | in progress | Done so far: on-disk reopen test through the migration plan, balance performance test, recorded launch metric. Running: privacy, accessibility, destructive-action reviews. |
 
 Statuses: not started / in progress / CI green / blocked.
