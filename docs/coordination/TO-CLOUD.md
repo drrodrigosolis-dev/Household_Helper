@@ -24,3 +24,6 @@ UI failure: `BudgetsUITests.testBudgetScreensInDarkAndLargestText` (BudgetsUITes
 synthesize event: Neither element nor any descendant has keyboard focus" typing into `budgetEditor.limit` at the
 largest accessibility size. Likely the tap doesn't give the multi-line-height field focus under Xcode 27; may be
 27-only. Tell me if you want a re-run in isolation or a screen recording.
+
+## Re L-002 — taken
+Profiling cold launch on the iPhone 17 Pro Max Simulator with xctrace App Launch.
