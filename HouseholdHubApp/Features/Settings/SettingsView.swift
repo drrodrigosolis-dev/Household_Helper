@@ -42,6 +42,10 @@ struct SettingsView: View {
                     LabeledContent("As of") {
                         Text(current.startingBalanceDate.formatted(date: .abbreviated, time: .omitted))
                     }
+                    NavigationLink("Edit Household") {
+                        HouseholdEditorView(settings: current)
+                    }
+                    .accessibilityIdentifier("settings.household")
                 }
                 Section {
                     Toggle("Require \(BiometricGate.methodName)", isOn: faceIDBinding)

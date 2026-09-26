@@ -79,12 +79,12 @@ struct OnboardingView: View {
         }
     }
 
-    private static var defaultCurrencyCode: String {
+    static var defaultCurrencyCode: String {
         let local = Locale.current.currency?.identifier ?? "CAD"
         return (try? Currency(code: local).code) ?? "CAD"
     }
 
-    private static var currencyChoices: [String] {
+    static var currencyChoices: [String] {
         var codes = [defaultCurrencyCode]
         for code in ["CAD", "USD", "EUR", "GBP", "AUD", "MXN", "JPY"] where !codes.contains(code) {
             codes.append(code)
@@ -92,7 +92,7 @@ struct OnboardingView: View {
         return codes
     }
 
-    private static func currencyLabel(_ code: String) -> String {
+    static func currencyLabel(_ code: String) -> String {
         let name = Locale.current.localizedString(forCurrencyCode: code) ?? code
         return "\(name) (\(code))"
     }

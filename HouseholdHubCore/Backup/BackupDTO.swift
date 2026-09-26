@@ -29,7 +29,8 @@ public struct BackupDTO: Codable, Equatable, Sendable {
         public var startingBalanceDate: Date
         public var includePendingInProjection: Bool
         public var defaultAnalyticsPeriod: String
-        /// Optional in the file so v1 backups written before these switches existed still read (absent = the default, on).
+        /// Optional in the file so v1 backups written before these switches existed still read (absent = the default,
+        /// on).
         public var aiCategorizationEnabled: Bool?
         public var naturalLanguageEnabled: Bool?
         public var aiInsightsEnabled: Bool?

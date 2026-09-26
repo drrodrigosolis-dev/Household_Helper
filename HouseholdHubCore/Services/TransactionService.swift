@@ -64,18 +64,45 @@ public actor TransactionService {
         // Same save as the rest of onboarding: a refused currency change leaves no half-created settings row.
         _ = try insertSettingsIfMissing(currencyCode: currency.code, now: now)
         let settings = try requireSettings()
+        try applyHousehold(currency: currency, startingBalance: startingBalance, asOf: date, to: settings, now: now)
+        settings.onboardingCompleted = true
+        try commit()
+    }
+
+    /// Settings › Household: corrects the starting balance and date (§9.1, a baseline, so no transaction changes),
+    /// and the currency only while nothing has been recorded (§6.3: never reinterpret historic values; v1 has one
+    /// currency, so with records the answer is a new data set, not a conversion).
+    public func updateHousehold(currencyCode: String, startingBalance: Money, asOf date: Date, now: Date) throws {
+        begin()
+        let currency = try Currency(code: currencyCode)
+        guard startingBalance.currencyCode == currency.code else {
+            throw LedgerError.currencyMismatch(expected: currency.code, actual: startingBalance.currencyCode)
+        }
+        guard date <= now else { throw LedgerError.startingBalanceInFuture }
+        let settings = try requireSettings()
+        try applyHousehold(currency: currency, startingBalance: startingBalance, asOf: date, to: settings, now: now)
+        try commit()
+    }
+
+    /// True once any transaction, recurring series, or wishlist item exists: amounts are then stored in the
+    /// household currency, so it can no longer change (§6.3).
+    public func isCurrencyLocked() throws -> Bool {
+        let records = try modelContext.fetchCount(FetchDescriptor<TransactionRecord>())
+        let series = try modelContext.fetchCount(FetchDescriptor<RecurringTransaction>())
+        let wishes = try modelContext.fetchCount(FetchDescriptor<WishlistItem>())
+        return records + series + wishes > 0
+    }
+
+    private func applyHousehold(
+        currency: Currency, startingBalance: Money, asOf date: Date, to settings: AppSettings, now: Date
+    ) throws {
         if settings.currencyCode != currency.code {
-            let records = try modelContext.fetchCount(FetchDescriptor<TransactionRecord>())
-            let series = try modelContext.fetchCount(FetchDescriptor<RecurringTransaction>())
-            let wishes = try modelContext.fetchCount(FetchDescriptor<WishlistItem>())
-            guard records + series + wishes == 0 else { throw LedgerError.currencyLockedByExistingRecords }
+            guard try !isCurrencyLocked() else { throw LedgerError.currencyLockedByExistingRecords }
             settings.currencyCode = currency.code
         }
         settings.startingBalanceMinorUnits = startingBalance.minorUnits
         settings.startingBalanceDate = date
-        settings.onboardingCompleted = true
         settings.updatedAt = now
-        try commit()
     }
 
     public func setIncludePendingInProjection(_ include: Bool, now: Date) throws {
