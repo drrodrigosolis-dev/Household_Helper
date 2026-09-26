@@ -139,7 +139,7 @@ struct Sprint9Tests {
         let lamp = try await ledger.createWishlistItem(WishlistDraft(name: "Lamp", estimatedPrice: price), now: now)
         let rug = try await ledger.createWishlistItem(WishlistDraft(name: "Rug", estimatedPrice: price), now: now)
         let task = try await stack.board.createTask(TaskDraft(title: "Buy", linkedWishlistItemID: lamp), now: now)
-        // Restored data can carry the reverse link; the services never set it themselves.
+        // Links are two-way since the v1 audit; set it by hand too, as restored data would carry it.
         let context = stack.context()
         let lampRecord = try #require(try context.fetch(FetchDescriptor<WishlistItem>()).first { $0.id == lamp })
         lampRecord.linkedTaskID = task
@@ -148,8 +148,10 @@ struct Sprint9Tests {
         try await stack.board.updateTask(task, with: TaskDraft(title: "Buy", linkedWishlistItemID: rug), now: now)
         let backup = try await snapshot(stack)
         try BackupValidator.validate(backup)
-        let anyBackLink = backup.wishlistItems.contains { $0.linkedTaskID != nil }
-        #expect(!anyBackLink)
+        let lampBackLink = backup.wishlistItems.first { $0.id == lamp }?.linkedTaskID
+        let rugBackLink = backup.wishlistItems.first { $0.id == rug }?.linkedTaskID
+        #expect(lampBackLink == nil, "The item the task no longer links loses its back-link")
+        #expect(rugBackLink == task, "The newly linked item points back at the task")
     }
 
     @Test func exportDropsOptionalLinksThatPointAtNothing() async throws {

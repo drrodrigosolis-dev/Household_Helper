@@ -196,22 +196,35 @@ struct DashboardView: View {
                     ForEach(activity) { entry in
                         switch entry {
                         case .transaction(let record):
-                            Button { router.showBudget(.transactions) } label: {
-                                TransactionRow(
-                                    record: record, category: categories.first { $0.id == record.categoryID })
+                            Button {
+                                router.showBudget(.transactions)
+                            } label: {
+                                TransactionRow(record: record, category: category(of: record))
                             }
                             .buttonStyle(.plain)
                         case .wishlist(let item):
-                            Button { router.show(.wishlist) } label: { WishlistRow(item: item) }
-                                .buttonStyle(.plain)
+                            Button {
+                                router.show(.wishlist)
+                            } label: {
+                                WishlistRow(item: item)
+                            }
+                            .buttonStyle(.plain)
                         case .task(let task):
-                            Button { router.show(.tasks) } label: { TaskActivityRow(task: task) }
-                                .buttonStyle(.plain)
+                            Button {
+                                router.show(.tasks)
+                            } label: {
+                                TaskActivityRow(task: task)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
             }
         }
+    }
+
+    private func category(of record: TransactionRecord) -> CategoryRecord? {
+        categories.first { $0.id == record.categoryID }
     }
 
     private var pendingBinding: Binding<Bool> {
