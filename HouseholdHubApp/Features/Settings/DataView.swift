@@ -14,11 +14,20 @@ struct DataView: View {
     @State private var backupDocument: BackupFolderDocument?
     @State private var csvDocument: CSVDocument?
     @State private var isImporting = false
+    /// What the file picker is choosing: a backup folder or a CSV file (Sprint 15). One picker serves both, since
+    /// two `fileImporter`s on one view don't both work.
+    @State private var importKind = ImportKind.backup
+    @State private var csvImport: CSVImportSource?
     @State private var pendingRestore: PendingRestore?
     @State private var message: String?
     @State private var isWorking = false
     @State private var isRestoring = false
     private let calendar = HouseholdCalendar(timeZone: .current)
+
+    enum ImportKind {
+        case backup
+        case csv
+    }
 
     struct PendingRestore: Sendable {
         let backup: BackupDTO
@@ -30,7 +39,10 @@ struct DataView: View {
             Section {
                 Button("Back up now", systemImage: "externaldrive.badge.plus") { Task { await prepareBackup() } }
                     .accessibilityIdentifier("data.backup")
-                Button("Restore from backup…", systemImage: "arrow.counterclockwise") { isImporting = true }
+                Button("Restore from backup…", systemImage: "arrow.counterclockwise") {
+                    importKind = .backup
+                    isImporting = true
+                }
                     .accessibilityIdentifier("data.restore")
             } header: {
                 Text("Backup")
@@ -45,6 +57,17 @@ struct DataView: View {
                 Button("Export transactions as CSV", systemImage: "tablecells") { prepareCSV() }
                     .disabled(transactions.isEmpty)
                     .accessibilityIdentifier("data.csv")
+            }
+            Section {
+                Button("Import transactions from CSV…", systemImage: "square.and.arrow.down") {
+                    importKind = .csv
+                    isImporting = true
+                }
+                .accessibilityIdentifier("data.importCSV")
+            } header: {
+                Text("Import")
+            } footer: {
+                Text("Pick a CSV file from your bank or a spreadsheet. You'll see every row before anything is saved.")
             }
             if let message {
                 Text(message)
@@ -69,9 +92,21 @@ struct DataView: View {
         ) { result in
             report(result, saved: String(localized: "CSV saved."), failed: String(localized: "CSV not saved."))
         }
-        .fileImporter(isPresented: $isImporting, allowedContentTypes: [.folder]) { result in
-            if case .success(let url) = result {
-                Task { await load(url) }
+        .fileImporter(
+            isPresented: $isImporting,
+            allowedContentTypes: importKind == .csv ? [.commaSeparatedText, .plainText] : [.folder]
+        ) { result in
+            guard case .success(let url) = result else { return }
+            switch importKind {
+            case .backup: Task { await load(url) }
+            case .csv: Task { await loadCSV(url) }
+            }
+        }
+        .sheet(item: $csvImport) { source in
+            NavigationStack {
+                CSVImportView(source: source) { count in
+                    message = String(localized: "Imported \(count) transactions.")
+                }
             }
         }
         .confirmationDialog(
@@ -177,6 +212,48 @@ struct DataView: View {
                 toAccount: record.transferAccountID.flatMap { accountNames[$0] })
         }
         csvDocument = CSVDocument(text: TransactionCSV.text(rows, calendar: calendar))
+    }
+
+    /// Reads the picked file off the main actor, within the size limit, as UTF-8 (or Latin-1, which older bank
+    /// exports use), and parses it. The preview does the rest; nothing is written here.
+    private func loadCSV(_ url: URL) async {
+        isWorking = true
+        defer { isWorking = false }
+        let result = await Task.detached { () -> Result<[[String]], any Error> in
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer {
+                if scoped {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            return Result {
+                let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                guard size <= CSVParser.maximumBytes else { throw CSVParser.Failure.tooLarge }
+                let data = try Data(contentsOf: url)
+                let decoded = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1)
+                guard let text = decoded else { throw CSVParser.Failure.empty }
+                return try CSVParser.parse(text)
+            }
+        }.value
+        switch result {
+        case .success(let rows) where rows.count >= 2:
+            csvImport = CSVImportSource(fileName: url.deletingPathExtension().lastPathComponent, rows: rows)
+        case .success:
+            message = String(localized: "That file has no rows to import.")
+        case .failure(let error):
+            message = Self.csvFailureMessage(error)
+        }
+    }
+
+    private static func csvFailureMessage(_ error: any Error) -> String {
+        switch error as? CSVParser.Failure {
+        case .tooLarge:
+            return String(localized: "That file is larger than 5 MB. Split it and import the parts.")
+        case .tooManyRows(let limit):
+            return String(localized: "That file has more than \(limit) rows. Split it and import the parts.")
+        default:
+            return String(localized: "That file couldn't be read as CSV.")
+        }
     }
 
     // MARK: Presentation
