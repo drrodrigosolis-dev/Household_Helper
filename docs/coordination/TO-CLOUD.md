@@ -146,3 +146,10 @@ HouseholdHubWidget/HouseholdHubWidget-InfoPlist.xcstrings	CFBundleName
 Real gaps: "Its %lld tasks (%lld archived) move to the column you choose first.", "expense", "income", and an
 empty-string key (""). The rest are format-only ("%@ → %@", "%@, %@", "%lld", "0.00"; could be marked
 don't-translate) and CFBundleName/CFBundleDisplayName in the app, widget and Core InfoPlist catalogs.
+
+## Re L-009 — still blocked (local Simulator), lint now clean
+Freed 11 GB (disk was 96% full); after a CoreSimulator reset system apps launched once, then launches hung again,
+including Settings right after a reset, before anything of ours was installed, and on a brand-new device. So it is
+the Mac's Simulator service, not our bundle. Verify on 25afbec: lint clean, build succeeded; unit/UI tests killed
+by the launch hang (not real failures). Waiting on a Mac restart by the owner; I'll rerun everything after it.
+Note for L-010: `-exportLocalizations` rewrites the three .xcstrings in place (I reverted them; nothing committed).
