@@ -39,11 +39,15 @@ public struct CSVImportRow: Equatable, Sendable {
 }
 
 public enum CSVSkipReason: Equatable, Sendable {
+    /// More or fewer fields than the header: a stray separator would shift values into the wrong columns.
+    case columnCount(expected: Int, found: Int)
     case missingDate
     case unreadableDate(String)
     case missingAmount
     case unreadableAmount(String)
     case zeroAmount
+    /// Above `Money.maxPlanMinorUnits`: most likely a reference or balance column, not an amount.
+    case amountTooLarge(String)
 }
 
 /// A data row of the file and what the import would do with it (decision 4).
@@ -64,13 +68,26 @@ public struct CSVSkipError: Error, Equatable, Sendable {
 
 /// Deterministic preview (Sprint 15): reads each data row with the mapping; nothing is written.
 public enum CSVImportPlanner {
+    /// - Parameters:
+    ///   - records: the data records (header excluded), with their file lines.
+    ///   - headerCount: how many fields the header has; rows with a different count are skipped.
     public static func preview(
-        dataRows: [[String]], mapping: CSVMapping, currency: Currency, categories: [CSVImportCategory],
-        existing: [CSVExistingTransaction], calendar: HouseholdCalendar
+        records: [CSVRecord], headerCount: Int, mapping: CSVMapping, currency: Currency,
+        categories: [CSVImportCategory], existing: [CSVExistingTransaction], calendar: HouseholdCalendar
     ) -> [CSVPreviewRow] {
         let known = Set(existing.map { key($0.occurredAt, $0.amount.minorUnits, $0.type, $0.text, calendar) })
-        return dataRows.enumerated().map { offset, fields in
-            let line = offset + 2
+        return records.map { record in
+            let line = record.line
+            // Trailing empty fields (a trailing separator some banks write) don't count.
+            var fields = record.fields
+            while fields.count > headerCount, fields.last?.trimmingCharacters(in: .whitespaces).isEmpty == true {
+                fields.removeLast()
+            }
+            guard fields.count == headerCount else {
+                let reason = CSVSkipReason.columnCount(expected: headerCount, found: fields.count)
+                let skipped = CSVSkipError(reason: reason)
+                return CSVPreviewRow(line: line, outcome: .failure(skipped), isLikelyDuplicate: false)
+            }
             switch read(fields, mapping: mapping, currency: currency, categories: categories, calendar: calendar) {
             case .success(let row):
                 let duplicate = known.contains(
@@ -96,10 +113,12 @@ public enum CSVImportPlanner {
             return .failure(CSVSkipError(reason: .unreadableDate(dateText)))
         }
         guard let amountText = value(.amount) else { return .failure(CSVSkipError(reason: .missingAmount)) }
-        guard let signed = CSVAmount.signedMinorUnits(amountText, currency: currency), signed != .min else {
-            return .failure(CSVSkipError(reason: .unreadableAmount(amountText)))
-        }
+        guard let signed = CSVAmount.signedMinorUnits(amountText, currency: currency, decimalMark: mapping.decimalMark)
+        else { return .failure(CSVSkipError(reason: .unreadableAmount(amountText))) }
         guard signed != 0 else { return .failure(CSVSkipError(reason: .zeroAmount)) }
+        guard abs(signed) <= Money.maxPlanMinorUnits else {
+            return .failure(CSVSkipError(reason: .amountTooLarge(amountText)))
+        }
         let isSpending = mapping.spendingIsPositive ? signed > 0 : signed < 0
         let type: TransactionType = isSpending ? .expense : .income
         let categoryName = value(.category).map(fold)

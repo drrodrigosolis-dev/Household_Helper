@@ -219,7 +219,7 @@ struct DataView: View {
     private func loadCSV(_ url: URL) async {
         isWorking = true
         defer { isWorking = false }
-        let result = await Task.detached { () -> Result<[[String]], any Error> in
+        let result = await Task.detached { () -> Result<[CSVRecord], any Error> in
             let scoped = url.startAccessingSecurityScopedResource()
             defer {
                 if scoped {
@@ -227,17 +227,21 @@ struct DataView: View {
                 }
             }
             return Result {
-                let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
-                guard size <= CSVParser.maximumBytes else { throw CSVParser.Failure.tooLarge }
-                let data = try Data(contentsOf: url)
-                let decoded = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1)
-                guard let text = decoded else { throw CSVParser.Failure.empty }
-                return try CSVParser.parse(text)
+                // The size is checked on the bytes (CSVParser.decode) whether or not the file reports one.
+                if let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > CSVParser.maximumBytes {
+                    throw CSVParser.Failure.tooLarge
+                }
+                return try CSVParser.records(CSVParser.decode(try Data(contentsOf: url)))
             }
         }.value
         switch result {
-        case .success(let rows) where rows.count >= 2:
-            csvImport = CSVImportSource(fileName: url.deletingPathExtension().lastPathComponent, rows: rows)
+        case .success(let records) where CSVParser.isHouseholdHubExport(header: records.first?.fields ?? []):
+            message = String(
+                localized: "That's a Household Hub export. To move your data, restore a backup instead.")
+        case .success(let records) where records.count >= 2:
+            csvImport = CSVImportSource(
+                fileName: url.deletingPathExtension().lastPathComponent, header: records[0].fields,
+                records: Array(records.dropFirst()))
         case .success:
             message = String(localized: "That file has no rows to import.")
         case .failure(let error):

@@ -1,5 +1,17 @@
 import Foundation
 
+/// One CSV record and the file line it starts on (1-based), so messages point at what a spreadsheet shows even when
+/// blank lines were dropped or a quoted field spans lines.
+public struct CSVRecord: Equatable, Sendable {
+    public let line: Int
+    public let fields: [String]
+
+    public init(line: Int, fields: [String]) {
+        self.line = line
+        self.fields = fields
+    }
+}
+
 /// Reads CSV text (RFC 4180): quoted fields with doubled quotes, CRLF or LF, a leading BOM, and comma or semicolon
 /// separators (whichever the header line uses more of). Sprint 15, owner decision 24.
 public enum CSVParser {
@@ -11,21 +23,48 @@ public enum CSVParser {
         case tooLarge
         case tooManyRows(Int)
         case unterminatedQuote(line: Int)
+        case notText
     }
 
-    /// Rows of fields, header first. Blank lines are dropped.
+    /// The file's bytes as text: refused above `maximumBytes` (checked on the bytes, before decoding), UTF-8 or
+    /// Latin-1 (older bank exports).
+    public static func decode(_ data: Data) throws -> String {
+        guard data.count <= maximumBytes else { throw Failure.tooLarge }
+        guard let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else {
+            throw Failure.notText
+        }
+        return text
+    }
+
+    /// Fields of each non-blank record, header first.
     public static func parse(_ text: String) throws -> [[String]] {
-        guard text.utf8.count <= maximumBytes else { throw Failure.tooLarge }
+        try records(text).map(\.fields)
+    }
+
+    /// Non-blank records with their starting lines, header first.
+    public static func records(_ text: String) throws -> [CSVRecord] {
         var body = Substring(text)
         if body.first == "\u{FEFF}" {
             body = body.dropFirst()
         }
         let separator = detectSeparator(body)
-        var rows: [[String]] = []
+        var records: [CSVRecord] = []
         var row: [String] = []
         var field = ""
         var inQuotes = false
         var line = 1
+        var recordLine = 1
+
+        func finishRecord() throws {
+            row.append(field)
+            field = ""
+            if !row.allSatisfy({ $0.trimmingCharacters(in: .whitespaces).isEmpty }) {
+                records.append(CSVRecord(line: recordLine, fields: row))
+                guard records.count <= maximumRows + 1 else { throw Failure.tooManyRows(maximumRows) }
+            }
+            row = []
+        }
+
         var index = body.startIndex
         while index < body.endIndex {
             let character = body[index]
@@ -39,7 +78,9 @@ public enum CSVParser {
                     }
                     inQuotes = false
                 } else {
-                    if character.isNewline { line += 1 }
+                    if character.isNewline {
+                        line += 1
+                    }
                     field.append(character)
                 }
             } else if character == "\"" && field.isEmpty {
@@ -48,28 +89,19 @@ public enum CSVParser {
                 row.append(field)
                 field = ""
             } else if character.isNewline {
-                // "\r\n" is one Character in Swift, so CRLF ends one row.
-                row.append(field)
-                field = ""
-                if !row.allSatisfy({ $0.trimmingCharacters(in: .whitespaces).isEmpty }) {
-                    rows.append(row)
-                    guard rows.count <= maximumRows + 1 else { throw Failure.tooManyRows(maximumRows) }
-                }
-                row = []
+                // "\r\n" is one Character in Swift, so CRLF ends one record.
+                try finishRecord()
                 line += 1
+                recordLine = line
             } else {
                 field.append(character)
             }
             index = next
         }
         guard !inQuotes else { throw Failure.unterminatedQuote(line: line) }
-        row.append(field)
-        if !row.allSatisfy({ $0.trimmingCharacters(in: .whitespaces).isEmpty }) {
-            rows.append(row)
-        }
-        guard rows.count <= maximumRows + 1 else { throw Failure.tooManyRows(maximumRows) }
-        guard !rows.isEmpty else { throw Failure.empty }
-        return rows
+        try finishRecord()
+        guard !records.isEmpty else { throw Failure.empty }
+        return records
     }
 
     static func detectSeparator(_ text: Substring) -> Character {
@@ -77,6 +109,12 @@ public enum CSVParser {
         let commas = header.filter { $0 == "," }.count
         let semicolons = header.filter { $0 == ";" }.count
         return semicolons > commas ? ";" : ","
+    }
+
+    /// The header this app's own CSV export writes; such a file is refused for import (it carries types, statuses
+    /// and transfers the importer would misread). Restoring a backup is the way to move data between devices.
+    public static func isHouseholdHubExport(header: [String]) -> Bool {
+        header.map { $0.trimmingCharacters(in: .whitespaces) } == TransactionCSV.header
     }
 }
 
@@ -97,21 +135,23 @@ public enum CSVDateFormat: String, CaseIterable, Sendable {
     /// 25/09/2026
     case dayMonthYear
 
-    /// Reads a date as a calendar day (noon local, so no zone shift moves it). Two-digit years are 20xx.
+    /// Reads a date as a calendar day (noon local, so no zone shift moves it). Two-digit years: 00–69 are 20xx,
+    /// 70–99 are 19xx. Anything after the date (a time) is ignored.
     public func date(from text: String, calendar: HouseholdCalendar) -> Date? {
-        let parts = text.trimmingCharacters(in: .whitespaces)
-            .split(whereSeparator: { "-/.".contains($0) }).map(String.init)
-        // Anything after the date (a time) is ignored.
-        guard parts.count >= 3 else { return nil }
-        let numbers = parts.prefix(3).map { Int($0.prefix { $0.isNumber }) }
-        guard let first = numbers[0], let second = numbers[1], let third = numbers[2] else { return nil }
+        let head = text.trimmingCharacters(in: .whitespaces).prefix { !$0.isWhitespace && $0 != "T" }
+        let parts = head.split(whereSeparator: { "-/.".contains($0) }).map(String.init)
+        guard parts.count == 3, parts.allSatisfy({ !$0.isEmpty && $0.allSatisfy(\.isASCIIDigit) }) else {
+            return nil
+        }
+        let numbers = parts.compactMap { Int($0) }
+        guard numbers.count == 3 else { return nil }
         let (year, month, day): (Int, Int, Int)
         switch self {
-        case .yearMonthDay: (year, month, day) = (first, second, third)
-        case .monthDayYear: (year, month, day) = (third, first, second)
-        case .dayMonthYear: (year, month, day) = (third, second, first)
+        case .yearMonthDay: (year, month, day) = (numbers[0], numbers[1], numbers[2])
+        case .monthDayYear: (year, month, day) = (numbers[2], numbers[0], numbers[1])
+        case .dayMonthYear: (year, month, day) = (numbers[2], numbers[1], numbers[0])
         }
-        let fullYear = year < 100 ? 2000 + year : year
+        let fullYear = year < 100 ? (year < 70 ? 2000 + year : 1900 + year) : year
         guard (1900...2200).contains(fullYear), (1...12).contains(month), (1...31).contains(day) else { return nil }
         let components = DateComponents(year: fullYear, month: month, day: day, hour: 12)
         guard let date = calendar.calendar.date(from: components),
@@ -132,12 +172,18 @@ public enum CSVDateFormat: String, CaseIterable, Sendable {
 public struct CSVMapping: Equatable, Sendable {
     public var columns: [CSVColumnRole: Int]
     public var dateFormat: CSVDateFormat
+    /// "." or ","; the other one groups thousands.
+    public var decimalMark: Character
     /// On for banks that export spending as positive numbers (decision 3).
     public var spendingIsPositive: Bool
 
-    public init(columns: [CSVColumnRole: Int], dateFormat: CSVDateFormat, spendingIsPositive: Bool = false) {
+    public init(
+        columns: [CSVColumnRole: Int], dateFormat: CSVDateFormat, decimalMark: Character = ".",
+        spendingIsPositive: Bool = false
+    ) {
         self.columns = columns
         self.dateFormat = dateFormat
+        self.decimalMark = decimalMark
         self.spendingIsPositive = spendingIsPositive
     }
 
@@ -169,49 +215,95 @@ public struct CSVMapping: Equatable, Sendable {
     }
 }
 
-/// Reads amounts as written by banks: "-12.50", "12.50-", "(12.50)", "$1,234.56", "1.234,56", "1 234,56".
+/// Reads amounts strictly (Sprint 15 data-safety review): anything that could be misread is refused and shown as
+/// skipped, never guessed. Accepted: one sign marker ("-12.50", "12.50-", "(12.50)", "+12.50", "12.50 DR" for a
+/// debit, "12.50 CR" for a credit), the household currency's code or symbol, thousands grouped in threes with the
+/// other mark ("1,234.56" or "1.234,56"), and no more decimals than the currency has (extra zeros are fine).
 public enum CSVAmount {
-    /// The signed value in minor units, or nil when it isn't a number.
-    public static func signedMinorUnits(_ text: String, currency: Currency) -> Int64? {
-        // Currency symbols, codes and spaces go first, so "CA$ -7" reads like "-7".
-        var value = text.filter { !$0.isWhitespace && !$0.isLetter && !"$€£¥".contains($0) }
+    /// The signed value in minor units, or nil when the text isn't an amount this can read without guessing.
+    public static func signedMinorUnits(_ text: String, currency: Currency, decimalMark: Character) -> Int64? {
+        guard decimalMark == "." || decimalMark == "," else { return nil }
+        var value = text.uppercased().filter { !$0.isWhitespace }
+        var markers = 0
         var negative = false
+        // Letters: only DR / CR (at the end) and the household code (anywhere) are allowed.
+        if value.hasSuffix("DR") || value.hasSuffix("CR") {
+            negative = value.hasSuffix("DR")
+            markers += 1
+            value.removeLast(2)
+        }
+        value = value.replacingOccurrences(of: currency.code.uppercased(), with: "")
+        // A symbol prefixed with the code's country letters ("CA$", "US$") only for the household currency.
+        let country = String(currency.code.uppercased().prefix(2))
+        value = value.replacingOccurrences(of: country + "$", with: "$")
+        guard !value.contains(where: \.isLetter) else { return nil }
+        value = value.filter { !"$€£¥".contains($0) }
         if value.hasPrefix("(") && value.hasSuffix(")") {
             negative = true
+            markers += 1
             value = String(value.dropFirst().dropLast())
         }
         if value.hasSuffix("-") {
-            negative.toggle()
-            value = String(value.dropLast())
+            negative = true
+            markers += 1
+            value.removeLast()
         }
         if value.hasPrefix("-") {
-            negative.toggle()
-            value = String(value.dropFirst())
+            negative = true
+            markers += 1
+            value.removeFirst()
         } else if value.hasPrefix("+") {
-            value = String(value.dropFirst())
+            markers += 1
+            value.removeFirst()
         }
-        // What is left must be digits and single separators between digits.
-        let kept = value
-        guard kept.first?.isNumber == true, kept.last?.isNumber == true,
-            kept.allSatisfy({ $0.isNumber || $0 == "." || $0 == "," }),
-            !zip(kept, kept.dropFirst()).contains(where: { !$0.isNumber && !$1.isNumber })
-        else { return nil }
-        let normalized = normalizeSeparators(kept)
-        guard let decimal = Decimal(string: normalized, locale: Locale(identifier: "en_US_POSIX")),
-            let money = try? Money(decimal: decimal, currency: currency)
-        else { return nil }
-        return negative ? -money.minorUnits : money.minorUnits
+        guard markers <= 1, let magnitude = minorUnits(value, currency: currency, decimalMark: decimalMark) else {
+            return nil
+        }
+        return negative ? -magnitude : magnitude
     }
 
-    /// The last separator is the decimal point when one or two digits follow it, or three after a lone "."
-    /// ("12.500"); otherwise every separator groups digits ("1,234" and "1.234.567" are whole numbers).
-    static func normalizeSeparators(_ text: String) -> String {
-        guard let last = text.lastIndex(where: { $0 == "." || $0 == "," }) else { return text }
-        let fraction = text[text.index(after: last)...]
-        let separators = text.filter { $0 == "." || $0 == "," }.count
-        let isDecimal =
-            (1...2).contains(fraction.count) || (fraction.count == 3 && text[last] == "." && separators == 1)
-        let whole = text[..<last].filter(\.isNumber)
-        return isDecimal ? whole + "." + fraction : text.filter(\.isNumber)
+    /// Digits with at most one decimal mark, thousands groups of exactly three.
+    static func minorUnits(_ text: String, currency: Currency, decimalMark: Character) -> Int64? {
+        let groupMark: Character = decimalMark == "." ? "," : "."
+        guard !text.isEmpty, text.allSatisfy({ $0.isASCIIDigit || $0 == decimalMark || $0 == groupMark }) else {
+            return nil
+        }
+        let halves = text.split(separator: decimalMark, omittingEmptySubsequences: false)
+        guard halves.count <= 2 else { return nil }
+        let whole = halves[0]
+        let fraction = halves.count == 2 ? halves[1] : ""
+        guard !whole.isEmpty, fraction.allSatisfy(\.isASCIIDigit), !(halves.count == 2 && fraction.isEmpty) else {
+            return nil
+        }
+        let groups = whole.split(separator: groupMark, omittingEmptySubsequences: false)
+        guard let first = groups.first, (1...3).contains(first.count) || groups.count == 1,
+            groups.dropFirst().allSatisfy({ $0.count == 3 }), groups.allSatisfy({ !$0.isEmpty })
+        else { return nil }
+        let digits = currency.minorUnitDigits
+        // More decimals than the currency has are refused unless they are zeros ("12.500" for CAD is 12.50).
+        guard fraction.dropFirst(digits).allSatisfy({ $0 == "0" }) else { return nil }
+        let kept = String(fraction.prefix(digits)).padding(toLength: digits, withPad: "0", startingAt: 0)
+        let joined = groups.joined() + kept
+        guard joined.count <= 18, let value = Int64(joined) else { return nil }
+        return value
     }
+
+    /// The decimal mark the column's values show: a mark followed by one or two digits at the end, or the last of
+    /// two different marks. nil when the values don't say (then the user picks).
+    public static func detectDecimalMark(_ values: [String]) -> Character? {
+        var votes: Set<Character> = []
+        for value in values {
+            let marks = value.filter { $0 == "." || $0 == "," }
+            guard let last = value.lastIndex(where: { $0 == "." || $0 == "," }) else { continue }
+            let after = value[value.index(after: last)...].prefix { $0.isASCIIDigit }
+            if Set(marks).count == 2 || (1...2).contains(after.count) {
+                votes.insert(value[last])
+            }
+        }
+        return votes.count == 1 ? votes.first : nil
+    }
+}
+
+extension Character {
+    var isASCIIDigit: Bool { isASCII && isNumber }
 }
