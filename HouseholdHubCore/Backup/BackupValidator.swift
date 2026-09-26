@@ -64,6 +64,23 @@ public enum BackupValidator {
         for category in backup.categories {
             try readable(CategoryKind.self, category.kind, "categories", "kind")
         }
+        // Budgets (Sprint 11): one per existing category that allows expenses, a positive limit in the household
+        // currency.
+        let budgetList = backup.budgets ?? []
+        _ = try ids(budgetList.map(\.id), "budgets")
+        let budgetedCategories = budgetList.map(\.categoryID)
+        guard Set(budgetedCategories).count == budgetedCategories.count else {
+            throw BackupError.duplicateID(entity: "budgets.categoryID")
+        }
+        for budget in budgetList {
+            try required(budget.categoryID, in: categories, "budgets", "categoryID")
+            try positive(budget.limitMinorUnits, "budgets", "limitMinorUnits")
+            try sameCurrency(budget.currencyCode, currency, "budgets")
+            let category = backup.categories.first { $0.id == budget.categoryID }
+            guard category.flatMap({ CategoryKind(rawValue: $0.kind) })?.allows(.expense) == true else {
+                throw BackupError.inconsistentLink(entity: "budgets", field: "categoryID")
+            }
+        }
         for merchant in backup.merchants {
             try exists(merchant.defaultCategoryID, in: categories, "merchants", "defaultCategoryID")
         }

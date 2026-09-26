@@ -12,6 +12,7 @@ struct AnalyticsView: View {
     @Environment(AppRouter.self) private var router
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
+    @Query private var budgets: [CategoryBudget]
 
     @State private var period: AnalyticsPeriod?
     /// The report with the period and pending choice it was computed for, so a late or stale result is never shown.
@@ -89,7 +90,8 @@ struct AnalyticsView: View {
                 NarrativeSection(facts: facts(report))
             }
             CategorySection(
-                report: report, categories: categories, currencyCode: report.income.currencyCode, onSelect: showBudget)
+                report: report, categories: categories, currencyCode: report.income.currencyCode, budgets: budgets,
+                onSelect: showBudget)
             TrendSection(report: report, bucket: selectedPeriod.bucket, currencyCode: report.income.currencyCode)
             if !report.topMerchants.isEmpty {
                 Section("Top merchants") {

@@ -25,6 +25,8 @@ public struct BackupDTO: Codable, Equatable, Sendable {
     public var mediaManifest: [MediaEntry]
     /// v2. Absent in v1 files, where the one household baseline lived in `settings`.
     public var accounts: [AccountDTO]?
+    /// Category budgets (Sprint 11). Absent in older files, which restore with none.
+    public var budgets: [BudgetDTO]?
 
     /// AppSettings minus anything secret (there are no secrets in the store; tokens live in the Keychain, §7.11).
     public struct Settings: Codable, Equatable, Sendable {
@@ -116,6 +118,17 @@ public struct BackupDTO: Codable, Equatable, Sendable {
         /// v2; required once upgraded.
         public var accountID: UUID?
         public var transferAccountID: UUID?
+        public var createdAt: Date
+        public var updatedAt: Date
+    }
+
+    public struct BudgetDTO: Codable, Equatable, Sendable {
+        public var id: UUID
+        public var categoryID: UUID
+        public var limitMinorUnits: Int64
+        public var currencyCode: String
+        public var rollsOver: Bool
+        public var startMonth: Date
         public var createdAt: Date
         public var updatedAt: Date
     }

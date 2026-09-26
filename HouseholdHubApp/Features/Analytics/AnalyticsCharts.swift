@@ -9,6 +9,8 @@ struct CategorySection: View {
     let report: AnalyticsReport
     let categories: [CategoryRecord]
     let currencyCode: String
+    /// Category budgets, so each budgeted category shows its monthly limit (Sprint 11).
+    var budgets: [CategoryBudget] = []
     let onSelect: (UUID?) -> Void
 
     @State private var selectedAngle: Double?
@@ -66,7 +68,7 @@ struct CategorySection: View {
                             CategoryBadge(icon: record?.icon ?? "tray", color: record?.color)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(name(slice.categoryID))
-                                Text(AnalyticsFormat.share(slice.share))
+                                Text(caption(for: slice))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -85,6 +87,12 @@ struct CategorySection: View {
                 .accessibilityIdentifier("analytics.category")
             }
         }
+    }
+
+    private func caption(for slice: CategorySpend) -> String {
+        let share = AnalyticsFormat.share(slice.share)
+        guard let budget = budgets.first(where: { $0.categoryID == slice.categoryID }) else { return share }
+        return share + " · " + String(localized: "limit \(budget.limit.formatted()) a month")
     }
 
     private func hint(for slice: CategorySpend) -> String {

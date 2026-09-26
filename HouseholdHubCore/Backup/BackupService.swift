@@ -67,7 +67,8 @@ public actor BackupService {
             taskItems: sorted(try fetch(TaskItem.self).map(Self.dto), by: \.id),
             subtaskItems: sorted(try fetch(SubtaskItem.self).map(Self.dto), by: \.id),
             mediaManifest: manifest,
-            accounts: sorted(try fetch(Account.self).map(Self.dto), by: \.id))
+            accounts: sorted(try fetch(Account.self).map(Self.dto), by: \.id),
+            budgets: sorted(try fetch(CategoryBudget.self).map(Self.dto), by: \.id))
     }
 
     /// The photo references the store uses now.
@@ -100,6 +101,7 @@ public actor BackupService {
             }
             try merge(backup.accounts ?? [], id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.categories, id: \.id, make: Self.make, apply: Self.apply)
+            try merge(backup.budgets ?? [], id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.merchants, id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.transactions, id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.recurringTransactions, id: \.id, make: Self.make, apply: Self.apply)
@@ -170,6 +172,7 @@ extension BoardColumn: Identified { var recordID: UUID { id } }
 extension TaskItem: Identified { var recordID: UUID { id } }
 extension SubtaskItem: Identified { var recordID: UUID { id } }
 extension Account: Identified { var recordID: UUID { id } }
+extension CategoryBudget: Identified { var recordID: UUID { id } }
 
 /// Each type has `dto` (export), `make` (a new model), and `apply` (copy every stored field onto a model). `make`
 /// builds a minimal model and calls `apply`, so a new and an updated record end up identical.
@@ -324,6 +327,31 @@ extension BackupService {
         model.isEnabled = dto.isEnabled
         model.accountID = dto.accountID
         model.transferAccountID = dto.transferAccountID
+        model.createdAt = dto.createdAt
+        model.updatedAt = dto.updatedAt
+    }
+
+    static func dto(_ model: CategoryBudget) -> BackupDTO.BudgetDTO {
+        BackupDTO.BudgetDTO(
+            id: model.id, categoryID: model.categoryID, limitMinorUnits: model.limitMinorUnits,
+            currencyCode: model.currencyCode, rollsOver: model.rollsOver, startMonth: model.startMonth,
+            createdAt: model.createdAt, updatedAt: model.updatedAt)
+    }
+
+    static func make(_ dto: BackupDTO.BudgetDTO) -> CategoryBudget {
+        let model = CategoryBudget(
+            id: dto.id, categoryID: dto.categoryID, limit: .zero(dto.currencyCode), rollsOver: dto.rollsOver,
+            startMonth: dto.startMonth, now: dto.createdAt)
+        apply(dto, to: model)
+        return model
+    }
+
+    static func apply(_ dto: BackupDTO.BudgetDTO, to model: CategoryBudget) {
+        model.categoryID = dto.categoryID
+        model.limitMinorUnits = dto.limitMinorUnits
+        model.currencyCode = dto.currencyCode
+        model.rollsOver = dto.rollsOver
+        model.startMonth = dto.startMonth
         model.createdAt = dto.createdAt
         model.updatedAt = dto.updatedAt
     }

@@ -7,6 +7,8 @@ struct BudgetView: View {
     enum Segment: String, CaseIterable, Identifiable {
         case transactions
         case recurring
+        /// Category budgets (Sprint 11).
+        case budgets
 
         var id: String { rawValue }
     }
@@ -27,12 +29,15 @@ struct BudgetView: View {
                         .refreshable { isPresentingQuickAdd = true }
                 case .recurring:
                     RecurringListView()
+                case .budgets:
+                    BudgetsListView()
                 }
             }
             .safeAreaInset(edge: .top) {
                 Picker("View", selection: $router.budgetSegment) {
                     Text("Transactions").tag(Segment.transactions)
                     Text("Recurring").tag(Segment.recurring)
+                    Text("Budgets").tag(Segment.budgets)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)

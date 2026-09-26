@@ -66,7 +66,10 @@ public actor CategoryService {
                 FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.categoryID == target }))
             let wishes = try modelContext.fetchCount(
                 FetchDescriptor<WishlistItem>(predicate: #Predicate { $0.categoryID == target }))
-            let wishTypes = Array(repeating: TransactionType.expense, count: wishes)
+            // A budget limits spending, so like a wishlist item it needs a category that allows expenses.
+            let budgets = try modelContext.fetchCount(
+                FetchDescriptor<CategoryBudget>(predicate: #Predicate { $0.categoryID == id }))
+            let wishTypes = Array(repeating: TransactionType.expense, count: wishes + budgets)
             let types = transactions.map(\.type) + series.map(\.type) + wishTypes
             if let misfit = types.first(where: { !kind.allows($0) }) {
                 throw LedgerError.categoryKindMismatch(kind, misfit)
@@ -95,6 +98,7 @@ public actor CategoryService {
         guard !category.isSystem else { throw LedgerError.systemCategoryIsPermanent }
         let references = try referenceCount(id)
         guard references == 0 else { throw LedgerError.categoryInUse(referenceCount: references) }
+        try deleteBudget(of: id)
         modelContext.delete(category)
         try commit()
     }
@@ -117,6 +121,7 @@ public actor CategoryService {
         guard !category.isSystem else { throw LedgerError.systemCategoryIsPermanent }
         guard source != destination else { throw LedgerError.categoryInUse(referenceCount: try referenceCount(source)) }
         let moved = try moveReferences(from: source, to: destination, now: now)
+        try deleteBudget(of: source)
         modelContext.delete(category)
         try commit()
         return moved
@@ -163,14 +168,14 @@ public actor CategoryService {
 
     /// Discards edits left pending by an earlier operation that threw before saving, so this write can't persist
     /// them (the same guard as TaskBoardService).
-    private func begin() {
+    func begin() {
         if modelContext.hasChanges {
             modelContext.rollback()
         }
     }
 
     /// Saves, or discards every pending edit if the save fails, so no later save can persist a failed operation.
-    private func commit() throws {
+    func commit() throws {
         do {
             try modelContext.save()
         } catch {
@@ -179,7 +184,7 @@ public actor CategoryService {
         }
     }
 
-    private func requireCategory(_ id: UUID) throws -> CategoryRecord {
+    func requireCategory(_ id: UUID) throws -> CategoryRecord {
         let descriptor = FetchDescriptor<CategoryRecord>(predicate: #Predicate { $0.id == id })
         guard let category = try modelContext.fetch(descriptor).first else { throw LedgerError.unknownCategory }
         return category

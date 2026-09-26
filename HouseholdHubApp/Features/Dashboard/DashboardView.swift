@@ -15,6 +15,8 @@ struct DashboardView: View {
     @Query private var recentWishes: [WishlistItem]
     @Query private var recentTasks: [TaskItem]
     @State private var summary: DashboardSummary?
+    /// The three budgets closest to, or over, their limit this month (Sprint 11).
+    @State private var budgets: [BudgetStatus] = []
     @State private var loadFailed = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -74,6 +76,9 @@ struct DashboardView: View {
                         balanceCards(summary)
                         if summary.accounts.count > 1 {
                             accountsCard(summary.accounts)
+                        }
+                        if !budgets.isEmpty {
+                            budgetsCard(budgets)
                         }
                         upcomingCard(summary.upcoming)
                     } else if loadFailed {
@@ -142,6 +147,28 @@ struct DashboardView: View {
                 Toggle("Include pending", isOn: pendingBinding)
                     .font(.subheadline)
                     .accessibilityIdentifier("dashboard.includePending")
+            }
+        }
+    }
+
+    /// The three budgets nearest their limit; a row opens that category's transactions this month.
+    private func budgetsCard(_ statuses: [BudgetStatus]) -> some View {
+        DashboardCard(title: "Budgets", identifier: "dashboard.budgets") {
+            router.showBudget(.budgets)
+        } content: {
+            VStack(spacing: 10) {
+                ForEach(statuses, id: \.categoryID) { status in
+                    if let category = categories.first(where: { $0.id == status.categoryID }) {
+                        Button {
+                            router.showBudget(
+                                .transactions, filter: TransactionFilter(period: .thisMonth, categoryID: category.id))
+                        } label: {
+                            BudgetRow(status: status, category: category)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("dashboard.budget")
+                    }
+                }
             }
         }
     }
@@ -275,8 +302,10 @@ struct DashboardView: View {
     private func refresh() async {
         guard let services else { return }
         do {
-            summary = try await services.transactions.dashboardSummary(
-                now: .now, calendar: HouseholdCalendar(timeZone: .current))
+            let calendar = HouseholdCalendar(timeZone: .current)
+            summary = try await services.transactions.dashboardSummary(now: .now, calendar: calendar)
+            let report = try await services.transactions.budgetReport(month: .now, calendar: calendar)
+            budgets = Array(report.sorted { $0.usedFraction > $1.usedFraction }.prefix(3))
             loadFailed = false
         } catch {
             loadFailed = true
