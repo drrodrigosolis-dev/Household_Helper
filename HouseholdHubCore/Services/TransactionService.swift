@@ -484,6 +484,53 @@ public actor TransactionService {
         try commit()
     }
 
+    /// Changes a series' template and rule (spec §9.4: occurrences are computed, so a rule change only moves the
+    /// projection). Transactions already posted from it keep their own amount, date, and category; the next
+    /// occurrence is recomputed after the latest one posted, so nothing is offered twice.
+    public func updateSeries(
+        _ id: UUID, templateAmount: Money, type: TransactionType, rule: RecurrenceRule, startDate: Date,
+        endDate: Date? = nil, categoryID: UUID?, notes: String?, now: Date
+    ) throws {
+        begin()
+        guard let series = try recurringSeries(id) else { throw LedgerError.unknownSeries }
+        guard templateAmount.minorUnits > 0 else { throw LedgerError.nonPositiveAmount }
+        guard type != .transfer else { throw LedgerError.transfersUnavailable }
+        try requireCurrency(templateAmount, try requireSettings())
+        if let categoryID {
+            // An unchanged category that was archived since may stay; a newly picked one must be active.
+            try requireUsableCategory(categoryID, for: type, allowArchived: categoryID == series.categoryID)
+        }
+        try series.setRule(rule)
+        series.templateAmountMinorUnits = templateAmount.minorUnits
+        series.currencyCode = templateAmount.currencyCode
+        series.type = type
+        series.startDate = startDate
+        series.endDate = endDate
+        series.categoryID = categoryID
+        series.notes = notes
+        series.updatedAt = now
+        let target: UUID? = id
+        let posted = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.recurringSeriesID == target })
+        let latest = try modelContext.fetch(posted).compactMap(\.scheduledOccurrence).max()
+        // `nextOccurrence(after:)` is strict, so step back one second to include the start itself.
+        let after = max(latest ?? .distantPast, startDate.addingTimeInterval(-1))
+        series.nextOccurrence = RecurrenceEngine().nextOccurrence(of: try series.series(), after: after)
+        try commit()
+    }
+
+    /// Deletes a series nothing was posted from. With posted transactions it is refused, so their provenance stays
+    /// intact (CLAUDE.md §5: never silently delete financial history); disabling stops future occurrences instead.
+    public func deleteSeries(_ id: UUID) throws {
+        begin()
+        guard let series = try recurringSeries(id) else { throw LedgerError.unknownSeries }
+        let target: UUID? = id
+        let posted = try modelContext.fetchCount(
+            FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.recurringSeriesID == target }))
+        guard posted == 0 else { throw LedgerError.seriesHasHistory(postedCount: posted) }
+        modelContext.delete(series)
+        try commit()
+    }
+
     // MARK: Persistence
 
     /// Discards edits left pending by an earlier operation that threw before saving, so this write can't persist

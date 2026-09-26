@@ -18,6 +18,8 @@ public enum LedgerError: Error, Equatable, Sendable {
     case unknownSeries
     case notAnOccurrence
     case alreadyMaterialized
+    /// Transactions posted from the series still reference it; disable it instead (never delete history silently).
+    case seriesHasHistory(postedCount: Int)
     case unknownTransaction
     /// Transactions, series, and wishlist items that still reference the category.
     case categoryInUse(referenceCount: Int)

@@ -2,7 +2,8 @@ import HouseholdHubCore
 import SwiftData
 import SwiftUI
 
-/// Creates a recurring series (spec §7.5–7.6). Only the v1 rule forms are offered; the service validates.
+/// Creates or edits a recurring series (spec §7.5–7.6). Only the v1 rule forms are offered; the service validates.
+/// Editing changes future occurrences only (§9.4); transactions already posted from the series stay as they are.
 struct RecurringEditorView: View {
     enum RuleKind: String, CaseIterable, Identifiable {
         case weekly
@@ -31,9 +32,53 @@ struct RecurringEditorView: View {
     @State private var startDate = Date.now
     @State private var errorMessage: String?
     @State private var isSaving = false
+    /// The series being edited; nil when creating one.
+    private let seriesID: UUID?
+
+    /// Kept as it was when editing; the editor doesn't offer an end date.
+    private let endDate: Date?
+
+    init() {
+        seriesID = nil
+        endDate = nil
+    }
+
+    init(series: RecurringTransaction) {
+        seriesID = series.id
+        _name = State(initialValue: series.notes ?? "")
+        _type = State(initialValue: series.type)
+        _amountText = State(initialValue: LedgerFormat.editableAmount(series.templateAmount))
+        _categoryID = State(initialValue: series.categoryID)
+        _startDate = State(initialValue: series.startDate)
+        switch try? series.rule() {
+        case .weekly(let interval, let weekday):
+            _ruleKind = State(initialValue: .weekly)
+            _interval = State(initialValue: interval)
+            _weekday = State(initialValue: weekday)
+        case .monthlyOnDay(let day):
+            _ruleKind = State(initialValue: .monthlyOnDay)
+            _dayOfMonth = State(initialValue: day)
+        case .monthlyOnWeekday(let ordinal, let weekday):
+            _ruleKind = State(initialValue: .monthlyOnWeekday)
+            _ordinal = State(initialValue: ordinal)
+            _weekday = State(initialValue: weekday)
+        case .yearly(let month, let day):
+            _ruleKind = State(initialValue: .yearly)
+            _month = State(initialValue: month)
+            _dayOfMonth = State(initialValue: day)
+        case nil:
+            break
+        }
+        endDate = series.endDate
+    }
 
     private var currencyCode: String { settings.first?.currencyCode ?? "CAD" }
     private var amount: Money? { LedgerFormat.parseAmount(amountText, currencyCode: currencyCode) }
+
+    /// Active categories for the type, plus the series' own even if it was archived since.
+    private var pickableCategories: [CategoryRecord] {
+        categories.filter { ($0.id == categoryID || !$0.isArchived) && $0.kind.allows(type) }
+    }
 
     private var rule: RecurrenceRule {
         switch ruleKind {
@@ -66,7 +111,7 @@ struct RecurringEditorView: View {
                     }
                     Picker("Category", selection: $categoryID) {
                         Text("None").tag(UUID?.none)
-                        ForEach(categories.filter { !$0.isArchived && $0.kind.allows(type) }) { category in
+                        ForEach(pickableCategories) { category in
                             Text(category.name).tag(UUID?.some(category.id))
                         }
                     }
@@ -88,7 +133,7 @@ struct RecurringEditorView: View {
                     ErrorText(errorMessage)
                 }
             }
-            .navigationTitle("New Recurring Item")
+            .navigationTitle(seriesID == nil ? Text("New Recurring Item") : Text("Edit Recurring Item"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -142,10 +187,17 @@ struct RecurringEditorView: View {
         isSaving = true
         defer { isSaving = false }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let notes = trimmed.isEmpty ? nil : trimmed
         do {
-            try await services.transactions.createSeries(
-                templateAmount: amount, type: type, rule: rule, timeZone: .current, startDate: startDate,
-                categoryID: categoryID, notes: trimmed.isEmpty ? nil : trimmed, now: .now)
+            if let seriesID {
+                try await services.transactions.updateSeries(
+                    seriesID, templateAmount: amount, type: type, rule: rule, startDate: startDate, endDate: endDate,
+                    categoryID: categoryID, notes: notes, now: .now)
+            } else {
+                try await services.transactions.createSeries(
+                    templateAmount: amount, type: type, rule: rule, timeZone: .current, startDate: startDate,
+                    categoryID: categoryID, notes: notes, now: .now)
+            }
             dismiss()
         } catch RecurrenceRuleError.invalid {
             errorMessage = String(localized: "That date doesn't exist in the chosen month.")
