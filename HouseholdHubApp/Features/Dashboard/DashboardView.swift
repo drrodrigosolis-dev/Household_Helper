@@ -100,7 +100,15 @@ struct DashboardView: View {
         ) {
             router.showBudget(.transactions, filter: posted)
         } content: {
-            AmountText(summary.balance.current.formatted(), font: .largeTitle.bold())
+            // Quick Add from the primary card as well as the floating button (spec §24.3).
+            HStack(alignment: .firstTextBaseline) {
+                AmountText(summary.balance.current.formatted(), font: .largeTitle.bold())
+                Spacer(minLength: 8)
+                Button("Add", systemImage: "plus") { router.isQuickAddPresented = true }
+                    .buttonStyle(.bordered)
+                    .accessibilityLabel("Quick Add")
+                    .accessibilityIdentifier("dashboard.quickAdd")
+            }
         }
         pairLayout {
             DashboardCard(
@@ -184,14 +192,21 @@ struct DashboardView: View {
                 Text("No transactions yet. Tap + to add one.").foregroundStyle(.secondary)
             } else {
                 VStack(spacing: 8) {
+                    // Each row opens its own tab (spec §24.2 "deep-link into owning tab").
                     ForEach(activity) { entry in
                         switch entry {
                         case .transaction(let record):
-                            TransactionRow(record: record, category: categories.first { $0.id == record.categoryID })
+                            Button { router.showBudget(.transactions) } label: {
+                                TransactionRow(
+                                    record: record, category: categories.first { $0.id == record.categoryID })
+                            }
+                            .buttonStyle(.plain)
                         case .wishlist(let item):
-                            WishlistRow(item: item)
+                            Button { router.show(.wishlist) } label: { WishlistRow(item: item) }
+                                .buttonStyle(.plain)
                         case .task(let task):
-                            TaskActivityRow(task: task)
+                            Button { router.show(.tasks) } label: { TaskActivityRow(task: task) }
+                                .buttonStyle(.plain)
                         }
                     }
                 }

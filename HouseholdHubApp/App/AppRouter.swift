@@ -25,6 +25,11 @@ final class AppRouter {
     /// True while a backup is being restored; nothing else may write meanwhile (the Log Transaction shortcut waits).
     var isRestoring = false
 
+    /// Opens a tab at its root, e.g. a wishlist or task row in the Dashboard's recent activity (spec §24.2).
+    func show(_ destination: AppTab) {
+        tab = destination
+    }
+
     func showBudget(_ segment: BudgetView.Segment, filter: TransactionFilter = TransactionFilter()) {
         budgetSegment = segment
         budgetFilter = filter

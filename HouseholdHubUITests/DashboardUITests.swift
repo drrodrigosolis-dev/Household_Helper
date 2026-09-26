@@ -25,4 +25,27 @@ final class DashboardUITests: XCTestCase {
         projected.tap()
         XCTAssertTrue(app.buttons["recurring.addEmpty"].waitForExistence(timeout: 5))
     }
+
+    /// v1 audit: Quick Add opens from the Current balance card, and a task in Recent activity opens the Tasks tab.
+    @MainActor
+    func testBalanceCardOpensQuickAddAndActivityRowsOpenTheirTab() {
+        let app = launchApp()
+        let add = app.buttons["dashboard.quickAdd"]
+        XCTAssertTrue(add.waitForExistence(timeout: 30), "Current balance card has no Quick Add button")
+        add.tap()
+        let field = app.textFields["quickadd.text"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Quick Add sheet did not open from the card")
+        field.tap()
+        field.typeText("fix the shelf")
+        app.segmentedControls["quickadd.type"].buttons["Task"].tap()
+        app.buttons["quickadd.save"].tap()
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: field)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 10), .completed, "Quick Add did not save the task")
+
+        let row = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "fix the shelf"))
+            .firstMatch
+        XCTAssertTrue(scrollUntilExists(app, row), "The new task is missing from Recent activity")
+        row.tap()
+        XCTAssertTrue(app.navigationBars["Tasks"].waitForExistence(timeout: 5), "A task row should open Tasks")
+    }
 }
