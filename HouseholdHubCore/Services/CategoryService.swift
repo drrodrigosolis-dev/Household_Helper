@@ -133,6 +133,8 @@ public actor CategoryService {
             FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.categoryID == sourceID }))
         let wishes = try modelContext.fetch(
             FetchDescriptor<WishlistItem>(predicate: #Predicate { $0.categoryID == sourceID }))
+        let merchants = try modelContext.fetch(
+            FetchDescriptor<Merchant>(predicate: #Predicate { $0.defaultCategoryID == sourceID }))
         // Validate everything before mutating: a throw mid-loop would leave unsaved edits in this actor's context.
         // Wishlist items are future expenses, so they need an expense-capable destination.
         let types = transactions.map(\.type) + series.map(\.type) + wishes.map { _ in TransactionType.expense }
@@ -150,6 +152,10 @@ public actor CategoryService {
         for item in wishes {
             item.categoryID = destination
             item.updatedAt = now
+        }
+        // A merchant's default category is only a suggestion, so it follows without a kind check.
+        for merchant in merchants {
+            merchant.defaultCategoryID = destination
         }
         return transactions.count
     }
@@ -183,8 +189,9 @@ public actor CategoryService {
         let transactions = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.categoryID == target })
         let series = FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.categoryID == target })
         let wishes = FetchDescriptor<WishlistItem>(predicate: #Predicate { $0.categoryID == target })
+        let merchants = FetchDescriptor<Merchant>(predicate: #Predicate { $0.defaultCategoryID == target })
         return try modelContext.fetchCount(transactions) + modelContext.fetchCount(series)
-            + modelContext.fetchCount(wishes)
+            + modelContext.fetchCount(wishes) + modelContext.fetchCount(merchants)
     }
 }
 

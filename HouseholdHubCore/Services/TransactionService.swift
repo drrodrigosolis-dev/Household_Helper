@@ -243,6 +243,11 @@ public actor TransactionService {
         begin()
         let record = try requireTransaction(id)
         let series = try record.recurringSeriesID.flatMap { try recurringSeries($0) }
+        // Fetched before the first edit. A deleted transaction must not leave a task pointing at it: a dangling id
+        // would make every later backup fail validation.
+        let target: UUID? = id
+        let linkedTasks = try modelContext.fetch(
+            FetchDescriptor<TaskItem>(predicate: #Predicate { $0.linkedTransactionID == target }))
         if alsoDisableSeries, let series {
             series.isEnabled = false
             series.updatedAt = now
@@ -252,6 +257,10 @@ public actor TransactionService {
             record.updatedAt = now
         } else {
             try revertPurchase(linkedTo: record, now: now)
+            for task in linkedTasks {
+                task.linkedTransactionID = nil
+                task.updatedAt = now
+            }
             modelContext.delete(record)
         }
         try commit()

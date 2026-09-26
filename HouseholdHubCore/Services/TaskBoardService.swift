@@ -186,8 +186,16 @@ public actor TaskBoardService {
     public func deleteTask(_ id: UUID) throws {
         begin()
         let task = try requireTask(id)
-        for subtask in try subtasks(of: id) {
+        let children = try subtasks(of: id)
+        // A wishlist item linked to this task loses the link rather than keep a dangling id (backups validate it).
+        let target: UUID? = id
+        let linkedWishes = try modelContext.fetch(
+            FetchDescriptor<WishlistItem>(predicate: #Predicate { $0.linkedTaskID == target }))
+        for subtask in children {
             modelContext.delete(subtask)
+        }
+        for wish in linkedWishes {
+            wish.linkedTaskID = nil
         }
         modelContext.delete(task)
         try commit()

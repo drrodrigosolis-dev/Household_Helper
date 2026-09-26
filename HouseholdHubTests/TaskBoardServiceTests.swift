@@ -262,6 +262,33 @@ struct TaskBoardServiceTests {
         #expect(try fixture.context().fetch(FetchDescriptor<SubtaskItem>()).map(\.title) == ["Keep step"])
     }
 
+    /// Phase 10 review: deleting either end of a task link clears the other side, so no backup carries a dangling id.
+    @Test func deletingLinkedRecordsClearsTheLinks() async throws {
+        let fixture = try await makeFixture()
+        try await fixture.ledger.ensureSettings(currencyCode: "CAD", now: now)
+        let task = try await add("Buy lamp", to: fixture)
+        let wish = try await fixture.ledger.createWishlistItem(
+            WishlistDraft(name: "Lamp", estimatedPrice: Money(minorUnits: 4_000, currencyCode: "CAD")), now: now)
+        let spent = try await fixture.ledger.create(
+            TransactionDraft(amount: Money(minorUnits: 4_000, currencyCode: "CAD"), type: .expense, occurredAt: now),
+            now: now)
+        let context = fixture.context()
+        let wishRecord = try #require(try context.fetch(FetchDescriptor<WishlistItem>()).first { $0.id == wish })
+        wishRecord.linkedTaskID = task
+        let taskRecord = try #require(try context.fetch(FetchDescriptor<TaskItem>()).first { $0.id == task })
+        taskRecord.linkedTransactionID = spent
+        try context.save()
+
+        try await fixture.ledger.deleteTransaction(spent, alsoDisableSeries: false, now: now)
+        #expect(try fixture.task(task).linkedTransactionID == nil)
+        try await fixture.board.deleteTask(task)
+        let after = try fixture.context().fetch(FetchDescriptor<WishlistItem>())
+        #expect(after.first?.linkedTaskID == nil)
+        let backupService = BackupService.make(container: fixture.container)
+        let backup = try await backupService.snapshot(now: now, appVersion: "1") { _ in nil }
+        try BackupValidator.validate(backup)
+    }
+
     // MARK: Subtasks
 
     @Test func subtasksAddToggleRenameReorderAndDelete() async throws {
