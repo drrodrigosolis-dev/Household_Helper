@@ -43,7 +43,7 @@ struct DataView: View {
                     importKind = .backup
                     isImporting = true
                 }
-                    .accessibilityIdentifier("data.restore")
+                .accessibilityIdentifier("data.restore")
             } header: {
                 Text("Backup")
             } footer: {

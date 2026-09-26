@@ -108,6 +108,7 @@ struct CSVImportView: View {
 
     var body: some View {
         let included = rows.filter(isIncluded)
+        let ready = !included.isEmpty && chosenAccountID != nil && missingChoice == nil && existing != nil
         Form {
             columnsSection
             readingSection
@@ -139,9 +140,7 @@ struct CSVImportView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Import") { isConfirming = true }
-                    .disabled(
-                        included.isEmpty || chosenAccountID == nil || missingChoice != nil || existing == nil
-                            || isSaving)
+                    .disabled(!ready || isSaving)
                     .accessibilityIdentifier("csv.import")
             }
         }
