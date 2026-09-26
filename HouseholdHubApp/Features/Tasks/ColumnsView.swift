@@ -8,13 +8,23 @@ struct ColumnsView: View {
     @Environment(\.services) private var services
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \BoardColumn.sortOrder) private var columns: [BoardColumn]
-    @Query(filter: #Predicate<TaskItem> { $0.archivedAt == nil }) private var tasks: [TaskItem]
+    /// All tasks, archived included: a column delete moves those too, so the dialog counts them.
+    @Query private var tasks: [TaskItem]
 
     @State private var newName = ""
     @State private var renaming: BoardColumn?
     @State private var renameText = ""
     @State private var pendingDelete: BoardColumn?
+    @State private var pendingReorder: Reorder?
     @State private var errorMessage: String?
+
+    /// A reorder that changes which column is last, held for confirmation: it re-marks tasks complete or open.
+    struct Reorder {
+        let columnID: UUID
+        let index: Int
+        let newDone: String
+        let oldDone: String
+    }
 
     var body: some View {
         List {
@@ -54,6 +64,12 @@ struct ColumnsView: View {
             Button("Save") { rename(column) }
             Button("Cancel", role: .cancel) {}
         }
+        .alert("Change the done column?", isPresented: reorderShown, presenting: pendingReorder) { reorder in
+            Button("Make \(reorder.newDone) the done column") { perform(reorder) }
+            Button("Cancel", role: .cancel) {}
+        } message: { reorder in
+            Text("Tasks in \(reorder.newDone) will be marked complete and tasks in \(reorder.oldDone) reopened.")
+        }
         .confirmationDialog(
             "Delete this column?", isPresented: deleteShown, titleVisibility: .visible, presenting: pendingDelete
         ) { column in
@@ -70,7 +86,7 @@ struct ColumnsView: View {
         HStack {
             Text(column.name)
             Spacer()
-            Text("\(tasks.filter { $0.columnID == column.id }.count)")
+            Text("\(tasks.filter { $0.columnID == column.id && $0.archivedAt == nil }.count)")
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
             Menu {
@@ -90,15 +106,24 @@ struct ColumnsView: View {
     }
 
     private func deleteMessage(_ column: BoardColumn) -> String {
-        let count = tasks.filter { $0.columnID == column.id }.count
-        if count == 0 {
+        let inColumn = tasks.filter { $0.columnID == column.id }
+        let archived = inColumn.filter { $0.archivedAt != nil }.count
+        if inColumn.isEmpty {
             return String(localized: "Choose where tasks would go; this column is empty.")
         }
-        return String(localized: "Its \(count) tasks move to the column you choose before it is deleted.")
+        if archived > 0 {
+            return String(
+                localized: "Its \(inColumn.count) tasks (\(archived) archived) move to the column you choose first.")
+        }
+        return String(localized: "Its \(inColumn.count) tasks move to the column you choose before it is deleted.")
     }
 
     private var renameShown: Binding<Bool> {
         Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })
+    }
+
+    private var reorderShown: Binding<Bool> {
+        Binding(get: { pendingReorder != nil }, set: { if !$0 { pendingReorder = nil } })
     }
 
     private var deleteShown: Binding<Bool> {
@@ -123,7 +148,21 @@ struct ColumnsView: View {
         guard let from = source.first else { return }
         let id = columns[from].id
         let index = destination > from ? destination - 1 : destination
-        run { try await $0.board.moveColumn(id, to: index, now: .now) }
+        var order = columns
+        let moved = order.remove(at: from)
+        order.insert(moved, at: min(index, order.count))
+        let reorder = Reorder(
+            columnID: id, index: index, newDone: order.last?.name ?? "", oldDone: columns.last?.name ?? "")
+        if order.last?.id != columns.last?.id {
+            pendingReorder = reorder
+        } else {
+            perform(reorder)
+        }
+    }
+
+    private func perform(_ reorder: Reorder) {
+        pendingReorder = nil
+        run { try await $0.board.moveColumn(reorder.columnID, to: reorder.index, now: .now) }
     }
 
     private func delete(_ column: BoardColumn, to target: BoardColumn) {

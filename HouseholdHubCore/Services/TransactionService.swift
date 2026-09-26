@@ -119,6 +119,8 @@ public actor TransactionService {
             // A category archived after this record was filed stays valid for the record; new use is refused.
             try requireUsableCategory(categoryID, for: draft.type, allowArchived: categoryID == record.categoryID)
         }
+        // Fetched before the first edit (the merchant insert below), so a failed fetch leaves nothing pending.
+        let linkedItem = try record.wishlistItemID.flatMap { try wishlistItem($0) }
         var merchantID: UUID?
         let name = draft.merchantName.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
         if !Merchant.normalize(name).isEmpty {
@@ -135,7 +137,7 @@ public actor TransactionService {
         record.merchantNameSnapshot = merchantID == nil ? nil : name
         record.updatedAt = now
         // A purchase's item records the price actually paid; keep it in step with the edited transaction.
-        if let itemID = record.wishlistItemID, let item = try wishlistItem(itemID), item.purchasedTransactionID == id {
+        if let item = linkedItem, item.purchasedTransactionID == id {
             item.actualPriceMinorUnits = draft.amount.minorUnits
             item.updatedAt = now
         }

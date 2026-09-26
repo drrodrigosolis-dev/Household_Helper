@@ -61,16 +61,19 @@ extension TransactionService {
     /// item's media reference so the caller can remove the image file after the delete is saved.
     @discardableResult
     public func deleteWishlistItem(_ id: UUID, now: Date) throws -> String? {
+        // Every fetch happens before the first edit, so a failed fetch leaves no pending edits behind.
         let item = try requireWishlistItem(id)
         let media = item.mediaReference
-        if let transactionID = item.purchasedTransactionID, let record = try transaction(transactionID) {
+        let record = try item.purchasedTransactionID.flatMap { try transaction($0) }
+        let itemID: UUID? = id
+        let linked = try modelContext.fetch(
+            FetchDescriptor<TaskItem>(predicate: #Predicate { $0.linkedWishlistItemID == itemID }))
+        if let record {
             record.wishlistItemID = nil
             record.updatedAt = now
         }
         // Tasks linked to the item keep existing; only the link goes (spec §7.8 links are optional).
-        let itemID: UUID? = id
-        let linked = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.linkedWishlistItemID == itemID })
-        for task in try modelContext.fetch(linked) {
+        for task in linked {
             task.linkedWishlistItemID = nil
             task.updatedAt = now
         }

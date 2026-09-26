@@ -63,6 +63,9 @@ struct TaskBoardServiceTests {
 
     @Test func sortKeysRefuseGapsTooSmallToSplit() {
         #expect(SortKey.between(1.0, 1.0 + SortKey.minimumGap / 2) == nil)
+        // At large magnitudes the midpoint can round onto a neighbour; that also forces a renumber.
+        let big = 1e17
+        #expect(SortKey.between(big, big.nextUp) == nil)
     }
 
     // MARK: Columns
@@ -103,6 +106,43 @@ struct TaskBoardServiceTests {
         #expect(try fixture.context().fetchCount(FetchDescriptor<TaskItem>()) == 3)
     }
 
+    @Test func deletingAColumnMovesArchivedTasksToo() async throws {
+        let fixture = try await makeFixture()
+        let waiting = try await fixture.board.createColumn(named: "Waiting", now: now)
+        let todo = try fixture.columns()[0].id
+        let hidden = try await add("Old errand", in: waiting, to: fixture)
+        try await fixture.board.setTaskArchived(true, task: hidden, now: now)
+        try await fixture.board.deleteColumn(waiting, movingTasksTo: todo, now: now)
+        #expect(try fixture.task(hidden).columnID == todo)
+        #expect(try fixture.context().fetchCount(FetchDescriptor<TaskItem>()) == 1)
+    }
+
+    @Test func deletingTheDoneColumnMovesCompletionToTheNewLastColumn() async throws {
+        let fixture = try await makeFixture()
+        let columns = try fixture.columns()
+        let custom = try await fixture.board.createColumn(named: "Shipped", now: now)
+        let inDone = try await add("Finished", in: columns[2].id, to: fixture)
+        // Move the custom column to the end: it becomes the done column.
+        try await fixture.board.moveColumn(custom, to: 3, now: now)
+        let shipped = try await add("Shipped item", in: custom, to: fixture)
+        #expect(try fixture.task(inDone).completedAt == nil)
+        #expect(try fixture.task(shipped).completedAt == now)
+        let later = now.addingTimeInterval(60)
+        try await fixture.board.deleteColumn(custom, movingTasksTo: columns[0].id, now: later)
+        #expect(try fixture.columns().map(\.name) == ["To Do", "In Progress", "Done"])
+        #expect(try fixture.task(inDone).completedAt == later)
+        #expect(try fixture.task(shipped).completedAt == nil)
+    }
+
+    @Test func archivedTasksKeepTheirCompletionWhenTheDoneColumnChanges() async throws {
+        let fixture = try await makeFixture()
+        let columns = try fixture.columns()
+        let old = try await add("Old win", in: columns[2].id, to: fixture)
+        try await fixture.board.setTaskArchived(true, task: old, now: now)
+        try await fixture.board.moveColumn(columns[1].id, to: 2, now: now.addingTimeInterval(60))
+        #expect(try fixture.task(old).completedAt == now)
+    }
+
     @Test func systemColumnsCannotBeDeleted() async throws {
         let fixture = try await makeFixture()
         let columns = try fixture.columns()
@@ -133,9 +173,14 @@ struct TaskBoardServiceTests {
         await #expect(throws: TaskBoardError.emptyTitle) {
             try await fixture.board.createTask(TaskDraft(title: "  "), now: now)
         }
-        await #expect(throws: TaskBoardError.unknownWishlistItem) {
-            try await fixture.board.createTask(TaskDraft(title: "Buy", linkedWishlistItemID: UUID()), now: now)
+        await #expect(throws: TaskBoardError.unknownColumn) {
+            try await fixture.board.createTask(TaskDraft(title: "Buy"), in: UUID(), now: now)
         }
+        // A link to an item that no longer exists is dropped rather than blocking the save.
+        let stale = try await fixture.board.createTask(
+            TaskDraft(title: "Buy", linkedWishlistItemID: UUID()), now: now)
+        #expect(try fixture.task(stale).linkedWishlistItemID == nil)
+        try await fixture.board.deleteTask(stale)
         let first = try await add("  Water plants ", to: fixture)
         _ = try await add("Take out bins", to: fixture)
         let todo = try fixture.columns()[0].id
@@ -201,8 +246,9 @@ struct TaskBoardServiceTests {
         try await fixture.board.setTaskArchived(true, task: id, now: now)
         #expect(try fixture.titles(in: todo).isEmpty)
         #expect(try fixture.task(id).archivedAt == now)
+        _ = try await add("Newer chore", to: fixture)
         try await fixture.board.setTaskArchived(false, task: id, now: now)
-        #expect(try fixture.titles(in: todo) == ["Old chore"])
+        #expect(try fixture.titles(in: todo) == ["Newer chore", "Old chore"], "Unarchived tasks return at the bottom")
     }
 
     @Test func deletingATaskDeletesItsSubtasksOnly() async throws {
@@ -232,6 +278,13 @@ struct TaskBoardServiceTests {
         try await fixture.board.renameSubtask(buy, to: "Buy paint and rollers", now: now)
         try await fixture.board.deleteSubtask(tape)
         #expect(try fixture.subtaskTitles(of: id) == ["Buy paint and rollers"])
+        let extra = try await fixture.board.addSubtask(titled: "Clean brushes", to: id, now: now)
+        await #expect(throws: TaskBoardError.unknownSubtask) {
+            try await fixture.board.deleteSubtasks([extra, UUID()])
+        }
+        #expect(try fixture.subtaskTitles(of: id).count == 2, "A failed batch delete removes nothing")
+        try await fixture.board.deleteSubtasks([buy, extra])
+        #expect(try fixture.subtaskTitles(of: id).isEmpty)
     }
 
     // MARK: Links

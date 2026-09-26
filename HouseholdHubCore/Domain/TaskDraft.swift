@@ -51,8 +51,10 @@ public enum SortKey {
         case (let low?, nil): return low + 1
         case (nil, let high?): return high - 1
         case (let low?, let high?):
-            guard high - low > minimumGap else { return nil }
-            return (low + high) / 2
+            let middle = (low + high) / 2
+            // Both checks: the gap test catches near-ties, the ordering test catches rounding at large magnitudes.
+            guard high - low > minimumGap, low < middle, middle < high else { return nil }
+            return middle
         }
     }
 }

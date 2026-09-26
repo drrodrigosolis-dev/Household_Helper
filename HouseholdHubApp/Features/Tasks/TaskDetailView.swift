@@ -59,11 +59,7 @@ struct TaskDetailView: View {
                 .onMove { source, destination in moveSubtask(from: source, to: destination) }
                 .onDelete { offsets in
                     let ids = offsets.map { subtasks[$0].id }
-                    run { services in
-                        for id in ids {
-                            try await services.board.deleteSubtask(id)
-                        }
-                    }
+                    run { try await $0.board.deleteSubtasks(ids) }
                 }
                 HStack {
                     TextField("Add a subtask", text: $newSubtask)
@@ -260,9 +256,10 @@ struct TaskEditorView: View {
         guard let services, canSave else { return }
         isSaving = true
         defer { isSaving = false }
+        // A due date is a calendar day (spec §10): stored as the start of that day in the household calendar.
+        let due = hasDueDate ? HouseholdCalendar(timeZone: .current).startOfDay(for: dueDate) : nil
         let draft = TaskDraft(
-            title: title, notes: notes, priority: priority, dueDate: hasDueDate ? dueDate : nil,
-            linkedWishlistItemID: wishID)
+            title: title, notes: notes, priority: priority, dueDate: due, linkedWishlistItemID: wishID)
         do {
             if let task {
                 try await services.board.updateTask(task.id, with: draft, now: .now)

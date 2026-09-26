@@ -4,6 +4,7 @@ import Synchronization
 
 /// The Kanban board (spec §7.8–§7.10, §8.5): columns, tasks, subtasks, ordering, and the completion rule.
 /// One instance per container, like the other services, so every board write goes through one serial context.
+/// (`TransactionService` also clears task links when it deletes a wishlist item; see `existingWishlistLink`.)
 ///
 /// Completion follows the board: the last column is the "done" column. A task in it has `completedAt`; a task
 /// anywhere else does not. Every write that can change a task's column, or which column is last, re-applies this.
@@ -28,6 +29,7 @@ public actor TaskBoardService {
 
     /// Inserts the default system columns once. Names are stored data and can be renamed.
     public func seedDefaultColumnsIfNeeded(now: Date) throws {
+        begin()
         guard try modelContext.fetchCount(FetchDescriptor<BoardColumn>()) == 0 else { return }
         for (index, name) in Self.defaultColumnNames.enumerated() {
             modelContext.insert(BoardColumn(name: name, sortOrder: index, isSystem: true, now: now))
@@ -38,6 +40,7 @@ public actor TaskBoardService {
     /// Adds a custom column just before the done column, so "last column = done" keeps its meaning.
     @discardableResult
     public func createColumn(named name: String, now: Date) throws -> UUID {
+        begin()
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw TaskBoardError.emptyColumnName }
         var ordered = try columns()
@@ -50,6 +53,7 @@ public actor TaskBoardService {
     }
 
     public func renameColumn(_ id: UUID, to name: String, now: Date) throws {
+        begin()
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw TaskBoardError.emptyColumnName }
         let column = try requireColumn(id)
@@ -60,6 +64,7 @@ public actor TaskBoardService {
 
     /// Moves a column to `index` in the board order. If the done column changes, completion is re-applied.
     public func moveColumn(_ id: UUID, to index: Int, now: Date) throws {
+        begin()
         var ordered = try columns()
         guard let from = ordered.firstIndex(where: { $0.id == id }) else { throw TaskBoardError.unknownColumn }
         let column = ordered.remove(at: from)
@@ -71,11 +76,12 @@ public actor TaskBoardService {
 
     /// Spec §8.5: a column with tasks is deleted only after its tasks move to `destination`, in the same save.
     public func deleteColumn(_ id: UUID, movingTasksTo destination: UUID, now: Date) throws {
+        begin()
         let column = try requireColumn(id)
         guard !column.isSystem else { throw TaskBoardError.systemColumnIsPermanent }
         guard destination != id else { throw TaskBoardError.destinationIsSource }
         _ = try requireColumn(destination)
-        var key = try tasks(in: destination).last?.sortOrder ?? 0
+        var key = try tasks(in: destination, includingArchived: true).last?.sortOrder ?? 0
         for task in try tasks(in: id, includingArchived: true) {
             key += 1
             task.columnID = destination
@@ -94,13 +100,15 @@ public actor TaskBoardService {
     /// Adds a task at the bottom of `columnID`, or of the first column when nil.
     @discardableResult
     public func createTask(_ draft: TaskDraft, in columnID: UUID? = nil, now: Date) throws -> UUID {
+        begin()
         try draft.validate()
-        try requireWishlistLink(draft.linkedWishlistItemID)
+        var draft = draft
+        draft.linkedWishlistItemID = try existingWishlistLink(draft.linkedWishlistItemID)
         let ordered = try columns()
-        guard let column = columnID.flatMap({ id in ordered.first { $0.id == id } }) ?? ordered.first else {
-            throw TaskBoardError.unknownColumn
-        }
-        let key = SortKey.between(try tasks(in: column.id).last?.sortOrder, nil) ?? 1
+        let wanted = columnID.map { id in ordered.first { $0.id == id } } ?? ordered.first
+        guard let column = wanted else { throw TaskBoardError.unknownColumn }
+        // Keys come after archived tasks too, so an unarchived task never ties with a new one.
+        let key = SortKey.between(try tasks(in: column.id, includingArchived: true).last?.sortOrder, nil) ?? 1
         let task = TaskItem(
             title: draft.trimmedTitle, columnID: column.id, priority: draft.priority, sortOrder: key, now: now)
         apply(draft, to: task)
@@ -111,8 +119,10 @@ public actor TaskBoardService {
     }
 
     public func updateTask(_ id: UUID, with draft: TaskDraft, now: Date) throws {
+        begin()
         try draft.validate()
-        try requireWishlistLink(draft.linkedWishlistItemID)
+        var draft = draft
+        draft.linkedWishlistItemID = try existingWishlistLink(draft.linkedWishlistItemID)
         let task = try requireTask(id)
         task.title = draft.trimmedTitle
         task.priority = draft.priority
@@ -123,6 +133,7 @@ public actor TaskBoardService {
 
     /// Moves a task to position `index` of `columnID` (0 = top), among the column's other visible tasks.
     public func moveTask(_ id: UUID, to columnID: UUID, at index: Int, now: Date) throws {
+        begin()
         let task = try requireTask(id)
         _ = try requireColumn(columnID)
         let siblings = try tasks(in: columnID).filter { $0.id != id }
@@ -147,6 +158,7 @@ public actor TaskBoardService {
 
     /// Completing moves the task to the bottom of the done column; reopening moves it to the bottom of the first.
     public func setTaskCompleted(_ completed: Bool, task id: UUID, now: Date) throws {
+        begin()
         let ordered = try columns()
         guard let target = completed ? ordered.last : ordered.first else { throw TaskBoardError.unknownColumn }
         let task = try requireTask(id)
@@ -156,7 +168,15 @@ public actor TaskBoardService {
     }
 
     public func setTaskArchived(_ archived: Bool, task id: UUID, now: Date) throws {
+        begin()
         let task = try requireTask(id)
+        if !archived, task.archivedAt != nil {
+            // Back at the bottom of its column with a fresh key; its old key may now tie with another task.
+            let last = try tasks(in: task.columnID).last?.sortOrder
+            task.sortOrder = SortKey.between(last, nil) ?? 1
+            let doneColumnID = try columns().last?.id
+            applyCompletion(to: task, doneColumnID: doneColumnID, now: now)
+        }
         task.archivedAt = archived ? now : nil
         task.updatedAt = now
         try commit()
@@ -164,6 +184,7 @@ public actor TaskBoardService {
 
     /// Deletes the task and its subtasks in one save. Tasks are not financial history (spec §8 covers money only).
     public func deleteTask(_ id: UUID) throws {
+        begin()
         let task = try requireTask(id)
         for subtask in try subtasks(of: id) {
             modelContext.delete(subtask)
@@ -176,6 +197,7 @@ public actor TaskBoardService {
 
     @discardableResult
     public func addSubtask(titled title: String, to taskID: UUID, now: Date) throws -> UUID {
+        begin()
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw TaskBoardError.emptyTitle }
         let task = try requireTask(taskID)
@@ -188,6 +210,7 @@ public actor TaskBoardService {
     }
 
     public func setSubtaskCompleted(_ completed: Bool, subtask id: UUID, now: Date) throws {
+        begin()
         let subtask = try requireSubtask(id)
         subtask.isCompleted = completed
         subtask.updatedAt = now
@@ -195,6 +218,7 @@ public actor TaskBoardService {
     }
 
     public func renameSubtask(_ id: UUID, to title: String, now: Date) throws {
+        begin()
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw TaskBoardError.emptyTitle }
         let subtask = try requireSubtask(id)
@@ -205,6 +229,7 @@ public actor TaskBoardService {
 
     /// Moves a subtask to `index` within its task; subtask lists are short, so they are simply renumbered.
     public func moveSubtask(_ id: UUID, to index: Int, now: Date) throws {
+        begin()
         let subtask = try requireSubtask(id)
         var ordered = try subtasks(of: subtask.taskID).filter { $0.id != id }
         ordered.insert(subtask, at: min(max(index, 0), ordered.count))
@@ -215,9 +240,17 @@ public actor TaskBoardService {
         try commit()
     }
 
-    public func deleteSubtask(_ id: UUID) throws {
-        modelContext.delete(try requireSubtask(id))
+    /// Deletes several subtasks in one save, so a multi-row delete is all or nothing.
+    public func deleteSubtasks(_ ids: [UUID]) throws {
+        begin()
+        for id in ids {
+            modelContext.delete(try requireSubtask(id))
+        }
         try commit()
+    }
+
+    public func deleteSubtask(_ id: UUID) throws {
+        try deleteSubtasks([id])
     }
 
     // MARK: Helpers
@@ -245,16 +278,28 @@ public actor TaskBoardService {
         }
     }
 
+    /// Archived tasks keep their completion history; only tasks on the board follow the done column.
     private func applyCompletionRule(doneColumnID: UUID?, now: Date) throws {
-        for task in try modelContext.fetch(FetchDescriptor<TaskItem>()) {
+        let onBoard = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.archivedAt == nil })
+        for task in try modelContext.fetch(onBoard) {
             applyCompletion(to: task, doneColumnID: doneColumnID, now: now)
         }
     }
 
-    private func requireWishlistLink(_ id: UUID?) throws {
-        guard let id else { return }
+    /// A link is optional metadata: one to an item deleted meanwhile (e.g. from another screen while an editor was
+    /// open) is dropped rather than blocking the save.
+    private func existingWishlistLink(_ id: UUID?) throws -> UUID? {
+        guard let id else { return nil }
         let descriptor = FetchDescriptor<WishlistItem>(predicate: #Predicate { $0.id == id })
-        guard try modelContext.fetchCount(descriptor) > 0 else { throw TaskBoardError.unknownWishlistItem }
+        return try modelContext.fetchCount(descriptor) > 0 ? id : nil
+    }
+
+    /// Every write starts from a clean context: edits left behind by an operation that threw before reaching
+    /// `commit()` (a failed fetch mid-way) are discarded here, so no later save can persist half an operation.
+    private func begin() {
+        if modelContext.hasChanges {
+            modelContext.rollback()
+        }
     }
 
     /// Saves, or discards every pending edit if the save fails, so no later save can persist a failed operation.

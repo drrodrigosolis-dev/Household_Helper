@@ -275,7 +275,8 @@ struct QuickAddView: View {
     }
 
     private func saveTask(_ services: AppServices) async {
-        let draft = TaskDraft(title: trimmedNotes, dueDate: hasDueDate ? occurredAt : nil)
+        let due = hasDueDate ? HouseholdCalendar(timeZone: .current).startOfDay(for: occurredAt) : nil
+        let draft = TaskDraft(title: trimmedNotes, dueDate: due)
         do {
             try await services.board.createTask(draft, now: .now)
             dismiss()

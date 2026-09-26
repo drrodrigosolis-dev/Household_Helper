@@ -24,3 +24,16 @@ availability conditions, deprecations, fallback. Verified against official Apple
   macro-generated initializer's access level.
 - **Model actor contexts must not be left dirty:** a method validates everything before its first mutation,
   because an unsaved edit left after a throw would be persisted by the actor's next `save()`.
+
+## Task board and cross-context writes — Sprint 4, 2026-09-26
+- **`TaskBoardService` starts every write from a clean context** (`begin()` rolls back leftover edits), on top of
+  rollback-on-failed-save, so a fetch that throws mid-operation cannot leave edits for a later save. The other
+  services keep the "fetch everything before the first edit" rule above.
+- **Two actors write `TaskItem`:** `TaskBoardService` (all board edits) and `TransactionService` (clears
+  `linkedWishlistItemID` when it deletes a wishlist item). They touch different fields, and the link is re-checked
+  on every task save, where a stale link is dropped. **Unverified assumption:** when both contexts save the same
+  object, SwiftData's default merge keeps the later save's values for the fields it changed. This has not been
+  checked against Apple documentation or a test; if it proves wrong, route the link clearing through
+  `TaskBoardService`. Recorded for the Phase 10 verification pass.
+- **Subtasks link by `taskID`, not a relationship** (Sprint 4 default 4): there is no store-level cascade, so every
+  bulk delete path (task delete today; restore-replace or reset later) must delete subtasks explicitly.
