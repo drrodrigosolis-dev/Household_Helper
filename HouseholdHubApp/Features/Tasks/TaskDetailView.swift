@@ -119,7 +119,11 @@ struct TaskDetailView: View {
             Button("Delete task", role: .destructive) { delete(task) }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("The task and its subtasks will be removed.")
+            if task.recurrenceRuleData != nil {
+                Text("The task and its subtasks will be removed, and it stops repeating.")
+            } else {
+                Text("The task and its subtasks will be removed.")
+            }
         }
     }
 
@@ -306,6 +310,9 @@ struct TaskEditorView: View {
                     .accessibilityIdentifier("task.editor.hasDueDate")
                 if hasDueDate {
                     DatePicker("Due", selection: $dueDate, displayedComponents: .date)
+                }
+                // A completed task is history; its repeat has moved on to the next task.
+                if hasDueDate, task?.completedAt == nil {
                     Picker("Repeat", selection: repeatBinding) {
                         if let keptRule {
                             Text(RecurrenceFormat.describe(keptRule)).tag(TaskRepeat?.none)
@@ -319,7 +326,7 @@ struct TaskEditorView: View {
                     .accessibilityIdentifier("task.editor.repeat")
                 }
             } footer: {
-                if hasDueDate, repeatChoice != nil || keptRule != nil {
+                if hasDueDate, task?.completedAt == nil, repeatChoice != nil || keptRule != nil {
                     Text("Completing it adds the next one, due on the next date after this due date.")
                 }
             }
@@ -376,7 +383,9 @@ struct TaskEditorView: View {
         let calendar = HouseholdCalendar(timeZone: .current)
         let due = hasDueDate ? calendar.startOfDay(for: dueDate) : nil
         // A repeat needs a due date (Sprint 13): turning the due date off stops the repeat.
-        let recurrence = due.flatMap { day in repeatChoice?.rule(dueDate: day, calendar: calendar) ?? keptRule }
+        let isHistory = task?.completedAt != nil
+        let recurrence =
+            isHistory ? nil : due.flatMap { day in repeatChoice?.rule(dueDate: day, calendar: calendar) ?? keptRule }
         let draft = TaskDraft(
             title: title, notes: notes, priority: priority, dueDate: due, linkedWishlistItemID: wishID,
             linkedTransactionID: transactionID, recurrence: recurrence, timeZone: calendar.timeZone)

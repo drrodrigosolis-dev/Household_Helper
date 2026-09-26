@@ -161,6 +161,106 @@ struct RecurringTaskTests {
         #expect(try fixture.tasks().isEmpty)
     }
 
+    // MARK: Review follow-ups (Sprint 13 data-safety review)
+
+    @Test func everyPathIntoTheDoneColumnAddsOneCopyAndUndoingAddsNone() async throws {
+        let fixture = try await makeFixture()
+        let board = fixture.board
+        let due = day(2026, 9, 25)
+        // Two repeating tasks in In Progress; making In Progress the done column completes both.
+        for title in ["A", "B"] {
+            var entry = draft(.daily(interval: 1), due: due)
+            entry.title = title
+            try await board.createTask(entry, in: fixture.columns[1], now: now)
+        }
+        try await board.moveColumn(fixture.columns[1], to: 2, now: now)
+        #expect(try fixture.tasks().count == 4, "One copy for each repeating task")
+        #expect(try fixture.open().map(\.title).sorted() == ["A", "B"])
+        #expect(try fixture.open().allSatisfy { $0.recurrenceRuleData != nil })
+        // Moving it back reopens the originals (which no longer repeat) and adds nothing.
+        try await board.moveColumn(fixture.columns[1], to: 1, now: now)
+        #expect(try fixture.tasks().count == 4)
+        #expect(try fixture.tasks().filter { $0.recurrenceRuleData != nil }.count == 2, "Still one rule per series")
+    }
+
+    @Test func creatingIntoDoneOrDeletingAColumnIntoDoneAddsTheNextOne() async throws {
+        let fixture = try await makeFixture()
+        let board = fixture.board
+        let done = try #require(fixture.columns.last)
+        try await board.createTask(draft(.daily(interval: 1), due: day(2026, 9, 25)), in: done, now: now)
+        #expect(try fixture.open().map(\.dueDate) == [day(2026, 9, 26)])
+        #expect(try fixture.open().first?.columnID == fixture.columns.first)
+
+        let extra = try await board.createColumn(named: "Waiting", now: now)
+        let weekly = draft(.weekly(interval: 1, weekday: 6), due: day(2026, 9, 25))
+        let waiting = try await board.createTask(weekly, in: extra, now: now)
+        try await board.deleteColumn(extra, movingTasksTo: done, now: now)
+        let moved = try #require(try fixture.tasks().first { $0.id == waiting })
+        #expect(moved.completedAt != nil && moved.recurrenceRuleData == nil)
+        #expect(try fixture.open().contains { $0.dueDate == day(2026, 10, 2) })
+    }
+
+    @Test func aCompletedTaskCantStartASecondSeries() async throws {
+        let fixture = try await makeFixture()
+        let board = fixture.board
+        let id = try await board.createTask(draft(.daily(interval: 1), due: day(2026, 9, 25)), now: now)
+        try await board.setTaskCompleted(true, task: id, now: now)
+        await #expect(throws: TaskBoardError.repeatOnCompletedTask) {
+            try await board.updateTask(id, with: draft(.daily(interval: 1), due: day(2026, 9, 25)), now: now)
+        }
+        // Editing its other fields still works.
+        try await board.updateTask(id, with: draft(nil, due: day(2026, 9, 25)), now: now)
+    }
+
+    @Test func dailySeriesPostOncePerDayAndSkipLongHistories() async throws {
+        let container = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
+        let ledger = TransactionService.make(container: container)
+        try await ledger.ensureSettings(currencyCode: "CAD", now: now)
+        let start = day(2026, 9, 1).addingTimeInterval(9 * 3600)
+        let series = try await ledger.createSeries(
+            templateAmount: Money(minorUnits: 500, currencyCode: "CAD"), type: .expense, rule: .daily(interval: 2),
+            timeZone: zone, startDate: start, now: now)
+        let third = try #require(calendar.calendar.date(byAdding: .day, value: 2, to: start))
+        try await ledger.materialize(seriesID: series, occurrence: third, now: now)
+        await #expect(throws: LedgerError.alreadyMaterialized) {
+            try await ledger.materialize(seriesID: series, occurrence: third, now: now)
+        }
+        let offDay = try #require(calendar.calendar.date(byAdding: .day, value: 1, to: start))
+        await #expect(throws: LedgerError.notAnOccurrence) {
+            try await ledger.materialize(seriesID: series, occurrence: offDay, now: now)
+        }
+
+        // A window years after the start: the engine starts near the window, and times stay local (Berlin: stable DST).
+        let berlin = HouseholdCalendar(timeZone: TimeZone(identifier: "Europe/Berlin")!)
+        let formatter = ISO8601DateFormatter()
+        let old = try #require(formatter.date(from: "2020-01-01T09:00:00+01:00"))
+        let windowStart = try #require(formatter.date(from: "2026-09-01T00:00:00+02:00"))
+        let windowEnd = try #require(formatter.date(from: "2026-09-04T00:00:00+02:00"))
+        let result = RecurrenceEngine().occurrences(
+            of: .daily(interval: 1), start: old, end: nil, in: DateInterval(start: windowStart, end: windowEnd),
+            calendar: berlin)
+        let expected = try [
+            "2026-09-01T09:00:00+02:00", "2026-09-02T09:00:00+02:00", "2026-09-03T09:00:00+02:00",
+        ].map { try #require(formatter.date(from: $0)) }
+        #expect(result == expected)
+    }
+
+    @Test func dailySeriesTravelInBackups() async throws {
+        let container = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
+        let ledger = TransactionService.make(container: container)
+        try await ledger.ensureSettings(currencyCode: "CAD", now: now)
+        try await ledger.createSeries(
+            templateAmount: Money(minorUnits: 500, currencyCode: "CAD"), type: .expense, rule: .daily(interval: 3),
+            timeZone: zone, startDate: day(2026, 9, 1), now: now)
+        let service = BackupService.make(container: container)
+        let backup = try await service.snapshot(now: now, appVersion: "1") { _ in nil }
+        #expect(backup.recurringTransactions.first?.rule == .daily(interval: 3))
+        try BackupValidator.validate(backup)
+        let data = try BackupDTO.encoder().encode(backup)
+        let decoded = try BackupDTO.decoder().decode(BackupDTO.self, from: data)
+        #expect(decoded.recurringTransactions.first?.rule == .daily(interval: 3))
+    }
+
     // MARK: Backup
 
     @Test func repeatsTravelInBackupsAndAreValidated() async throws {
@@ -191,6 +291,11 @@ struct RecurringTaskTests {
             ),
             (variant { $0.dueDate = nil }, .inconsistentLink(entity: "taskItems", field: "recurrenceRule")),
             (
+                variant { $0.recurrenceRule = .daily(interval: 0) },
+                .invalidValue(
+                    entity: "taskItems", field: "recurrenceRule", value: "\(RecurrenceRule.daily(interval: 0))")
+            ),
+            (
                 variant { $0.recurrenceTimeZoneIdentifier = "Mars/Olympus" },
                 .invalidValue(entity: "taskItems", field: "recurrenceTimeZoneIdentifier", value: "Mars/Olympus")
             ),
@@ -198,5 +303,15 @@ struct RecurringTaskTests {
         for (file, expected) in cases {
             #expect(throws: expected) { try BackupValidator.validate(file) }
         }
+    }
+
+    @Test func tasksFromOlderBackupsHaveNoRepeat() throws {
+        let json = #"""
+            {"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","title":"Old",
+            "columnID":"7F9619FF-8B86-D011-B42D-00C04FC964FF",
+            "priority":"medium","sortOrder":1,"createdAt":0,"updatedAt":0}
+            """#
+        let task = try JSONDecoder().decode(BackupDTO.TaskDTO.self, from: Data(json.utf8))
+        #expect(task.recurrenceRule == nil && task.recurrenceTimeZoneIdentifier == nil)
     }
 }

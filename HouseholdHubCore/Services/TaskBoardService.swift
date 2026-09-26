@@ -127,6 +127,7 @@ public actor TaskBoardService {
         draft.linkedWishlistItemID = try existingWishlistLink(draft.linkedWishlistItemID)
         draft.linkedTransactionID = try existingTransactionLink(draft.linkedTransactionID)
         let task = try requireTask(id)
+        guard draft.recurrence == nil || task.completedAt == nil else { throw TaskBoardError.repeatOnCompletedTask }
         // A wishlist item that pointed back at this task keeps that link only if the task still points at it;
         // otherwise the pair would be one-sided and backups would refuse to validate.
         let target: UUID? = id
@@ -319,27 +320,29 @@ public actor TaskBoardService {
 
     /// Sprint 13 decisions 2–4: a copy of the completed task (title, notes, priority, subtasks unticked; no links) due
     /// on the rule's next date after the completed task's due date, which keeps no rule, so completing it again or
-    /// reopening it never makes a second copy. A rule with no next date (or unreadable) just ends the series.
+    /// reopening it never makes a second copy. If no copy can be made (an unreadable rule, no next date, no open
+    /// column) the rule stays where it is rather than being dropped; an unknown zone falls back to the device's.
     private func scheduleNext(
         after task: TaskItem, columns ordered: [BoardColumn], returnTo: UUID?, now: Date
     ) throws {
-        guard let data = task.recurrenceRuleData else { return }
-        let zoneID = task.recurrenceTimeZoneIdentifier
+        guard let data = task.recurrenceRuleData, let rule = try? RecurrenceRule.decoded(from: data),
+            let due = task.dueDate
+        else { return }
+        let zone = task.recurrenceTimeZoneIdentifier.flatMap(TimeZone.init(identifier:)) ?? .current
+        let open = ordered.dropLast()
+        guard
+            let next = RecurrenceEngine().nextOccurrence(
+                of: rule, start: due, after: due, calendar: HouseholdCalendar(timeZone: zone)),
+            let column = open.first(where: { $0.id == returnTo }) ?? open.first
+        else { return }
         task.recurrenceRuleData = nil
         task.recurrenceTimeZoneIdentifier = nil
-        guard let rule = try? RecurrenceRule.decoded(from: data), let due = task.dueDate,
-            let zone = zoneID.flatMap(TimeZone.init(identifier:)),
-            let next = RecurrenceEngine().nextOccurrence(
-                of: rule, start: due, after: due, calendar: HouseholdCalendar(timeZone: zone))
-        else { return }
-        let open = ordered.dropLast()
-        guard let column = open.first(where: { $0.id == returnTo }) ?? open.first else { return }
         let key = SortKey.between(try tasks(in: column.id, includingArchived: true).last?.sortOrder, nil) ?? 1
         let copy = TaskItem(title: task.title, columnID: column.id, priority: task.priority, sortOrder: key, now: now)
         copy.notes = task.notes
         copy.dueDate = next
         copy.recurrenceRuleData = data
-        copy.recurrenceTimeZoneIdentifier = zoneID
+        copy.recurrenceTimeZoneIdentifier = zone.identifier
         modelContext.insert(copy)
         for step in try subtasks(of: task.id) {
             modelContext.insert(SubtaskItem(title: step.title, taskID: copy.id, sortOrder: step.sortOrder, now: now))

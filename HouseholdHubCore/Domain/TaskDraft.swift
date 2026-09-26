@@ -13,6 +13,9 @@ public enum TaskBoardError: Error, Equatable, Sendable {
     /// A repeating task needs a due date: the next one is due on the rule's next date after it (Sprint 13).
     case repeatNeedsDueDate
     case invalidRepeat
+    /// A completed task is history: its repeat has moved on to the next task, and giving it a new one would start a
+    /// second series (Sprint 13 data-safety review).
+    case repeatOnCompletedTask
 }
 
 /// The user-editable fields of a task. Column, order, and completion change only through moves (spec §7.8).

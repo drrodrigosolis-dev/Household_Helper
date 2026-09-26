@@ -21,6 +21,18 @@ still editable (owner decision 15), so the repeat fields go on `TaskItem` in it.
 Backups carry the rule and its time zone on each task (optional; older files have none). The validator requires a valid
 rule, a known zone and a due date, and both fields together.
 
+## Data-safety review (Sprint 13) — fixed before the gate
+- B1 (tests): every path into the done column (column reorder and undo, create into Done, delete a column into Done),
+  daily recurring transactions (materialize once, off-days refused, long histories, backup round trip), the
+  validator's invalid-rule branch, tasks from older backups, and the `daily` stored-format fixture.
+- S1: a completed task can't be given a repeat (service refuses; the editor hides Repeat), so there is never a second
+  series.
+- S3: the done-column change and delete-task dialogs say what happens to repeats.
+- S4: if no next task can be made, the rule stays put instead of being dropped; an unknown zone falls back to the
+  device's.
+- Open for the owner (S2): making a column the done column and then moving it back leaves the next copies next to
+  the reopened originals (decision 2 says any move into done counts). Alternative: only moves of a single task count.
+
 ## Items
 | # | Item | Built (CI green) | Walked |
 |---|---|---|---|
