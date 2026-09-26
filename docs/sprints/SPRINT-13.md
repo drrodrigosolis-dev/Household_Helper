@@ -7,7 +7,8 @@ still editable (owner decision 15), so the repeat fields go on `TaskItem` in it.
 1. **Rules:** the recurrence rules recurring transactions use, plus a new `daily(interval:)` (also offered for recurring
    transactions). The task editor offers Never / Daily / Weekly / Every 2 weeks / Monthly / Yearly, each read off the
    due date (weekly on its weekday, monthly on its day, yearly on its month and day).
-2. **Completing:** completing a repeating task (moving it into the done column, however) adds the next task: same
+2. **Completing:** completing a repeating task on its own (moving it into Done, the Complete button, creating it in
+   Done, restoring it there) adds the next task — not a column change (owner decision 21): same
    title, notes, priority and subtasks (unticked), no links, in the column it was completed from (the first column if
    it came from nowhere else). The completed task stays as history.
 3. **Next date:** the rule's next date after the completed task's due date, not after the completion date. A task
@@ -30,8 +31,8 @@ rule, a known zone and a due date, and both fields together.
 - S3: the done-column change and delete-task dialogs say what happens to repeats.
 - S4: if no next task can be made, the rule stays put instead of being dropped; an unknown zone falls back to the
   device's.
-- Open for the owner (S2): making a column the done column and then moving it back leaves the next copies next to
-  the reopened originals (decision 2 says any move into done counts). Alternative: only moves of a single task count.
+- S2, settled by owner decision 21: column changes (reordering the done column, deleting a column into it) complete
+  tasks without adding next copies; the tasks keep their rule. Only a task completed on its own adds its next one.
 
 ## Items
 | # | Item | Built (CI green) | Walked |

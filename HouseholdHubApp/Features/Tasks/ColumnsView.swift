@@ -71,7 +71,7 @@ struct ColumnsView: View {
             Text(
                 """
                 Tasks in \(reorder.newDone) will be marked complete and tasks in \(reorder.oldDone) reopened. \
-                Repeating tasks marked complete add their next one.
+                Repeating tasks don't add their next one this way; complete them one at a time for that.
                 """
             )
         }

@@ -127,7 +127,10 @@ public actor TaskBoardService {
         draft.linkedWishlistItemID = try existingWishlistLink(draft.linkedWishlistItemID)
         draft.linkedTransactionID = try existingTransactionLink(draft.linkedTransactionID)
         let task = try requireTask(id)
-        guard draft.recurrence == nil || task.completedAt == nil else { throw TaskBoardError.repeatOnCompletedTask }
+        // A completed task may keep the rule it has (one completed by a column change), never gain a new one.
+        guard draft.recurrence == nil || task.completedAt == nil || draft.recurrence == task.recurrence else {
+            throw TaskBoardError.repeatOnCompletedTask
+        }
         // A wishlist item that pointed back at this task keeps that link only if the task still points at it;
         // otherwise the pair would be one-sided and backups would refuse to validate.
         let target: UUID? = id
@@ -296,15 +299,20 @@ public actor TaskBoardService {
 
     /// Sets or clears `completedAt` from the task's column (the last column is done). A repeating task that has just
     /// been completed hands its repeat to the next task (Sprint 13).
-    /// - Parameter returnTo: where the task was before this change; the next task goes there unless that is the done
-    ///   column, else to the first column.
+    /// - Parameters:
+    ///   - returnTo: where the task was before this change; the next task goes there unless that is the done column,
+    ///     else to the first column.
+    ///   - repeats: false for board-wide changes (reordering or deleting columns): owner decision 21 says only a task
+    ///     completed on its own adds its next one. Such a task keeps its rule, so reopening it leaves one series.
     private func settleCompletion(
-        of task: TaskItem, columns ordered: [BoardColumn], returnTo: UUID?, now: Date
+        of task: TaskItem, columns ordered: [BoardColumn], returnTo: UUID?, repeats: Bool = true, now: Date
     ) throws {
         let isDone = task.columnID == ordered.last?.id
         if isDone, task.completedAt == nil {
             task.completedAt = now
-            try scheduleNext(after: task, columns: ordered, returnTo: returnTo, now: now)
+            if repeats {
+                try scheduleNext(after: task, columns: ordered, returnTo: returnTo, now: now)
+            }
         } else if !isDone, task.completedAt != nil {
             task.completedAt = nil
         }
@@ -314,7 +322,7 @@ public actor TaskBoardService {
     private func applyCompletionRule(_ ordered: [BoardColumn], now: Date) throws {
         let onBoard = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.archivedAt == nil })
         for task in try modelContext.fetch(onBoard) {
-            try settleCompletion(of: task, columns: ordered, returnTo: nil, now: now)
+            try settleCompletion(of: task, columns: ordered, returnTo: nil, repeats: false, now: now)
         }
     }
 

@@ -383,9 +383,13 @@ struct TaskEditorView: View {
         let calendar = HouseholdCalendar(timeZone: .current)
         let due = hasDueDate ? calendar.startOfDay(for: dueDate) : nil
         // A repeat needs a due date (Sprint 13): turning the due date off stops the repeat.
-        let isHistory = task?.completedAt != nil
-        let recurrence =
-            isHistory ? nil : due.flatMap { day in repeatChoice?.rule(dueDate: day, calendar: calendar) ?? keptRule }
+        // A completed task keeps whatever rule it has (the picker is hidden); an open one takes the picker's choice.
+        let recurrence: RecurrenceRule? =
+            if task?.completedAt != nil {
+                due == nil ? nil : task?.recurrence
+            } else {
+                due.flatMap { day in repeatChoice?.rule(dueDate: day, calendar: calendar) ?? keptRule }
+            }
         let draft = TaskDraft(
             title: title, notes: notes, priority: priority, dueDate: due, linkedWishlistItemID: wishID,
             linkedTransactionID: transactionID, recurrence: recurrence, timeZone: calendar.timeZone)

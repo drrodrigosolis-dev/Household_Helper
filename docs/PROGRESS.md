@@ -57,6 +57,10 @@ Statuses: not started / in progress / CI green / blocked.
 18. **Cloud ↔ local sessions** coordinate through `docs/coordination/` (two one-way files in the repo).
 19. **Sprint 12 defaults accepted ("run")**: the 6 savings-goal decisions in `docs/sprints/SPRINT-12.md`.
 20. **Sprint 13 defaults accepted**: the 5 recurring-task decisions in `docs/sprints/SPRINT-13.md`.
+21. **Column changes don't repeat tasks**: reordering or deleting columns completes tasks without adding their next
+    copies; only a task completed on its own does (Sprint 13).
+22. **CI workflow pinned** (owner go-ahead 2026-09-26): actions by commit SHA and XcodeGen at a fixed version.
+23. **Sprint 14 defaults accepted ("run")**: search and local reminders, `docs/sprints/SPRINT-14.md`.
 
 ## Defaults awaiting the owner's review (Phase 10)
 - **Currency after records exist (§6.3):** Settings › Household refuses the change and says why, rather than §6.3's

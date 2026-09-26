@@ -165,27 +165,32 @@ struct RecurringTaskTests {
 
     // MARK: Review follow-ups (Sprint 13 data-safety review)
 
-    @Test func everyPathIntoTheDoneColumnAddsOneCopyAndUndoingAddsNone() async throws {
+    @Test func columnChangesCompleteRepeatingTasksWithoutAddingCopies() async throws {
         let fixture = try await makeFixture()
         let board = fixture.board
         let due = day(2026, 9, 25)
-        // Two repeating tasks in In Progress; making In Progress the done column completes both.
+        // Owner decision 21: making In Progress the done column completes both tasks but adds no next ones.
         for title in ["A", "B"] {
             var entry = draft(.daily(interval: 1), due: due)
             entry.title = title
             try await board.createTask(entry, in: fixture.columns[1], now: now)
         }
         try await board.moveColumn(fixture.columns[1], to: 2, now: now)
-        #expect(try fixture.tasks().count == 4, "One copy for each repeating task")
-        #expect(try fixture.open().map(\.title).sorted() == ["A", "B"])
-        #expect(try fixture.open().allSatisfy { $0.recurrenceRuleData != nil })
-        // Moving it back reopens the originals (which no longer repeat) and adds nothing.
+        #expect(try fixture.tasks().count == 2)
+        #expect(try fixture.tasks().allSatisfy { $0.completedAt != nil && $0.recurrenceRuleData != nil })
+        // Moving it back reopens both, still repeating: one series each.
         try await board.moveColumn(fixture.columns[1], to: 1, now: now)
-        #expect(try fixture.tasks().count == 4)
-        #expect(try fixture.tasks().filter { $0.recurrenceRuleData != nil }.count == 2, "Still one rule per series")
+        #expect(try fixture.open().count == 2)
+        #expect(try fixture.tasks().allSatisfy { $0.recurrenceRuleData != nil })
+        // Editing a task the column change completed keeps its rule.
+        try await board.moveColumn(fixture.columns[1], to: 2, now: now)
+        let first = try #require(try fixture.tasks().first)
+        var edit = draft(.daily(interval: 1), due: due)
+        edit.title = "A renamed"
+        try await board.updateTask(first.id, with: edit, now: now)
     }
 
-    @Test func creatingIntoDoneOrDeletingAColumnIntoDoneAddsTheNextOne() async throws {
+    @Test func creatingIntoDoneAddsTheNextOneButDeletingAColumnIntoDoneDoesNot() async throws {
         let fixture = try await makeFixture()
         let board = fixture.board
         let done = try #require(fixture.columns.last)
@@ -198,8 +203,8 @@ struct RecurringTaskTests {
         let waiting = try await board.createTask(weekly, in: extra, now: now)
         try await board.deleteColumn(extra, movingTasksTo: done, now: now)
         let moved = try #require(try fixture.tasks().first { $0.id == waiting })
-        #expect(moved.completedAt != nil && moved.recurrenceRuleData == nil)
-        #expect(try fixture.open().contains { $0.dueDate == day(2026, 10, 2) })
+        #expect(moved.completedAt != nil && moved.recurrenceRuleData != nil, "A column change keeps the rule")
+        #expect(try !fixture.open().contains { $0.dueDate == day(2026, 10, 2) })
     }
 
     @Test func aCompletedTaskCantStartASecondSeries() async throws {
