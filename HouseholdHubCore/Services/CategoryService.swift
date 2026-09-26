@@ -25,6 +25,7 @@ public actor CategoryService {
 
     /// Inserts the default system categories once. Names are stored data and can be renamed by the user.
     public func seedSystemCategoriesIfNeeded(now: Date) throws {
+        begin()
         let system = FetchDescriptor<CategoryRecord>(predicate: #Predicate { $0.isSystem == true })
         guard try modelContext.fetchCount(system) == 0 else { return }
         for (index, seed) in SystemCategory.defaults.enumerated() {
@@ -38,6 +39,7 @@ public actor CategoryService {
 
     @discardableResult
     public func create(name: String, icon: String, color: ColorToken, kind: CategoryKind, now: Date) throws -> UUID {
+        begin()
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw LedgerError.emptyCategoryName }
         let count = try modelContext.fetchCount(FetchDescriptor<CategoryRecord>())
@@ -52,6 +54,7 @@ public actor CategoryService {
     public func update(
         category id: UUID, name: String, icon: String, color: ColorToken, kind: CategoryKind, now: Date
     ) throws {
+        begin()
         let category = try requireCategory(id)
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw LedgerError.emptyCategoryName }
@@ -78,6 +81,7 @@ public actor CategoryService {
     }
 
     public func setArchived(_ archived: Bool, category id: UUID, now: Date) throws {
+        begin()
         let category = try requireCategory(id)
         category.isArchived = archived
         category.updatedAt = now
@@ -86,6 +90,7 @@ public actor CategoryService {
 
     /// Hard-deletes only an unreferenced, non-system category; otherwise the caller must archive (spec §8.4).
     public func delete(category id: UUID) throws {
+        begin()
         let category = try requireCategory(id)
         guard !category.isSystem else { throw LedgerError.systemCategoryIsPermanent }
         let references = try referenceCount(id)
@@ -97,6 +102,28 @@ public actor CategoryService {
     /// Moves every transaction and series from one category to another; returns how many transactions moved.
     @discardableResult
     public func reassign(from source: UUID, to destination: UUID, now: Date) throws -> Int {
+        begin()
+        let moved = try moveReferences(from: source, to: destination, now: now)
+        try commit()
+        return moved
+    }
+
+    /// "Move items to another category, then delete this one" in a single save (spec §8.4): either both happen or
+    /// neither does.
+    @discardableResult
+    public func reassignAndDelete(from source: UUID, to destination: UUID, now: Date) throws -> Int {
+        begin()
+        let category = try requireCategory(source)
+        guard !category.isSystem else { throw LedgerError.systemCategoryIsPermanent }
+        guard source != destination else { throw LedgerError.categoryInUse(referenceCount: try referenceCount(source)) }
+        let moved = try moveReferences(from: source, to: destination, now: now)
+        modelContext.delete(category)
+        try commit()
+        return moved
+    }
+
+    /// Points every reference at `destination` without saving. Validates everything before the first edit.
+    private func moveReferences(from source: UUID, to destination: UUID, now: Date) throws -> Int {
         let target = try requireCategory(destination)
         guard !target.isArchived else { throw LedgerError.archivedCategory }
         let sourceID: UUID? = source
@@ -124,8 +151,15 @@ public actor CategoryService {
             item.categoryID = destination
             item.updatedAt = now
         }
-        try commit()
         return transactions.count
+    }
+
+    /// Discards edits left pending by an earlier operation that threw before saving, so this write can't persist
+    /// them (the same guard as TaskBoardService).
+    private func begin() {
+        if modelContext.hasChanges {
+            modelContext.rollback()
+        }
     }
 
     /// Saves, or discards every pending edit if the save fails, so no later save can persist a failed operation.

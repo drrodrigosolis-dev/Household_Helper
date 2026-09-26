@@ -472,4 +472,35 @@ struct LedgerServiceTests {
         #expect(try after.fetch(FetchDescriptor<TransactionRecord>()).map(\.categoryID) == [groceries])
         #expect(try after.fetch(FetchDescriptor<RecurringTransaction>()).map(\.categoryID) == [groceries])
     }
+
+    /// Phase 10 review: "move and delete" is one save, so a refused move deletes nothing.
+    @Test func moveAndDeleteIsAllOrNothing() async throws {
+        let fixture = try await makeFixture()
+        try await fixture.categories.seedSystemCategoriesIfNeeded(now: now)
+        let groceries = try categoryID(named: "Groceries", in: fixture)
+        let salary = try categoryID(named: "Salary", in: fixture)
+        let custom = CategoryRecord(
+            name: "Coffee", icon: "cup.and.saucer", color: .black, kind: .expense, sortOrder: 99, now: now)
+        let context = fixture.context()
+        context.insert(custom)
+        try context.save()
+        let coffee = custom.id
+        try await fixture.transactions.create(
+            TransactionDraft(amount: cad(450), type: .expense, occurredAt: now, categoryID: coffee), now: now)
+        let categories = fixture.categories
+
+        await #expect(throws: LedgerError.categoryKindMismatch(.income, .expense)) {
+            try await categories.reassignAndDelete(from: coffee, to: salary, now: now)
+        }
+        let unchanged = fixture.context()
+        let stillThere = try unchanged.fetch(FetchDescriptor<CategoryRecord>()).contains { $0.id == coffee }
+        #expect(stillThere)
+        #expect(try unchanged.fetch(FetchDescriptor<TransactionRecord>()).map(\.categoryID) == [coffee])
+
+        #expect(try await categories.reassignAndDelete(from: coffee, to: groceries, now: now) == 1)
+        let after = fixture.context()
+        let gone = try !after.fetch(FetchDescriptor<CategoryRecord>()).contains { $0.id == coffee }
+        #expect(gone)
+        #expect(try after.fetch(FetchDescriptor<TransactionRecord>()).map(\.categoryID) == [groceries])
+    }
 }

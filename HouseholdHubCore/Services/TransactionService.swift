@@ -26,6 +26,7 @@ public actor TransactionService {
 
     /// Creates the singleton settings row on first launch; a no-op afterwards.
     public func ensureSettings(currencyCode: String, now: Date) throws {
+        begin()
         guard try settings() == nil else { return }
         let currency = try Currency(code: currencyCode)
         modelContext.insert(AppSettings(currencyCode: currency.code, now: now))
@@ -43,6 +44,7 @@ public actor TransactionService {
 
     /// First-launch setup. The currency may change only while no transactions or series exist (spec §6.3).
     public func completeOnboarding(currencyCode: String, startingBalance: Money, asOf date: Date, now: Date) throws {
+        begin()
         let currency = try Currency(code: currencyCode)
         guard startingBalance.currencyCode == currency.code else {
             throw LedgerError.currencyMismatch(expected: currency.code, actual: startingBalance.currencyCode)
@@ -65,6 +67,7 @@ public actor TransactionService {
     }
 
     public func setIncludePendingInProjection(_ include: Bool, now: Date) throws {
+        begin()
         let settings = try requireSettings()
         settings.includePendingInProjection = include
         settings.updatedAt = now
@@ -72,6 +75,7 @@ public actor TransactionService {
     }
 
     public func setDefaultAnalyticsPeriod(_ period: AnalyticsPeriod, now: Date) throws {
+        begin()
         let settings = try requireSettings()
         guard settings.defaultAnalyticsPeriod != period else { return }
         settings.defaultAnalyticsPeriod = period
@@ -80,6 +84,7 @@ public actor TransactionService {
     }
 
     public func setFaceIDEnabled(_ enabled: Bool, now: Date) throws {
+        begin()
         let settings = try requireSettings()
         settings.faceIDEnabled = enabled
         settings.updatedAt = now
@@ -87,6 +92,7 @@ public actor TransactionService {
     }
 
     public func setWidgetShowsBalance(_ shows: Bool, now: Date) throws {
+        begin()
         let settings = try requireSettings()
         settings.widgetShowsBalance = shows
         settings.updatedAt = now
@@ -100,6 +106,7 @@ public actor TransactionService {
     }
 
     public func setAI(_ feature: AISwitch, enabled: Bool, now: Date) throws {
+        begin()
         let settings = try requireSettings()
         switch feature {
         case .categorization: settings.aiCategorizationEnabled = enabled
@@ -139,6 +146,7 @@ public actor TransactionService {
     }
 
     public func setStartingBalance(_ balance: Money, asOf date: Date, now: Date) throws {
+        begin()
         let settings = try requireSettings()
         try requireCurrency(balance, settings)
         guard date <= now else { throw LedgerError.startingBalanceInFuture }
@@ -152,6 +160,7 @@ public actor TransactionService {
 
     @discardableResult
     public func create(_ draft: TransactionDraft, now: Date) throws -> UUID {
+        begin()
         try draft.validate()
         let settings = try requireSettings()
         try requireCurrency(draft.amount, settings)
@@ -176,6 +185,7 @@ public actor TransactionService {
 
     /// Replaces the user-editable fields of an existing transaction. Provenance (source, recurring link) is kept.
     public func update(_ id: UUID, with draft: TransactionDraft, now: Date) throws {
+        begin()
         let record = try requireTransaction(id)
         try requirePurchaseInvariant(record, type: draft.type, status: draft.status)
         var checked = draft
@@ -218,6 +228,7 @@ public actor TransactionService {
     }
 
     public func setStatus(_ status: TransactionStatus, forTransaction id: UUID, now: Date) throws {
+        begin()
         let record = try requireTransaction(id)
         try requirePurchaseInvariant(record, type: record.type, status: status)
         record.status = status
@@ -229,6 +240,7 @@ public actor TransactionService {
     /// cancelled record instead of being erased, so the occurrence stays "handled": it neither reappears in the
     /// projection nor can be posted again. Deleting an occurrence disables its series only when asked.
     public func deleteTransaction(_ id: UUID, alsoDisableSeries: Bool, now: Date) throws {
+        begin()
         let record = try requireTransaction(id)
         let series = try record.recurringSeriesID.flatMap { try recurringSeries($0) }
         if alsoDisableSeries, let series {
@@ -254,6 +266,7 @@ public actor TransactionService {
         templateAmount: Money, type: TransactionType, rule: RecurrenceRule, timeZone: TimeZone, startDate: Date,
         endDate: Date? = nil, categoryID: UUID? = nil, notes: String? = nil, now: Date
     ) throws -> UUID {
+        begin()
         guard templateAmount.minorUnits > 0 else { throw LedgerError.nonPositiveAmount }
         guard type != .transfer else { throw LedgerError.transfersUnavailable }
         let settings = try requireSettings()
@@ -279,6 +292,7 @@ public actor TransactionService {
     public func materialize(
         seriesID: UUID, occurrence: Date, status: TransactionStatus = .posted, now: Date
     ) throws -> UUID {
+        begin()
         guard let series = try recurringSeries(seriesID) else { throw LedgerError.unknownSeries }
         let snapshot = try series.series()
         guard snapshot.templateAmount.minorUnits > 0 else { throw LedgerError.nonPositiveAmount }
@@ -387,6 +401,7 @@ public actor TransactionService {
     }
 
     public func setSeriesEnabled(_ enabled: Bool, series id: UUID, now: Date) throws {
+        begin()
         guard let series = try recurringSeries(id) else { throw LedgerError.unknownSeries }
         series.isEnabled = enabled
         series.updatedAt = now
@@ -394,6 +409,14 @@ public actor TransactionService {
     }
 
     // MARK: Persistence
+
+    /// Discards edits left pending by an earlier operation that threw before saving, so this write can't persist
+    /// them (the same guard as TaskBoardService).
+    func begin() {
+        if modelContext.hasChanges {
+            modelContext.rollback()
+        }
+    }
 
     /// Saves, or discards every pending edit if the save fails, so no later save can persist a failed operation.
     func commit() throws {

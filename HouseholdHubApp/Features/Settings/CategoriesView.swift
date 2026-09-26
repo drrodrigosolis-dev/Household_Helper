@@ -152,16 +152,10 @@ struct CategoriesView: View {
         let destination = target.id
         Task {
             do {
-                try await services.categories.reassign(from: source, to: destination, now: .now)
-            } catch {
-                errorMessage = String(localized: "Items couldn't be moved to that category.")
-                return
-            }
-            do {
-                try await services.categories.delete(category: source)
+                try await services.categories.reassignAndDelete(from: source, to: destination, now: .now)
                 errorMessage = nil
             } catch {
-                errorMessage = String(localized: "Items were moved, but the old category couldn't be deleted.")
+                errorMessage = String(localized: "Items couldn't be moved to that category. Nothing was changed.")
             }
         }
     }

@@ -6,6 +6,7 @@ import SwiftData
 extension TransactionService {
     @discardableResult
     public func createWishlistItem(_ draft: WishlistDraft, now: Date) throws -> UUID {
+        begin()
         try draft.validate()
         let settings = try requireSettings()
         try requireCurrency(draft.estimatedPrice, settings)
@@ -23,6 +24,7 @@ extension TransactionService {
 
     /// Edits the user-facing fields. A purchased or archived item keeps its status; only its details change.
     public func updateWishlistItem(_ id: UUID, with draft: WishlistDraft, now: Date) throws {
+        begin()
         let item = try requireWishlistItem(id)
         var checked = draft
         let keepsStatus = item.status == .purchased || item.status == .archived
@@ -47,6 +49,7 @@ extension TransactionService {
 
     /// Archiving hides an item without touching any transaction; unarchiving restores `purchased` or `wanted`.
     public func setWishlistItemArchived(_ archived: Bool, item id: UUID, now: Date) throws {
+        begin()
         let item = try requireWishlistItem(id)
         if archived {
             item.status = .archived
@@ -61,6 +64,7 @@ extension TransactionService {
     /// item's media reference so the caller can remove the image file after the delete is saved.
     @discardableResult
     public func deleteWishlistItem(_ id: UUID, now: Date) throws -> String? {
+        begin()
         // Every fetch happens before the first edit, so a failed fetch leaves no pending edits behind.
         let item = try requireWishlistItem(id)
         let media = item.mediaReference
@@ -85,6 +89,7 @@ extension TransactionService {
     /// Records the media reference after the image file has been written (spec §5.5). Returns the replaced reference.
     @discardableResult
     public func setWishlistMedia(_ reference: String?, item id: UUID, now: Date) throws -> String? {
+        begin()
         if let reference {
             guard ImageStore.isValidReference(reference) else { throw WishlistError.invalidMediaReference }
         }
@@ -102,6 +107,7 @@ extension TransactionService {
     public func purchaseWishlistItem(
         _ id: UUID, actualPrice: Money, occurredAt: Date, categoryID: UUID?, now: Date
     ) throws -> UUID {
+        begin()
         let item = try requireWishlistItem(id)
         guard item.status != .purchased, item.purchasedTransactionID == nil else {
             throw WishlistError.alreadyPurchased
