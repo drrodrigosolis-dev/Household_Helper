@@ -18,7 +18,8 @@ final class WishlistUITests: XCTestCase {
         XCTAssertEqual(price.value as? String, "40.00", "Price paid should start from the estimate")
         replaceText(in: price, with: "37.99")
         app.buttons["wishlist.purchase.confirm"].tap()
-        XCTAssertTrue(app.staticTexts["Purchased"].waitForExistence(timeout: 10), "Item should read as purchased")
+        let purchased = waitForRow(app, identifier: "wishlist.status", toRead: "Purchased")
+        XCTAssertTrue(purchased, "Item should read as purchased")
 
         app.tabBars.buttons["Budget"].tap()
         let expense = transactionRow(app, containing: "Desk lamp")
@@ -35,7 +36,7 @@ final class WishlistUITests: XCTestCase {
         app.buttons["wishlist.markPurchased"].tap()
         XCTAssertTrue(app.buttons["wishlist.purchase.confirm"].waitForExistence(timeout: 5))
         app.buttons["wishlist.purchase.confirm"].tap()
-        XCTAssertTrue(app.staticTexts["Purchased"].waitForExistence(timeout: 10))
+        XCTAssertTrue(waitForRow(app, identifier: "wishlist.status", toRead: "Purchased"))
         app.buttons["wishlist.delete"].tap()
         XCTAssertTrue(app.buttons["Archive item"].waitForExistence(timeout: 5), "Spec §8.2: offer archiving")
         app.buttons["Delete item"].tap()
@@ -74,12 +75,10 @@ extension XCTestCase {
         app.buttons["wishlist.add"].tap()
         let nameField = app.textFields["wishlist.editor.name"]
         XCTAssertTrue(nameField.waitForExistence(timeout: 5), "Wishlist editor did not open")
-        nameField.tap()
-        nameField.typeText(name)
+        focusAndType(nameField, name)
         if !estimate.isEmpty {
             let estimateField = app.textFields["wishlist.editor.estimate"]
-            estimateField.tap()
-            estimateField.typeText(estimate)
+            focusAndType(estimateField, estimate)
         }
         if let capture {
             captureScreen(app, named: capture)

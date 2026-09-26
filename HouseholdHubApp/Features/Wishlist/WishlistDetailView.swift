@@ -46,6 +46,7 @@ struct WishlistDetailView: View {
                 }
                 LabeledContent("Priority", value: WishlistFormat.priorityText(item.priority))
                 LabeledContent("Status", value: WishlistFormat.statusText(item.status))
+                    .accessibilityIdentifier("wishlist.status")
                 if let category = categories.first(where: { $0.id == item.categoryID }) {
                     LabeledContent("Category", value: category.name)
                 }

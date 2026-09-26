@@ -61,6 +61,29 @@ extension XCTestCase {
         XCTAssertEqual(field.value as? String, text, "Field did not end up holding '\(text)'")
     }
 
+    /// Focuses a text field, then types. At accessibility text sizes a `LabeledContent` row stacks its label above
+    /// the field, so a center tap can land on the label; try a few points inside the row until the field has focus.
+    @MainActor
+    func focusAndType(_ field: XCUIElement, _ text: String) {
+        let points = [CGVector(dx: 0.5, dy: 0.5), CGVector(dx: 0.9, dy: 0.8), CGVector(dx: 0.5, dy: 0.85)]
+        for point in points {
+            field.coordinate(withNormalizedOffset: point).tap()
+            if (field.value(forKey: "hasKeyboardFocus") as? Bool) == true {
+                break
+            }
+        }
+        field.typeText(text)
+    }
+
+    /// Waits for a detail row (label plus value, exposed as one element) to read `text`.
+    @MainActor
+    func waitForRow(_ app: XCUIApplication, identifier: String, toRead text: String) -> Bool {
+        let row = app.descendants(matching: .any)[identifier]
+        let predicate = NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: row)
+        return XCTWaiter().wait(for: [expectation], timeout: 10) == .completed
+    }
+
     @MainActor
     func transactionRow(_ app: XCUIApplication, containing text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: "transaction.row")
