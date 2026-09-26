@@ -35,7 +35,7 @@ struct CategoriesView: View {
                 }
             }
             if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red)
+                ErrorText(errorMessage)
             }
         }
         .navigationTitle("Categories")
@@ -275,7 +275,7 @@ struct CategoryEditorView: View {
                     }
                 }
                 if let errorMessage {
-                    Text(errorMessage).foregroundStyle(.red)
+                    ErrorText(errorMessage)
                 }
             }
             .navigationTitle(isCreating ? Text("New Category") : Text("Edit Category"))

@@ -48,7 +48,7 @@ struct ColumnsView: View {
                 }
             }
             if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red)
+                ErrorText(errorMessage)
             }
         }
         .environment(\.editMode, .constant(.active))

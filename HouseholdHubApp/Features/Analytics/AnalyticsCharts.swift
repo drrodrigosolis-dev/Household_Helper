@@ -33,6 +33,9 @@ struct CategorySection: View {
                     angularInset: 1.5
                 )
                 .foregroundStyle(color(slice.categoryID))
+                // Each mark is its own VoiceOver element: say which category and how much, with currency.
+                .accessibilityLabel(name(slice.categoryID))
+                .accessibilityValue(slice.total.formatted())
             }
             .chartAngleSelection(value: $selectedAngle)
             .frame(height: 220)
@@ -111,10 +114,20 @@ struct TrendSection: View {
     private var incomeLabel: String { String(localized: "Income") }
     private var expenseLabel: String { String(localized: "Expenses") }
 
+    /// Says which figure is which: the visible +/− column alone reads as two unlabelled amounts.
+    private func rowLabel(_ point: TrendPoint) -> Text {
+        let period = label(point.start)
+        let income = point.income.formatted()
+        let expense = point.expense.formatted()
+        return Text("\(period): income \(income), expenses \(expense)")
+    }
+
     private func bar(_ point: TrendPoint, kind: String, amount: Money) -> some ChartContent {
         BarMark(x: .value("Period", label(point.start)), y: .value("Amount", AnalyticsFormat.plotValue(amount)))
             .foregroundStyle(by: .value("Kind", kind))
             .position(by: .value("Kind", kind))
+            .accessibilityLabel("\(kind), \(label(point.start))")
+            .accessibilityValue(amount.formatted())
     }
 
     var body: some View {
@@ -135,7 +148,8 @@ struct TrendSection: View {
                         AmountText("−" + point.expense.formatted(), font: .subheadline)
                     }
                 }
-                .accessibilityElement(children: .combine)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(rowLabel(point))
             }
         }
     }

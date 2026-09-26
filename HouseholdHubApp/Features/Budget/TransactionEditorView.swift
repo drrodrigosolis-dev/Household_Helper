@@ -94,7 +94,7 @@ struct TransactionEditorView: View {
                 }
             }
             if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red)
+                ErrorText(errorMessage)
             }
         }
         .navigationTitle("Transaction")

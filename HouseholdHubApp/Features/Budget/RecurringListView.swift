@@ -27,7 +27,7 @@ struct RecurringListView: View {
                         row(item)
                     }
                     if let errorMessage {
-                        Text(errorMessage).foregroundStyle(.red)
+                        ErrorText(errorMessage)
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -110,7 +110,9 @@ private struct RecurringRow: View {
             Text(LedgerFormat.signedAmount(item.templateAmount, type: item.type))
                 .monospacedDigit()
         }
-        .opacity(item.isEnabled ? 1 : 0.5)
+        // Disabled rows say so in their detail line; secondary styling keeps text above AA contrast (half opacity
+        // did not).
+        .foregroundStyle(item.isEnabled ? .primary : .secondary)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("recurring.row")
     }

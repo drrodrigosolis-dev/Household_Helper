@@ -88,6 +88,8 @@ private struct FilteredTransactions: View {
         return TransactionRow(record: record, category: category)
             .contentShape(Rectangle())
             .onTapGesture { editing = record }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("Opens the editor")
             .swipeActions(edge: .trailing) {
                 Button("Delete", role: .destructive) { pendingDelete = record }
                 Button("Edit") { editing = record }

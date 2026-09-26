@@ -128,6 +128,8 @@ struct WishlistView: View {
         } label: {
             chipLabel(priorityChipTitle, active: priority != nil)
         }
+        .accessibilityLabel("Priority filter")
+        .accessibilityValue(priorityChipTitle)
         .accessibilityIdentifier("wishlist.priorityFilter")
         Menu {
             Picker("Status", selection: $status) {
@@ -138,6 +140,8 @@ struct WishlistView: View {
         } label: {
             chipLabel(status.title, active: status != .active)
         }
+        .accessibilityLabel("Status filter")
+        .accessibilityValue(status.title)
         .accessibilityIdentifier("wishlist.statusFilter")
     }
 

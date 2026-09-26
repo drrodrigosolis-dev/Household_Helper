@@ -107,7 +107,7 @@ struct WishlistEditorView: View {
             }
             photoSection
             if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red)
+                ErrorText(errorMessage)
             }
         }
         .navigationTitle(item == nil ? Text("New Item") : Text("Edit Item"))

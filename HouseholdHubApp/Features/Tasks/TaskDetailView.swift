@@ -96,7 +96,7 @@ struct TaskDetailView: View {
                 Button("Delete", systemImage: "trash", role: .destructive) { isConfirmingDelete = true }
             }
             if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red)
+                ErrorText(errorMessage)
             }
         }
         .navigationTitle(task.title)
@@ -279,7 +279,7 @@ struct TaskEditorView: View {
                 }
             }
             if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red)
+                ErrorText(errorMessage)
             }
         }
         .navigationTitle(task == nil ? Text("New Task") : Text("Edit Task"))

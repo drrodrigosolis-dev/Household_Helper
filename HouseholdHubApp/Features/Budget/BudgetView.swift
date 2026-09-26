@@ -74,6 +74,7 @@ struct BudgetView: View {
             Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
                 .symbolVariant(filter.wrappedValue.isActive ? .fill : .none)
         }
+        .accessibilityValue(filter.wrappedValue.isActive ? Text("On") : Text("Off"))
         .accessibilityIdentifier("budget.filter")
     }
 }

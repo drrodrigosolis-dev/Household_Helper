@@ -85,7 +85,7 @@ struct RecurringEditorView: View {
                         .foregroundStyle(.secondary)
                 }
                 if let errorMessage {
-                    Text(errorMessage).foregroundStyle(.red)
+                    ErrorText(errorMessage)
                 }
             }
             .navigationTitle("New Recurring Item")

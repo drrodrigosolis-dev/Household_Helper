@@ -65,7 +65,7 @@ struct TasksView: View {
         .scrollTargetBehavior(.viewAligned)
         .safeAreaInset(edge: .bottom) {
             if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red).padding()
+                ErrorText(errorMessage).padding()
             }
         }
     }

@@ -16,6 +16,8 @@ struct QuickAddButton: View {
         .clipShape(Circle())
         .accessibilityLabel("Quick Add")
         .accessibilityHint("Record an expense or income")
+        // Fixed size like a tab bar item, so at the largest text sizes a long press shows it enlarged instead.
+        .accessibilityShowsLargeContentViewer()
         .accessibilityIdentifier("quickadd.button")
     }
 }
@@ -133,7 +135,7 @@ struct QuickAddView: View {
                         .accessibilityIdentifier("quickadd.suggested")
                 }
                 if let errorMessage {
-                    Text(errorMessage).foregroundStyle(.red)
+                    ErrorText(errorMessage)
                 }
             }
             .navigationTitle("Quick Add")

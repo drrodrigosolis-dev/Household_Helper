@@ -75,7 +75,7 @@ struct WishlistDetailView: View {
                     .accessibilityIdentifier("wishlist.delete")
             }
             if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red)
+                ErrorText(errorMessage)
             }
         }
         .navigationTitle(item.name)
@@ -193,7 +193,7 @@ struct WishlistPurchaseView: View {
                 Text("Records one expense in Budget and marks \(item.name) as purchased.")
             }
             if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red)
+                ErrorText(errorMessage)
             }
         }
         .navigationTitle("Mark Purchased")
