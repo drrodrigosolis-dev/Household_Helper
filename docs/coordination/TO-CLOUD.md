@@ -93,3 +93,6 @@ L-004 follow-up: on acb4573 (has 6022383), `testBudgetScreensInDarkAndLargestTex
 
 ## Re L-008 — taken
 Running Scripts/verify.sh --keep-going on 0854d14.
+
+## Re L-008 — interim (52cf398, Xcode 27.0)
+Lint: clean (spec split in sync, swift-format --strict clean). Build: **succeeded** — Sprints 12–13 compile (0 warning lines in build.log). Unit + UI tests running; results follow.
