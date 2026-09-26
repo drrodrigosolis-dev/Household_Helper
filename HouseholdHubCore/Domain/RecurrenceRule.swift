@@ -6,6 +6,8 @@ public enum RecurrenceRuleError: Error, Equatable, Sendable {
 
 /// Strongly typed recurrence definition (spec §7.6). Weekdays use `Calendar` numbering: 1 = Sunday … 7 = Saturday.
 public enum RecurrenceRule: Codable, Hashable, Sendable {
+    /// Every `interval` days (Sprint 13, for recurring tasks; recurring transactions may use it too).
+    case daily(interval: Int)
     /// Every `interval` weeks on `weekday`.
     case weekly(interval: Int, weekday: Int)
     /// On `day` of each month; months without that day use their last day (31 → Feb 28/29).
@@ -17,6 +19,8 @@ public enum RecurrenceRule: Codable, Hashable, Sendable {
 
     public func validate() throws {
         switch self {
+        case .daily(let interval):
+            try Self.require((1...365).contains(interval), "daily interval must be 1...365")
         case .weekly(let interval, let weekday):
             try Self.require((1...52).contains(interval), "weekly interval must be 1...52")
             try Self.require((1...7).contains(weekday), "weekday must be 1...7")

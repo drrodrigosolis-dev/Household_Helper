@@ -204,6 +204,9 @@ public struct BackupDTO: Codable, Equatable, Sendable {
         public var archivedAt: Date?
         public var createdAt: Date
         public var updatedAt: Date
+        /// Sprint 13: a repeating task's rule and its zone; absent in older files and on tasks that don't repeat.
+        public var recurrenceRule: RecurrenceRule?
+        public var recurrenceTimeZoneIdentifier: String?
     }
 
     public struct Subtask: Codable, Equatable, Sendable {

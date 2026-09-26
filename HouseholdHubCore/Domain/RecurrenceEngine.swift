@@ -37,6 +37,15 @@ public struct RecurrenceEngine: Sendable {
         return results
     }
 
+    /// The first occurrence of `rule` anchored at `start` strictly after `date` (Sprint 13: a recurring task's next due
+    /// date), within three years.
+    public func nextOccurrence(
+        of rule: RecurrenceRule, start: Date, after date: Date, calendar: HouseholdCalendar
+    ) -> Date? {
+        let horizon = DateInterval(start: date, duration: 3 * 366 * 24 * 3600)
+        return occurrences(of: rule, start: start, end: nil, in: horizon, calendar: calendar).first { $0 > date }
+    }
+
     /// The first occurrence strictly after `date`, or nil if the series has ended.
     public func nextOccurrence(of series: RecurringSeries, after date: Date) -> Date? {
         let horizon = DateInterval(start: date, duration: 3 * 366 * 24 * 3600)
@@ -65,6 +74,8 @@ private struct Generator {
     func firstUsefulIndex(for windowStart: Date) -> Int {
         guard windowStart > start else { return 0 }
         switch rule {
+        case .daily(let interval):
+            return max(0, calendar.dayDifference(from: start, to: windowStart) / interval - 1)
         case .weekly(let interval, _):
             return max(0, calendar.dayDifference(from: start, to: windowStart) / (7 * interval) - 1)
         case .monthlyOnDay, .monthlyOnWeekday:
@@ -78,6 +89,11 @@ private struct Generator {
 
     func candidate(at index: Int) -> Date? {
         switch rule {
+        case .daily(let interval):
+            let firstDay = calendar.startOfDay(for: start)
+            guard let day = cal.date(byAdding: .day, value: interval * index, to: firstDay) else { return nil }
+            let parts = cal.dateComponents([.year, .month, .day], from: day)
+            return localDate(year: parts.year, month: parts.month, day: parts.day)
         case .weekly(let interval, let weekday):
             let startWeekday = startParts.weekday ?? 1
             let firstOffset = (weekday - startWeekday + 7) % 7

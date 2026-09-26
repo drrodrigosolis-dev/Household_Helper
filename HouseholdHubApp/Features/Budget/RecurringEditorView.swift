@@ -6,6 +6,7 @@ import SwiftUI
 /// Editing changes future occurrences only (§9.4); transactions already posted from the series stay as they are.
 struct RecurringEditorView: View {
     enum RuleKind: String, CaseIterable, Identifiable {
+        case daily
         case weekly
         case monthlyOnDay
         case monthlyOnWeekday
@@ -29,6 +30,7 @@ struct RecurringEditorView: View {
     @State private var categoryID: UUID?
     @State private var ruleKind = RuleKind.monthlyOnDay
     @State private var interval = 1
+    @State private var dayInterval = 1
     @State private var weekday = Calendar.current.component(.weekday, from: .now)
     @State private var dayOfMonth = Calendar.current.component(.day, from: .now)
     @State private var ordinal = 1
@@ -57,6 +59,9 @@ struct RecurringEditorView: View {
         _accountID = State(initialValue: series.accountID)
         _toAccountID = State(initialValue: series.transferAccountID)
         switch try? series.rule() {
+        case .daily(let interval):
+            _ruleKind = State(initialValue: .daily)
+            _dayInterval = State(initialValue: interval)
         case .weekly(let interval, let weekday):
             _ruleKind = State(initialValue: .weekly)
             _interval = State(initialValue: interval)
@@ -93,6 +98,7 @@ struct RecurringEditorView: View {
 
     private var rule: RecurrenceRule {
         switch ruleKind {
+        case .daily: return .daily(interval: dayInterval)
         case .weekly: return .weekly(interval: interval, weekday: weekday)
         case .monthlyOnDay: return .monthlyOnDay(day: dayOfMonth)
         case .monthlyOnWeekday: return .monthlyOnWeekday(ordinal: ordinal, weekday: weekday)
@@ -153,6 +159,7 @@ struct RecurringEditorView: View {
                 }
                 Section("Repeats") {
                     Picker("Repeats", selection: $ruleKind) {
+                        Text("Daily").tag(RuleKind.daily)
                         Text("Weekly").tag(RuleKind.weekly)
                         Text("Monthly on a day").tag(RuleKind.monthlyOnDay)
                         Text("Monthly on a weekday").tag(RuleKind.monthlyOnWeekday)
@@ -186,6 +193,8 @@ struct RecurringEditorView: View {
     @ViewBuilder
     private var ruleFields: some View {
         switch ruleKind {
+        case .daily:
+            Stepper("Every \(dayInterval) day(s)", value: $dayInterval, in: 1...365)
         case .weekly:
             Stepper("Every \(interval) week(s)", value: $interval, in: 1...52)
             weekdayPicker

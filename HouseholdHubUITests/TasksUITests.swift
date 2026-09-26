@@ -128,6 +128,44 @@ extension XCTestCase {
         XCTAssertTrue(linked, "Detail does not show the link")
     }
 
+    /// Sprint 13: a weekly task, once completed, leaves a new open copy on the board with the repeat.
+    @MainActor
+    func testCompletingARepeatingTaskAddsTheNextOne() {
+        let app = launchApp()
+        app.tabBars.buttons["Tasks"].tap()
+        app.buttons["tasks.add"].tap()
+        let field = app.textFields["task.editor.title"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5), "Task editor did not open")
+        focusAndType(field, "Take out recycling")
+        let dueSwitch = app.switches["task.editor.hasDueDate"]
+        XCTAssertTrue(dueSwitch.waitForExistence(timeout: 5))
+        dueSwitch.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        let repeatPicker = app.buttons["task.editor.repeat"]
+        XCTAssertTrue(repeatPicker.waitForExistence(timeout: 5), "Repeat appears once there is a due date")
+        repeatPicker.tap()
+        let weekly = app.buttons["Weekly"].firstMatch
+        XCTAssertTrue(weekly.waitForExistence(timeout: 5), "Weekly should be offered")
+        weekly.tap()
+        captureScreen(app, named: "sprint13-task-editor-repeat-light")
+        app.buttons["task.editor.save"].tap()
+
+        let card = taskCard(app, containing: "Take out recycling")
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        captureScreen(app, named: "sprint13-board-repeat-light")
+        card.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["task.repeats"].waitForExistence(timeout: 5), "Repeat not shown")
+        app.buttons["task.complete"].tap()
+        XCTAssertTrue(waitForRow(app, identifier: "task.column", toRead: "Done"))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        // The Done column may be off screen; the open copy is in the first column.
+        let open = app.descendants(matching: .any).matching(identifier: "task.card")
+            .matching(
+                NSPredicate(
+                    format: "label CONTAINS %@ AND NOT (label CONTAINS %@)", "Take out recycling", "Completed")
+            ).firstMatch
+        XCTAssertTrue(open.waitForExistence(timeout: 10), "The next, open task should be on the board")
+    }
+
     @MainActor
     func addTask(_ app: XCUIApplication, title: String, capture: String? = nil) {
         app.tabBars.buttons["Tasks"].tap()

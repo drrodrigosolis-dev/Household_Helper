@@ -192,6 +192,8 @@ enum RecurrenceFormat {
     static func describe(_ rule: RecurrenceRule) -> String {
         let calendar = Calendar.current
         switch rule {
+        case .daily(let interval):
+            return interval == 1 ? String(localized: "Daily") : String(localized: "Every \(interval) days")
         case .weekly(let interval, let weekday):
             let day = calendar.weekdaySymbols[weekday - 1]
             if interval == 1 {

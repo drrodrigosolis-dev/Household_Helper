@@ -42,6 +42,10 @@ struct TaskDetailView: View {
                 if let due = task.dueDate {
                     LabeledContent("Due", value: due.formatted(date: .abbreviated, time: .omitted))
                 }
+                if let rule = task.recurrence {
+                    LabeledContent("Repeats", value: RecurrenceFormat.describe(rule))
+                        .accessibilityIdentifier("task.repeats")
+                }
                 if let completed = task.completedAt {
                     LabeledContent("Completed", value: completed.formatted(date: .abbreviated, time: .shortened))
                 }
@@ -235,6 +239,9 @@ struct TaskEditorView: View {
     @State private var dueDate: Date
     @State private var wishID: UUID?
     @State private var transactionID: UUID?
+    /// nil = doesn't repeat. `keptRule` is a stored rule the picker can't express, kept unless the user picks again.
+    @State private var repeatChoice: TaskRepeat?
+    @State private var keptRule: RecurrenceRule?
     @State private var errorMessage: String?
     @State private var isSaving = false
 
@@ -253,6 +260,21 @@ struct TaskEditorView: View {
         _hasDueDate = State(initialValue: task?.dueDate != nil)
         _dueDate = State(initialValue: task?.dueDate ?? .now)
         _wishID = State(initialValue: task?.linkedWishlistItemID)
+        if let rule = task?.recurrence, let due = task?.dueDate {
+            let calendar = HouseholdCalendar(timeZone: .current)
+            let choice = TaskRepeat(rule: rule, dueDate: due, calendar: calendar)
+            _repeatChoice = State(initialValue: choice)
+            _keptRule = State(initialValue: choice == nil ? rule : nil)
+        }
+    }
+
+    private var repeatBinding: Binding<TaskRepeat?> {
+        Binding(
+            get: { repeatChoice },
+            set: { choice in
+                repeatChoice = choice
+                keptRule = nil
+            })
     }
 
     private var canSave: Bool { !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSaving }
@@ -281,8 +303,24 @@ struct TaskEditorView: View {
                     }
                 }
                 Toggle("Due date", isOn: $hasDueDate)
+                    .accessibilityIdentifier("task.editor.hasDueDate")
                 if hasDueDate {
                     DatePicker("Due", selection: $dueDate, displayedComponents: .date)
+                    Picker("Repeat", selection: repeatBinding) {
+                        if let keptRule {
+                            Text(RecurrenceFormat.describe(keptRule)).tag(TaskRepeat?.none)
+                        } else {
+                            Text("Never").tag(TaskRepeat?.none)
+                        }
+                        ForEach(TaskRepeat.allCases, id: \.self) { choice in
+                            Text(TaskRepeatFormat.title(choice)).tag(TaskRepeat?.some(choice))
+                        }
+                    }
+                    .accessibilityIdentifier("task.editor.repeat")
+                }
+            } footer: {
+                if hasDueDate, repeatChoice != nil || keptRule != nil {
+                    Text("Completing it adds the next one, due on the next date after this due date.")
                 }
             }
             Section {
@@ -335,10 +373,13 @@ struct TaskEditorView: View {
         isSaving = true
         defer { isSaving = false }
         // A due date is a calendar day (spec §10): stored as the start of that day in the household calendar.
-        let due = hasDueDate ? HouseholdCalendar(timeZone: .current).startOfDay(for: dueDate) : nil
+        let calendar = HouseholdCalendar(timeZone: .current)
+        let due = hasDueDate ? calendar.startOfDay(for: dueDate) : nil
+        // A repeat needs a due date (Sprint 13): turning the due date off stops the repeat.
+        let recurrence = due.flatMap { day in repeatChoice?.rule(dueDate: day, calendar: calendar) ?? keptRule }
         let draft = TaskDraft(
             title: title, notes: notes, priority: priority, dueDate: due, linkedWishlistItemID: wishID,
-            linkedTransactionID: transactionID)
+            linkedTransactionID: transactionID, recurrence: recurrence, timeZone: calendar.timeZone)
         do {
             if let task {
                 try await services.board.updateTask(task.id, with: draft, now: .now)
@@ -364,6 +405,19 @@ private struct LinkedTransactionRow: View {
         if let record = matches.first {
             LabeledContent("Transaction", value: TaskEditorView.transactionTitle(record))
                 .accessibilityIdentifier("task.transaction")
+        }
+    }
+}
+
+/// Repeat choice titles (Sprint 13).
+enum TaskRepeatFormat {
+    static func title(_ choice: TaskRepeat) -> String {
+        switch choice {
+        case .daily: return String(localized: "Daily")
+        case .weekly: return String(localized: "Weekly")
+        case .everyTwoWeeks: return String(localized: "Every 2 weeks")
+        case .monthly: return String(localized: "Monthly")
+        case .yearly: return String(localized: "Yearly")
         }
     }
 }

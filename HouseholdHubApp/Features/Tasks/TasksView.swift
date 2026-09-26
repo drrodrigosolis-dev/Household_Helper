@@ -243,6 +243,11 @@ struct TaskCard: View {
         if let due = task.dueDate {
             Label(due.formatted(date: .abbreviated, time: .omitted), systemImage: "calendar")
         }
+        if task.recurrenceRuleData != nil {
+            Label("Repeats", systemImage: "repeat")
+                .labelStyle(.iconOnly)
+                .accessibilityLabel("Repeats")
+        }
         if !subtasks.isEmpty {
             Label("\(done) of \(subtasks.count)", systemImage: "checklist")
         }

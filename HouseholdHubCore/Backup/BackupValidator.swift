@@ -186,6 +186,24 @@ public enum BackupValidator {
             try exists(task.columnID, in: columns, "taskItems", "columnID")
             try exists(task.linkedWishlistItemID, in: wishes, "taskItems", "linkedWishlistItemID")
             try exists(task.linkedTransactionID, in: transactions, "taskItems", "linkedTransactionID")
+            // A repeat (Sprint 13): a valid rule in a known zone, on a task with a due date; rule and zone go together.
+            switch (task.recurrenceRule, task.recurrenceTimeZoneIdentifier) {
+            case (nil, nil):
+                break
+            case (let rule?, let zone?):
+                guard (try? rule.validate()) != nil else {
+                    throw BackupError.invalidValue(entity: "taskItems", field: "recurrenceRule", value: "\(rule)")
+                }
+                guard TimeZone(identifier: zone) != nil else {
+                    throw BackupError.invalidValue(
+                        entity: "taskItems", field: "recurrenceTimeZoneIdentifier", value: zone)
+                }
+                guard task.dueDate != nil else {
+                    throw BackupError.inconsistentLink(entity: "taskItems", field: "recurrenceRule")
+                }
+            default:
+                throw BackupError.inconsistentLink(entity: "taskItems", field: "recurrenceTimeZoneIdentifier")
+            }
         }
         for subtask in backup.subtaskItems {
             try exists(subtask.taskID, in: tasks, "subtaskItems", "taskID")

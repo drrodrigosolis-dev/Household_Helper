@@ -56,6 +56,7 @@ Statuses: not started / in progress / CI green / blocked.
 17. **Budgets roll over by default, with a toggle on each budget** (Sprint 11); the other Sprint 11 defaults accepted.
 18. **Cloud ↔ local sessions** coordinate through `docs/coordination/` (two one-way files in the repo).
 19. **Sprint 12 defaults accepted ("run")**: the 6 savings-goal decisions in `docs/sprints/SPRINT-12.md`.
+20. **Sprint 13 defaults accepted**: the 5 recurring-task decisions in `docs/sprints/SPRINT-13.md`.
 
 ## Defaults awaiting the owner's review (Phase 10)
 - **Currency after records exist (§6.3):** Settings › Household refuses the change and says why, rather than §6.3's
@@ -86,8 +87,8 @@ where money sits. Each is one sprint (`docs/sprints/SPRINT-10…`), closed only 
 |---|---|---|
 | 10 | Multiple accounts + transfers (household balance = sum of accounts; §9 terms per account) | CI green (run 36251732218 on `e5ddfb7`); large-text re-walk pending |
 | 11 | Category budgets (monthly limits, rollover on by default, progress on Dashboard and Analytics) | built, review fixes pushed; awaiting CI |
-| 12 | Savings goals (target and date, monthly amount needed; can point at a wishlist item) | built; awaiting CI and review |
-| 13 | Recurring tasks (reuse the recurrence rules) | not started |
+| 12 | Savings goals (target and date, monthly amount needed; can point at a wishlist item) | built, data-safety review fixed; awaiting CI |
+| 13 | Recurring tasks (reuse the recurrence rules) | built; awaiting CI and review |
 | 14 | Search (deterministic) + local reminders (task due dates, upcoming bills) | not started |
 | 15 | CSV import (user-picked file, column mapping, preview, duplicate check, one atomic save) | not started |
 | 16 | Spanish translation (String Catalog; walked in Spanish) | not started |
