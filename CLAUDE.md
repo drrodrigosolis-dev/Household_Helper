@@ -54,7 +54,9 @@ Swift Testing for unit/domain/service tests (`HouseholdHubTests`); XCTest/XCUIAu
 After editing `docs/Household_Hub_iOS_App_Specs_Enhanced_v3.1.md`, run `python3 Scripts/split-spec.py`.
 
 ## 10. Git rules
-Work on `build/v1`; one open PR `build/v1 → main`. Small coherent commits describing the change, not the prompt.
+Work on `build/v1.1`; one open PR `build/v1.1 → main`. v1 was merged into `main` (`e5b5c40`, owner go-ahead 2026-09-26); v1.1
+(owner-chosen post-v1 features, `docs/PROGRESS.md`) builds on `build/v1.1`. CI runs from the workflow's `pull_request`
+trigger (its `push` trigger still names `build/v1`; changing it needs the owner's confirmation). Small coherent commits describing the change, not the prompt.
 Never force-push, amend pushed commits, rebase, reset --hard, or delete branches. Never push to or merge into
 `main` without the owner's explicit go-ahead. Never commit secrets (see §11 of this file).
 
@@ -75,26 +77,26 @@ definition of "green" in every environment. Do not "correct" this back to the sp
 
 **Two environments, one repo.** Work starts in claude.ai cloud sessions (Linux, no Xcode) while the owner's cloud
 credits last, then moves to the owner's Mac. Everything the project needs must live in git: never leave state only
-in a cloud container, scratchpad, session memory, or a cloud-only tool. Push `build/v1` at every stopping point.
+in a cloud container, scratchpad, session memory, or a cloud-only tool. Push `build/v1.1` at every stopping point.
 - Cloud session: scripts refuse to run off-macOS by design; do not try to install Xcode or Swift. Verify via CI.
 - Mac with Xcode: run `Scripts/verify.sh` locally before every push for fast feedback; CI still decides "done".
 - Cloud-only tools (GitHub MCP, `send_later`, PR subscriptions) are conveniences; every procedure also has a `gh`
   path (see `household-verify`). Moving to the Mac: `docs/MOVING-TO-MAC.md`.
 
-- Source of truth for "does it work" is `.github/workflows/verify.yml` on the `build/v1` PR.
-- Loop: commit → push `build/v1` → find the run whose head SHA equals your pushed SHA → wait for a real conclusion
+- Source of truth for "does it work" is `.github/workflows/verify.yml` on the `build/v1.1` PR.
+- Loop: commit → push `build/v1.1` → find the run whose head SHA equals your pushed SHA → wait for a real conclusion
   → on failure read the failed job logs and fix the root cause → repeat. Never assume success.
 - Reading CI: with `gh`, `gh pr checks` / `gh run watch` / `gh run view --log-failed`. In cloud sessions without
-  `gh`, use the GitHub MCP tools: `actions_list` (list_workflow_runs, branch `build/v1`), `actions_get`
+  `gh`, use the GitHub MCP tools: `actions_list` (list_workflow_runs, branch `build/v1.1`), `actions_get`
   (get_workflow_run), `get_job_logs` (failed_only), `pull_request_read` (get_check_runs). The `household-verify`
   skill has the exact procedure.
-- **Division of labor (owner decision):** while claude.ai "Auto-fix" is on for the `build/v1` PR, it owns fixing
+- **Division of labor (owner decision):** while claude.ai "Auto-fix" is on for the `build/v1.1` PR, it owns fixing
   red CI and the lead session writes phase work without racing it: if the latest run is red, wait for Auto-fix's
   fix to go green. When Auto-fix is off or unavailable (it is a cloud feature; expect it to end with the cloud
-  credits, and always on the Mac unless the owner says otherwise), the lead session fixes red CI itself. Always `git pull --ff-only origin build/v1`
+  credits, and always on the Mac unless the owner says otherwise), the lead session fixes red CI itself. Always `git pull --ff-only origin build/v1.1`
   before committing and again before pushing, because Auto-fix pushes to the same branch.
 - A DoD item (§18) or a phase (§21) is complete only when CI is green on the commit that contains it. Phase gates
-  (§28) use CI, not memory: before starting phase N+1, confirm the latest run on `build/v1` head is green.
+  (§28) use CI, not memory: before starting phase N+1, confirm the latest run on `build/v1.1` head is green.
 - **Never idle (owner rule, 2026-09-26):** while CI verifies phase N, keep working on anything that can proceed
   (next phase's Core code, tests, docs, research); phase N+1 may be *built* before N is green but is not *closed*
   until its own green run. Pushing while CI runs is fine: a running `verify` run always finishes, and a push only

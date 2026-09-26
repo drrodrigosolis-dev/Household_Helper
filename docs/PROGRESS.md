@@ -1,7 +1,8 @@
 # Household Hub v1 — progress
 
-Gate: a phase is **CI green** only when `.github/workflows/verify.yml` concluded `success` on the `build/v1` commit
-that completes it (CLAUDE.md, "Autonomous CI-driven operation"; spec §28). Mirrored in the `build/v1 → main` PR description.
+Gate: a phase is **CI green** only when `.github/workflows/verify.yml` concluded `success` on the commit that
+completes it (CLAUDE.md, "Autonomous CI-driven operation"; spec §28). v1 (Phases 0-10) was merged into `main` as
+`e5b5c40` on the owner's go-ahead; v1.1 is built on `build/v1.1` and mirrored in the `build/v1.1 → main` PR description.
 
 | Phase (§21) | Status | Note |
 |---|---|---|
@@ -43,6 +44,14 @@ Statuses: not started / in progress / CI green / blocked.
 11. **Accent color: any color** via a color picker (overrides Sprint 9 default 3), with a warning when it would be
     hard to see in Light or Dark Mode; the palette stays as quick choices.
 
+12. **v1 merged into `main`** (`e5b5c40`), with device-only checks still queued; post-v1 work goes on `build/v1.1`.
+13. **v1.1 features** (all owner-chosen; beyond spec §2.1, so recorded here rather than assumed): multiple accounts
+    with transfers, category budgets, savings goals, recurring tasks, search, local reminders, CSV import, and a Spanish
+    translation (neutral Latin-American).
+14. **CSV import is a manual, user-picked file with a preview before anything is saved.** It is not the §2.2 non-goal
+    "automatic merchant transaction import from banks": no bank connection, no background import.
+15. **SchemaV1 stays editable through the v1.1 data features** (accounts, budgets, goals, recurring tasks); it freezes
+    at the first install on the owner's device as before, so installing before those are green would force migrations.
 
 ## Defaults awaiting the owner's review (Phase 10)
 - **Currency after records exist (§6.3):** Settings › Household refuses the change and says why, rather than §6.3's
@@ -64,3 +73,17 @@ Statuses: not started / in progress / CI green / blocked.
   the phone locks during a long "Back up now", photos not yet read are left out and the user is told.
 - **A total photo cap of 500 MB per restore:** past it, remaining photos count as missing and the data still
   restores (the review showed a hard refusal would make large legitimate backups unrestorable).
+
+## v1.1 plan (owner decisions 13-15)
+Order: data-model features first, while SchemaV1 is still editable, and accounts before anything that needs to know
+where money sits. Each is one sprint (`docs/sprints/SPRINT-10…`), closed only on its own green CI run.
+
+| Sprint | Feature | Status |
+|---|---|---|
+| 10 | Multiple accounts + transfers (household balance = sum of accounts; §9 terms per account) | not started |
+| 11 | Category budgets (monthly limits, progress on Dashboard and Analytics) | not started |
+| 12 | Savings goals (target and date, monthly amount needed; can point at a wishlist item) | not started |
+| 13 | Recurring tasks (reuse the recurrence rules) | not started |
+| 14 | Search (deterministic) + local reminders (task due dates, upcoming bills) | not started |
+| 15 | CSV import (user-picked file, column mapping, preview, duplicate check, one atomic save) | not started |
+| 16 | Spanish translation (String Catalog; walked in Spanish) | not started |
