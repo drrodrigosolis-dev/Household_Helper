@@ -128,6 +128,9 @@ struct WishlistView: View {
             .padding(.horizontal)
             .padding(.vertical, 6)
         }
+        // A horizontal ScrollView is vertically flexible; without this it claims extra height in the top inset and
+        // leaves a gap above the list (walk of run 36202442661).
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var priorityChipTitle: String {
