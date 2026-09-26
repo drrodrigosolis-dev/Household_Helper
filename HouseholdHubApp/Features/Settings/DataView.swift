@@ -137,7 +137,8 @@ struct DataView: View {
         let currency = backup.settings.currencyCode
         let contents = String(localized: "\(count) transactions, \(currency)")
         let replaced = String(localized: "Everything is replaced by the \(date) backup (\(contents)).")
-        return replaced + " " + String(localized: "This can't be undone.")
+        let photos = String(localized: "Wishlist photos are replaced too.")
+        return [replaced, photos, String(localized: "This can't be undone.")].joined(separator: " ")
     }
 
     /// The app is covered while restoring, so no other screen writes or shows a record mid-restore.

@@ -87,7 +87,14 @@ struct RecurringListView: View {
         guard let services else { return }
         let id = item.id
         let enable = !item.isEnabled
-        Task { try? await services.transactions.setSeriesEnabled(enable, series: id, now: .now) }
+        Task {
+            do {
+                try await services.transactions.setSeriesEnabled(enable, series: id, now: .now)
+                errorMessage = nil
+            } catch {
+                errorMessage = String(localized: "That series couldn't be changed.")
+            }
+        }
     }
 }
 

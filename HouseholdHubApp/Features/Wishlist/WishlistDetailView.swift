@@ -8,6 +8,7 @@ struct WishlistDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var matches: [WishlistItem]
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
+    @Query private var tasks: [TaskItem]
 
     @State private var isEditing = false
     @State private var isPurchasing = false
@@ -114,7 +115,9 @@ struct WishlistDetailView: View {
         if item.purchasedTransactionID != nil {
             return String(localized: "Its purchase stays in Budget and in your balances. Only the wishlist item goes.")
         }
-        return String(localized: "The item and its photo will be removed.")
+        let removed = String(localized: "The item and its photo will be removed.")
+        guard tasks.contains(where: { $0.linkedWishlistItemID == item.id }) else { return removed }
+        return removed + " " + String(localized: "Its task stays on the board without the link.")
     }
 
     private func setArchived(_ archived: Bool, _ item: WishlistItem) {

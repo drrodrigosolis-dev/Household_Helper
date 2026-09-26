@@ -24,6 +24,7 @@ private struct FilteredTransactions: View {
 
     @State private var pendingDelete: TransactionRecord?
     @State private var editing: TransactionRecord?
+    @State private var errorMessage: String?
     private let calendar = HouseholdCalendar(timeZone: .current)
 
     init(filter: TransactionFilter, limit: Int, loadMore: @escaping () -> Void) {
@@ -53,6 +54,9 @@ private struct FilteredTransactions: View {
                     description: Text("Use Quick Add to record an expense or income."))
             } else {
                 List {
+                    if let errorMessage {
+                        ErrorText(errorMessage)
+                    }
                     ForEach(days, id: \.self) { day in
                         Section {
                             ForEach(recordsByDay[day] ?? []) { record in
@@ -136,7 +140,12 @@ private struct FilteredTransactions: View {
         let id = record.id
         pendingDelete = nil
         Task {
-            try? await services?.transactions.deleteTransaction(id, alsoDisableSeries: disableSeries, now: .now)
+            do {
+                try await services?.transactions.deleteTransaction(id, alsoDisableSeries: disableSeries, now: .now)
+                errorMessage = nil
+            } catch {
+                errorMessage = String(localized: "That transaction couldn't be deleted. Nothing was changed.")
+            }
         }
     }
 

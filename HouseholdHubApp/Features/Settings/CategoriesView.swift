@@ -128,7 +128,14 @@ struct CategoriesView: View {
     private func setArchived(_ category: CategoryRecord, _ archived: Bool) {
         guard let services else { return }
         let id = category.id
-        Task { try? await services.categories.setArchived(archived, category: id, now: .now) }
+        Task {
+            do {
+                try await services.categories.setArchived(archived, category: id, now: .now)
+                errorMessage = nil
+            } catch {
+                errorMessage = String(localized: "That category couldn't be changed.")
+            }
+        }
     }
 
     private func delete(_ category: CategoryRecord) {
