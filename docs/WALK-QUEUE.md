@@ -19,13 +19,13 @@ result, and why it could not be walked automatically. Emptied at the next walk o
   queued: the CI simulator's model is unreliable (usually absent; once reported available and then failed every
   request, run 36211058160).
 - **Launch baseline (Phase 10).** `LaunchPerformanceUITests.testLaunchPerformance` records cold-launch time in
-  CI without a threshold. On the Mac, run it in Xcode, set a baseline on the result, and commit the scheme's
-  baseline so regressions fail. Why queued: CI's shared simulator is too noisy for a fixed limit.
+  CI without a threshold. CI run 36216543703 measured an average of **3.197 s** (2.81–3.57 s over 5 launches) on
+  the shared runner's simulator; spec §9 NFR is **under 2 s** to an interactive Dashboard on the reference device.
+  On the Mac, run it in Xcode on the iPhone 17 Pro Max simulator: if it is under 2 s, set that as the baseline and
+  commit it so regressions fail; if not, profile with Instruments (App Launch) — the store is opened synchronously
+  in `HouseholdHubApp.init` before the first frame. Why queued: CI's shared simulator is too slow and noisy to
+  judge a 2 s target.
 
-- **Cold-launch time (Phase 10 hardening).** In CI run 36209505191 one UI test launch showed a blank white screen
-  for ~22 s before the Dashboard (others launch in 3–4 s). Time a cold launch on the Mac/device with Instruments
-  (App Launch) and check whether container creation or seeding blocks the first frame. Why queued: needs
-  Instruments; the CI simulator is shared and noisy.
 
 - **Before any on-device walk: delete the app first.** SchemaV1 stays editable until the first release (recorded
   decision) and has gained fields since early sprints (AI switches, widget and Face ID settings). A store written by
@@ -35,6 +35,7 @@ result, and why it could not be walked automatically. Emptied at the next walk o
   fallback. Why queued: the CI simulator has no passcode, so the switch is unavailable there.
 
 ## Done
+- ~~Cold-launch 22 s blank screen (run 36209505191).~~ Not reproduced: the launch metric in run 36216543703 measured 2.8–3.6 s; the slow UI-test starts were simulator warm-up and automation setup. The 2 s target itself is tracked under Launch baseline.
 - ~~Owner decision — Google Sheets export.~~ Dropped from v1 (owner, 2026-09-26); CSV covers it.
 - ~~Sprint 0/1 (Phases 0–1) — visual pass of the tab shell.~~ Covered by the automated screenshot walks from Sprint 2
   on (every tab and More › Analytics / Settings in light, dark, and largest text; `docs/walk/`).
