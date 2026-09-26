@@ -64,6 +64,27 @@ final class TasksUITests: XCTestCase {
 
 extension XCTestCase {
     /// Adds a task through the Tasks tab's editor and waits for its card.
+    /// Sprint 9: a task can link a transaction from its editor, and the detail shows the link.
+    @MainActor
+    func testTaskLinksATransaction() {
+        let app = launchApp()
+        addViaQuickAdd(app, "12 parking")
+        addTask(app, title: "Get receipt")
+        taskCard(app, containing: "Get receipt").tap()
+        let edit = app.buttons["Edit"]
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        edit.tap()
+        let picker = app.buttons["task.editor.transaction"]
+        XCTAssertTrue(scrollUntilExists(app, picker), "Transaction picker missing from the task editor")
+        picker.tap()
+        let option = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "parking")).firstMatch
+        XCTAssertTrue(option.waitForExistence(timeout: 5), "The recent transaction is not offered")
+        option.tap()
+        app.buttons["task.editor.save"].tap()
+        let linked = waitForRow(app, identifier: "task.transaction", toRead: "parking")
+        XCTAssertTrue(linked, "Detail does not show the link")
+    }
+
     @MainActor
     func addTask(_ app: XCUIApplication, title: String, capture: String? = nil) {
         app.tabBars.buttons["Tasks"].tap()
