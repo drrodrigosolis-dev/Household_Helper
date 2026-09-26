@@ -4,6 +4,9 @@ import Observation
 @MainActor
 @Observable
 final class AppRouter {
+    /// One router for the app's single window, so App Intents (Shortcuts) can reach it.
+    static let shared = AppRouter()
+
     enum AppTab: Hashable {
         case dashboard
         case budget
@@ -15,6 +18,8 @@ final class AppRouter {
     var tab = AppTab.dashboard
     var budgetSegment = BudgetView.Segment.transactions
     var budgetFilter = TransactionFilter()
+    /// Quick Add opened from outside the app (widget link, Shortcuts), shown over whatever tab is active.
+    var isQuickAddPresented = false
 
     func showBudget(_ segment: BudgetView.Segment, filter: TransactionFilter = TransactionFilter()) {
         budgetSegment = segment

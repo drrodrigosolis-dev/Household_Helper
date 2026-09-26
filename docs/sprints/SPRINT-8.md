@@ -31,7 +31,8 @@ no App Group, no paid capability may become a dependency), §9 (current vs pendi
 6. **Shortcuts intent `LogTransactionIntent`** takes one text parameter in the §25 grammar ("47.50 coffee"),
    parses it with `QuickAddParser` (never the model), and asks for confirmation showing the parsed amount, type and
    date (`requestConfirmation(conditions:actionName:dialog:)`) before saving through `TransactionService` with source
-   `.widget`. No amount → the intent fails with a
+   `.widget`. A `#tag` is dropped rather than matched (the intent has no category list); the category can be set
+   in the app afterwards. No amount → the intent fails with a
    message and saves nothing. It runs in the app process (no App Group needed).
 7. No Lock Screen / Control Center / Live Activity surfaces in v1 (not in §24.4).
 

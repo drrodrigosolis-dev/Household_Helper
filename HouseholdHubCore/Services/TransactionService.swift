@@ -321,6 +321,14 @@ public actor TransactionService {
             calendar: calendar, includePendingInProjection: includePendingInProjection)
     }
 
+    /// What the Home Screen widget shows: the Dashboard's figures, without amounts when the user hid them.
+    public func widgetSnapshot(now: Date, calendar: HouseholdCalendar) throws -> WidgetSnapshot {
+        let showAmounts = try requireSettings().widgetShowsBalance
+        return WidgetSnapshot.make(
+            from: try dashboardSummary(now: now, calendar: calendar), showAmounts: showAmounts, now: now,
+            calendar: calendar)
+    }
+
     public func dashboardSummary(now: Date, calendar: HouseholdCalendar, days: Int = 7) throws -> DashboardSummary {
         let settings = try requireSettings()
         let balance = try balanceSnapshot(

@@ -5,6 +5,12 @@ import Foundation
 /// there is no second container (Sprint 8 default 1).
 public struct WidgetSnapshot: Codable, Equatable, Sendable {
     public static let currentVersion = 1
+    /// The widget's kind, shared by the extension and the app's reload call.
+    public static let widgetKind = "HouseholdHubSummary"
+    /// Opens the Quick Add sheet (spec §24.4); a custom URL scheme needs no entitlement.
+    public static let quickAddURL = URL(string: "householdhub://quickadd")!
+    /// Info.plist key holding the App Group identifier (build setting `HH_APP_GROUP`, empty by default).
+    public static let appGroupInfoKey = "HHAppGroup"
 
     public struct Upcoming: Codable, Equatable, Sendable {
         public let title: String?

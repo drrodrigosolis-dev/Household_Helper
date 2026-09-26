@@ -32,3 +32,6 @@ xcuserdata/
 # macOS / Python
 .DS_Store
 __pycache__/
+
+# Info.plist files XcodeGen generates from project.yml `info:` blocks
+Config/*-Info.plist

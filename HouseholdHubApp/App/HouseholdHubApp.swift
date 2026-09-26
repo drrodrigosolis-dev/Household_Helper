@@ -20,6 +20,7 @@ struct HouseholdHubApp: App {
             let container = try HouseholdContainerFactory().makeContainer(configuration: configuration)
             return LoadedStore(container: container, services: AppServices(container: container))
         }
+        SharedServices.current = try? store.get().services
     }
 
     var body: some Scene {

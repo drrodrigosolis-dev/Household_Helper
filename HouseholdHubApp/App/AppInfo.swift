@@ -1,3 +1,4 @@
+import HouseholdHubCore
 import Foundation
 
 enum AppInfo {
@@ -5,6 +6,11 @@ enum AppInfo {
     /// Written into backups (spec §26 `appVersion`).
     static var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+    }
+    /// The App Group shared with the widget, when one is configured (spec §5.2); nil under the free Personal Team.
+    static var appGroupIdentifier: String? {
+        let value = Bundle.main.object(forInfoDictionaryKey: WidgetSnapshot.appGroupInfoKey) as? String
+        return value?.isEmpty == false ? value : nil
     }
 }
 

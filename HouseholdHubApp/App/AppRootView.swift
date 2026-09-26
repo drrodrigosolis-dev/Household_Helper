@@ -4,8 +4,9 @@ import SwiftUI
 /// Tab structure is fixed by spec §24.1; each tab owns its NavigationStack.
 struct AppRootView: View {
     @Environment(\.services) private var services
+    @Environment(\.scenePhase) private var scenePhase
     @State private var needsOnboarding = false
-    @State private var router = AppRouter()
+    @State private var router = AppRouter.shared
 
     var body: some View {
         TabView(selection: $router.tab) {
@@ -27,6 +28,19 @@ struct AppRootView: View {
         }
         .environment(router)
         .task { await bootstrap() }
+        .sheet(isPresented: $router.isQuickAddPresented) { QuickAddView() }
+        .onOpenURL { url in
+            // The only link the app handles: the widget's Quick Add (spec §24.4). Not while onboarding.
+            if url == WidgetSnapshot.quickAddURL, !needsOnboarding {
+                router.isQuickAddPresented = true
+            }
+        }
+        .onChange(of: scenePhase) {
+            // Leaving the app is when the Home Screen becomes visible; refresh the widget's figures then.
+            if scenePhase == .background {
+                Task { await WidgetSync.refresh(services) }
+            }
+        }
         .sheet(isPresented: $needsOnboarding) {
             OnboardingView { needsOnboarding = false }
                 .interactiveDismissDisabled()
@@ -45,6 +59,7 @@ struct AppRootView: View {
         }
         let settings = try? await services.transactions.settingsSnapshot()
         needsOnboarding = settings?.onboardingCompleted != true
+        await WidgetSync.refresh(services)
     }
 }
 

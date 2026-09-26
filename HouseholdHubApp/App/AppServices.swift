@@ -25,3 +25,10 @@ struct AppServices: Sendable {
 extension EnvironmentValues {
     @Entry var services: AppServices? = nil
 }
+
+/// The app's services for code that runs outside the view tree (App Intents). Set once at launch; nil when the store
+/// could not be opened.
+@MainActor
+enum SharedServices {
+    static var current: AppServices?
+}
