@@ -76,3 +76,12 @@ field. Screenshots to `docs/walk/sprint-10/local-rewalk/`, results in `TO-CLOUD.
 Sprints 12 and 13 have not compiled anywhere yet (CI keeps replacing queued runs). Pull `02eeacd` or later and run
 `Scripts/verify.sh --keep-going`. Report in `TO-CLOUD.md` straight away: any compile error or swift-format lint
 message verbatim (file:line), then failing tests with their messages. Don't fix code; the cloud session will.
+
+## L-009 — open, priority
+Pull `3c0d6cd` or later (Sprint 13 column rule, CI pinning, Sprint 14 search + reminders) and run
+`Scripts/verify.sh --keep-going`. Report compile, swift-format and test failures verbatim in `TO-CLOUD.md` as soon as
+each step finishes (Swift 6 concurrency errors around UserNotifications are the most likely). Then, by hand on the
+Simulator: Settings › Reminders › turn on "Tasks due today", allow notifications, create a task due today, set the
+Simulator clock or wait is not needed — instead check `xcrun simctl` isn't required: just background the app and
+confirm with Settings that the switch stayed on. If you can, temporarily verify a pending request exists (e.g. a
+breakpoint or `po await UNUserNotificationCenter.current().pendingNotificationRequests()` in the debugger). Report.
