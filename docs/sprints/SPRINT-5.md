@@ -16,7 +16,11 @@ for review. Binding: §2 (deterministic analytics layer first), §24.2 Analytics
    same numbers in a visible table, so nothing is available only as an image (§24.5).
 5. Tapping a category (slice or table row) opens Budget filtered to that category (§24.2); the period filter is
    "This month" when the analytics period is This month, otherwise "All time" (Budget has no matching ranges).
-6. The AI narrative summary waits for Phase 8 (spec: narratives only after deterministic analytics are stable); no
+6. Added after the data-safety review: only transactions that have happened count (dated up to now), matching the
+   balance and the Dashboard; a posted item dated in the future is projection, not history. Posted items dated
+   before the starting-balance date do count (analytics is history, not balance). Tapping a category opens Budget
+   filtered to posted items only.
+7. The AI narrative summary waits for Phase 8 (spec: narratives only after deterministic analytics are stable); no
    placeholder is shown.
 
 ## Items

@@ -135,6 +135,93 @@ struct AnalyticsTests {
         #expect(merchants.map(\.count) == [2, 1])
     }
 
+    // MARK: Ledger agreement
+
+    @Test func futureDatedPostedItemsAreNotCountedYet() throws {
+        // Posted but dated tomorrow: the balance treats it as projected, so analytics must not count it either.
+        let entries = [expense(1_000, on: date(2026, 9, 20)), expense(8_000, on: date(2026, 9, 27))]
+        let result = try report(entries)
+        #expect(result.expense == cad(1_000))
+        let trendTotal = try Money.sum(result.trend.map(\.expense), currencyCode: "CAD")
+        #expect(trendTotal == cad(1_000))
+    }
+
+    @Test(arguments: AnalyticsPeriod.allCases)
+    func trendAddsUpToTheTotals(period: AnalyticsPeriod) throws {
+        var entries: [Entry] = []
+        for index in 0..<400 {
+            let day = now.addingTimeInterval(-Double(index) * 86_400)
+            entries.append(expense(Int64(100 + index), on: day))
+            entries.append(Entry(amount: cad(Int64(50 + index)), type: .income, status: .posted, occurredAt: day))
+        }
+        let result = try report(entries, period)
+        #expect(try Money.sum(result.trend.map(\.expense), currencyCode: "CAD") == result.expense)
+        #expect(try Money.sum(result.trend.map(\.income), currencyCode: "CAD") == result.income)
+    }
+
+    @Test func weeklyBucketsSurviveDSTStartingAtMidnight() throws {
+        // America/Santiago moves 2026-09-06 00:00 → 01:00; with Sunday-first weeks that week starts at 01:00.
+        let santiago = HouseholdCalendar(timeZone: TimeZone(identifier: "America/Santiago")!, firstWeekday: 1)
+        var parts = DateComponents(year: 2026, month: 9, day: 26, hour: 12)
+        parts.timeZone = santiago.timeZone
+        let today = try #require(santiago.calendar.date(from: parts))
+        let entries = (0..<25).map { offset in
+            expense(1_000, on: today.addingTimeInterval(-Double(offset) * 86_400))
+        }
+        let result = try AnalyticsEngine().report(
+            entries, period: .thisMonth, now: today, calendar: santiago, currencyCode: "CAD")
+        #expect(try Money.sum(result.trend.map(\.expense), currencyCode: "CAD") == result.expense)
+        #expect(result.expense == cad(25_000))
+    }
+
+    @Test func thisWeekMatchesTheDashboard() async throws {
+        let container = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
+        let ledger = TransactionService.make(container: container)
+        let analytics = AnalyticsService.make(container: container)
+        try await ledger.ensureSettings(currencyCode: "CAD", now: now)
+        for (units, day) in [(1_250, 21), (3_000, 24), (999, 26), (4_000, 18), (7_000, 27)] as [(Int64, Int)] {
+            let draft = TransactionDraft(amount: cad(units), type: .expense, occurredAt: date(2026, 9, day, hour: 9))
+            try await ledger.create(draft, now: now)
+        }
+        let dashboard = try await ledger.dashboardSummary(now: now, calendar: calendar)
+        let result = try await analytics.report(period: .thisMonth, now: now, calendar: calendar)
+        let week = try #require(result.trend.first { $0.start == calendar.startOfWeek(for: now) })
+        #expect(week.expense == dashboard.spentThisWeek)
+        #expect(week.expense == cad(5_249))
+    }
+
+    @Test func unreadableStoredStatusFailsTheReadInsteadOfHidingTheRecord() async throws {
+        let container = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
+        let ledger = TransactionService.make(container: container)
+        try await ledger.ensureSettings(currencyCode: "CAD", now: now)
+        let id = try await ledger.create(
+            TransactionDraft(amount: cad(500), type: .expense, occurredAt: date(2026, 9, 10)), now: now)
+        let context = ModelContext(container)
+        let record = try #require(
+            try context.fetch(FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.id == id })).first)
+        record.statusRawValue = "archived-by-a-future-version"
+        try context.save()
+        let analytics = AnalyticsService.make(container: container)
+        await #expect(throws: LedgerError.unreadableRecord(field: "status", value: "archived-by-a-future-version")) {
+            try await analytics.report(period: .thisMonth, now: now, calendar: calendar)
+        }
+    }
+
+    @Test func merchantNameIsTheLatestNonEmptyOne() throws {
+        let merchantID = UUID()
+        let entries = [
+            Entry(
+                amount: cad(1_000), type: .expense, status: .posted, occurredAt: date(2026, 9, 3),
+                merchantID: merchantID, merchantName: "Corner Shop"),
+            Entry(
+                amount: cad(2_000), type: .expense, status: .posted, occurredAt: date(2026, 9, 9),
+                merchantID: merchantID, merchantName: nil),
+        ]
+        let merchants = try report(entries).topMerchants
+        #expect(merchants.map(\.name) == ["Corner Shop"])
+        #expect(merchants.map(\.total) == [cad(3_000)])
+    }
+
     // MARK: Service
 
     @Test func serviceReportsFromTheStoreAndRemembersThePeriod() async throws {

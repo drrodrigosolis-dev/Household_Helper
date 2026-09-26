@@ -101,7 +101,8 @@ public struct AnalyticsReport: Sendable, Hashable {
     public let topMerchants: [MerchantSpend]
 }
 
-/// Deterministic analytics (spec §2): posted income and expenses only (Sprint 5 default 2), in integer minor units.
+/// Deterministic analytics (spec §2): posted income and expenses that have happened (dated up to `now`), in integer
+/// minor units (Sprint 5 default 2). Future-dated posted items belong to the projection, as in `BalanceCalculator`.
 public struct AnalyticsEngine: Sendable {
     public var merchantLimit = 5
 
@@ -114,7 +115,7 @@ public struct AnalyticsEngine: Sendable {
         let interval = period.interval(now: now, calendar: calendar)
         let counted = entries.filter {
             $0.status == .posted && $0.type != .transfer && $0.occurredAt >= interval.start
-                && $0.occurredAt < interval.end
+                && $0.occurredAt < interval.end && $0.occurredAt <= now
         }
         for entry in counted where entry.amount.currencyCode != currencyCode {
             throw LedgerError.currencyMismatch(expected: currencyCode, actual: entry.amount.currencyCode)
@@ -140,7 +141,9 @@ public struct AnalyticsEngine: Sendable {
         let groups = Dictionary(grouping: expenses, by: \.categoryID)
         return try groups.map { categoryID, entries in
             let sum = try Money.sum(entries.map(\.amount), currencyCode: currencyCode)
-            let share = total.minorUnits > 0 ? Double(sum.minorUnits) / Double(total.minorUnits) : 0
+            // Computed exactly by the Money module; converted to Double only for display.
+            let percent = try Money.percentage(sum, of: total) ?? 0
+            let share = NSDecimalNumber(decimal: percent / 100).doubleValue
             return CategorySpend(categoryID: categoryID, total: sum, share: share)
         }
         .sorted { lhs, rhs in
@@ -161,14 +164,16 @@ public struct AnalyticsEngine: Sendable {
             }
         }
         // Every bucket in the interval appears, empty ones included, so the chart's axis is continuous.
+        // Steps by calendar interval, not by adding a week: where DST starts at midnight a week can begin at 01:00,
+        // and adding 7 days would then miss every later bucket's start.
         var starts: [Date] = []
         var cursor = bucketStart(interval.start)
+        let component: Calendar.Component = bucket == .week ? .weekOfYear : .month
         while cursor < interval.end {
             starts.append(cursor)
-            let component: Calendar.Component = bucket == .week ? .weekOfYear : .month
-            guard let next = calendar.calendar.date(byAdding: component, value: 1, to: cursor), next > cursor else {
-                break
-            }
+            guard let span = calendar.calendar.dateInterval(of: component, for: cursor) else { break }
+            let next = bucketStart(span.end)
+            guard next > cursor else { break }
             cursor = next
         }
         let groups = Dictionary(grouping: entries) { bucketStart($0.occurredAt) }
@@ -188,10 +193,16 @@ public struct AnalyticsEngine: Sendable {
             entry.merchantID?.uuidString ?? Merchant.normalize(entry.merchantName ?? "")
         }
         let totals = try groups.map { key, entries in
-            // The name as last entered represents the merchant.
-            let latest = entries.max { $0.occurredAt < $1.occurredAt }
+            // The latest non-empty name as entered represents the merchant; ties resolve by the name itself so the
+            // choice never depends on dictionary order.
+            let named = entries.filter { !($0.merchantName ?? "").isEmpty }
+            let latest = named.max { lhs, rhs in
+                if lhs.occurredAt != rhs.occurredAt { return lhs.occurredAt < rhs.occurredAt }
+                return (lhs.merchantName ?? "") < (rhs.merchantName ?? "")
+            }
             let sum = try Money.sum(entries.map(\.amount), currencyCode: currencyCode)
-            return MerchantSpend(key: key, name: latest?.merchantName ?? "", total: sum, count: entries.count)
+            let name = latest?.merchantName ?? String(localized: "Unnamed merchant")
+            return MerchantSpend(key: key, name: name, total: sum, count: entries.count)
         }
         let sorted = totals.sorted { lhs, rhs in
             if lhs.total.minorUnits != rhs.total.minorUnits { return lhs.total.minorUnits > rhs.total.minorUnits }

@@ -8,6 +8,7 @@ import SwiftUI
 struct CategorySection: View {
     let report: AnalyticsReport
     let categories: [CategoryRecord]
+    let currencyCode: String
     let onSelect: (UUID?) -> Void
 
     @State private var selectedAngle: Double?
@@ -35,7 +36,7 @@ struct CategorySection: View {
             }
             .chartAngleSelection(value: $selectedAngle)
             .frame(height: 220)
-            .accessibilityChartDescriptor(CategoryChartDescriptor(rows: rows))
+            .accessibilityChartDescriptor(CategoryChartDescriptor(rows: rows, currencyCode: currencyCode))
             .onChange(of: selectedAngle) { _, angle in
                 guard let angle, let hit = slice(at: angle) else { return }
                 selectedAngle = nil
@@ -92,12 +93,15 @@ struct CategorySection: View {
 struct TrendSection: View {
     let report: AnalyticsReport
     let bucket: AnalyticsBucket
+    let currencyCode: String
 
     private var labelledPoints: [(String, TrendPoint)] {
         report.trend.map { (label($0.start), $0) }
     }
 
-    private func label(_ date: Date) -> String {
+    /// A week that began in the previous month is labelled by its first day inside the period.
+    private func label(_ start: Date) -> String {
+        let date = max(start, report.interval.start)
         switch bucket {
         case .week: return date.formatted(.dateTime.month(.abbreviated).day())
         case .month: return date.formatted(.dateTime.month(.abbreviated).year(.twoDigits))
@@ -123,7 +127,7 @@ struct TrendSection: View {
             }
             .chartForegroundStyleScale([incomeLabel: Color.green, expenseLabel: Color.red])
             .frame(height: 220)
-            .accessibilityChartDescriptor(TrendChartDescriptor(points: labelledPoints))
+            .accessibilityChartDescriptor(TrendChartDescriptor(points: labelledPoints, currencyCode: currencyCode))
             ForEach(report.trend) { point in
                 LabeledContent(label(point.start)) {
                     VStack(alignment: .trailing, spacing: 2) {
@@ -141,13 +145,14 @@ struct TrendSection: View {
 
 struct CategoryChartDescriptor: AXChartDescriptorRepresentable {
     let rows: [(String, Double)]
+    let currencyCode: String
 
     func makeChartDescriptor() -> AXChartDescriptor {
         let maxValue = rows.map(\.1).max() ?? 0
         let xAxis = AXCategoricalDataAxisDescriptor(title: String(localized: "Category"), categoryOrder: rows.map(\.0))
         let yAxis = AXNumericDataAxisDescriptor(
             title: String(localized: "Amount"), range: 0...max(maxValue, 1), gridlinePositions: []
-        ) { value in value.formatted(.number.precision(.fractionLength(2))) }
+        ) { [currencyCode] value in value.formatted(.currency(code: currencyCode)) }
         let series = AXDataSeriesDescriptor(
             name: String(localized: "Spending"), isContinuous: false,
             dataPoints: rows.map { AXDataPoint(x: $0.0, y: $0.1) })
@@ -159,6 +164,7 @@ struct CategoryChartDescriptor: AXChartDescriptorRepresentable {
 
 struct TrendChartDescriptor: AXChartDescriptorRepresentable {
     let points: [(String, TrendPoint)]
+    let currencyCode: String
 
     func makeChartDescriptor() -> AXChartDescriptor {
         let income = points.map { ($0.0, AnalyticsFormat.plotValue($0.1.income)) }
@@ -167,7 +173,7 @@ struct TrendChartDescriptor: AXChartDescriptorRepresentable {
         let xAxis = AXCategoricalDataAxisDescriptor(title: String(localized: "Period"), categoryOrder: points.map(\.0))
         let yAxis = AXNumericDataAxisDescriptor(
             title: String(localized: "Amount"), range: 0...max(maxValue, 1), gridlinePositions: []
-        ) { value in value.formatted(.number.precision(.fractionLength(2))) }
+        ) { [currencyCode] value in value.formatted(.currency(code: currencyCode)) }
         let series = [
             AXDataSeriesDescriptor(
                 name: String(localized: "Income"), isContinuous: false,

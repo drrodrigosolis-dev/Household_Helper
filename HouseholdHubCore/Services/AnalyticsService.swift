@@ -25,10 +25,11 @@ public actor AnalyticsService {
         guard let settings = try modelContext.fetch(settingsDescriptor).first else { throw LedgerError.settingsMissing }
         let interval = period.interval(now: now, calendar: calendar)
         let start = interval.start
-        let end = interval.end
-        let posted = TransactionStatus.posted.rawValue
+        let end = min(interval.end, now.addingTimeInterval(1))
+        // Fetched by date only: status is checked after `ledgerLine()`, so an unreadable stored status fails the
+        // read loudly (as balances do) instead of being silently left out by the store query.
         let descriptor = FetchDescriptor<TransactionRecord>(
-            predicate: #Predicate { $0.occurredAt >= start && $0.occurredAt < end && $0.statusRawValue == posted })
+            predicate: #Predicate { $0.occurredAt >= start && $0.occurredAt < end })
         let entries = try modelContext.fetch(descriptor).map { record in
             // Accounting reads refuse unknown stored values rather than guess a sign (see `ledgerLine()`).
             let line = try record.ledgerLine()

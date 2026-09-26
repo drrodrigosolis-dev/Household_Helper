@@ -14,7 +14,8 @@ struct AnalyticsView: View {
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
 
     @State private var period: AnalyticsPeriod?
-    @State private var report: AnalyticsReport?
+    /// The report with the period it was computed for, so a late result for another period is never shown.
+    @State private var loaded: (period: AnalyticsPeriod, report: AnalyticsReport)?
     @State private var loadFailed = false
     private let calendar = HouseholdCalendar(timeZone: .current)
 
@@ -34,8 +35,8 @@ struct AnalyticsView: View {
                 }
                 .accessibilityIdentifier("analytics.period")
             }
-            if let report {
-                content(report)
+            if let loaded, loaded.period == selectedPeriod {
+                content(loaded.report)
             } else if loadFailed {
                 ContentUnavailableView(
                     "Analytics unavailable", systemImage: "exclamationmark.triangle",
@@ -64,8 +65,9 @@ struct AnalyticsView: View {
                     description: Text("Posted income and expenses appear here. Pending items are not counted."))
             }
         } else {
-            CategorySection(report: report, categories: categories, onSelect: showBudget)
-            TrendSection(report: report, bucket: selectedPeriod.bucket)
+            CategorySection(
+                report: report, categories: categories, currencyCode: report.income.currencyCode, onSelect: showBudget)
+            TrendSection(report: report, bucket: selectedPeriod.bucket, currencyCode: report.income.currencyCode)
             if !report.topMerchants.isEmpty {
                 Section("Top merchants") {
                     ForEach(report.topMerchants) { merchant in
@@ -93,10 +95,16 @@ struct AnalyticsView: View {
 
     private func refresh() async {
         guard let services else { return }
+        let requested = selectedPeriod
         do {
-            report = try await services.analytics.report(period: selectedPeriod, now: .now, calendar: calendar)
+            let result = try await services.analytics.report(period: requested, now: .now, calendar: calendar)
+            guard requested == selectedPeriod else { return }
+            loaded = (requested, result)
             loadFailed = false
         } catch {
+            guard requested == selectedPeriod else { return }
+            // Never leave earlier figures on screen under a failure.
+            loaded = nil
             loadFailed = true
         }
     }
@@ -105,7 +113,9 @@ struct AnalyticsView: View {
     private func showBudget(_ categoryID: UUID?) {
         guard let categoryID else { return }
         let range: TransactionFilter.Period = selectedPeriod == .thisMonth ? .thisMonth : .all
-        router.showBudget(.transactions, filter: TransactionFilter(period: range, categoryID: categoryID))
+        // Posted only, like the figure that was tapped.
+        let filter = TransactionFilter(period: range, categoryID: categoryID, status: .posted)
+        router.showBudget(.transactions, filter: filter)
     }
 }
 
