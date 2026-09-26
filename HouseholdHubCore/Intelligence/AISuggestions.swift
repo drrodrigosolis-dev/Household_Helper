@@ -58,6 +58,13 @@ public enum QuickAddSuggestionValidator {
     /// A sanity cap in major units; larger amounts are typed, not suggested.
     public static let maxAmount: Decimal = 1_000_000
     public static let maxDescriptionLength = 80
+    /// Spelled-out amounts ("twelve dollars") belong in the amount field, not the description.
+    static let numberWords: Set<String> = [
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
+        "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty", "thirty",
+        "forty", "fifty", "sixty", "seventy", "eighty", "ninety", "hundred", "thousand", "dollar", "dollars", "bucks",
+        "cents",
+    ]
 
     public static func validate(
         _ suggestion: QuickAddSuggestion, parsed: QuickAddParse, note: String = "", currency: Currency,
@@ -86,11 +93,15 @@ public enum QuickAddSuggestionValidator {
     }
 
     /// A single short line that shares at least one word with the note, so the model tidies the user's words rather
-    /// than inventing new ones. Digits are not allowed: amounts belong in the amount field.
+    /// than inventing new ones. Digits and number words are not allowed: amounts belong in the amount field. Control
+    /// and format characters (tabs, bidi overrides, zero-width marks) are rejected so nothing hidden reaches notes.
     static func description(_ proposed: String?, note: String) -> String? {
         guard let text = proposed?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty,
-            text.count <= maxDescriptionLength, !text.contains(where: { $0.isNewline || $0.isNumber })
+            text.count <= maxDescriptionLength, !text.contains(where: { $0.isNewline || $0.isNumber }),
+            !text.unicodeScalars.contains(where: { [.control, .format].contains($0.properties.generalCategory) })
         else { return nil }
+        let lowered = Set(text.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init))
+        guard lowered.isDisjoint(with: numberWords) else { return nil }
         func words(_ string: String) -> Set<String> {
             Set(
                 string.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init)
@@ -188,11 +199,14 @@ public struct AnalyticsFacts: Equatable, Sendable {
     public let balance: Balance
     public let topCategories: [NamedFigure]
     public let topMerchants: [NamedFigure]
+    /// Whether the figures include pending transactions (the owner's Analytics switch).
+    public let includesPending: Bool
 
     public init(
         periodTitle: String, income: String, expense: String, net: String, balance: Balance,
-        topCategories: [NamedFigure], topMerchants: [NamedFigure]
+        topCategories: [NamedFigure], topMerchants: [NamedFigure], includesPending: Bool = false
     ) {
+        self.includesPending = includesPending
         self.periodTitle = periodTitle
         self.income = income
         self.expense = expense
@@ -228,6 +242,10 @@ public struct AnalyticsFacts: Equatable, Sendable {
         case .deficit: lines.append("Spending was more than income.")
         case .even: lines.append("Income and spending were equal.")
         }
+        lines.append(
+            includesPending
+                ? "The figures include pending transactions that have not posted yet."
+                : "The figures include posted transactions only.")
         if !topCategories.isEmpty {
             let list = topCategories.enumerated().map { "\($1.name) {category\($0 + 1)}" }
             lines.append("Largest spending categories: " + list.joined(separator: "; "))

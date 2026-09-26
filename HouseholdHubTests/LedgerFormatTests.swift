@@ -1,4 +1,6 @@
 import Foundation
+import HouseholdHubCore
+import SwiftUI
 import Testing
 
 @testable import HouseholdHub
@@ -28,5 +30,14 @@ struct LedgerFormatTests {
         #expect(LedgerFormat.parseAmount("-5", currencyCode: "CAD", locale: locale) == nil)
         let money = LedgerFormat.parseAmount("47.50", currencyCode: "CAD", locale: locale)
         #expect(money?.minorUnits == 4750)
+    }
+
+    /// The custom accent picker stores what SwiftUI resolves; a palette color must come back as the same token.
+    static let palette = SystemCategory.defaults.map(\.color)
+
+    @Test(arguments: palette)
+    func resolvedColorsRoundTripToTheSameToken(_ token: ColorToken) {
+        let resolved = Color(token).resolve(in: EnvironmentValues())
+        #expect(ColorToken(resolved) == token)
     }
 }

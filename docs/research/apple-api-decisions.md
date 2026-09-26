@@ -96,3 +96,11 @@ availability conditions, deprecations, fallback. Verified against official Apple
   gate then turns itself off (the device is unprotected anyway) rather than lock the data away.
 - **Verification:** shapes from memory of the SDK, consistent with long-standing documentation; CI compiles it, and
   behaviour needs a device (WALK-QUEUE). The CI simulator has no passcode, so the Settings switch is disabled there.
+
+## Custom accent color (SwiftUI `Color.resolve(in:)`) — owner decision, 2026-09-26
+- **API:** `Color.resolve(in: EnvironmentValues) -> Color.Resolved` (iOS 17+). `Color.Resolved.red/green/blue` are
+  gamma-encoded sRGB components; `linearRed/linearGreen/linearBlue` are the linear ones and are not used. Values can
+  fall outside 0...1 for extended-range colors, so they are clamped before becoming an opaque `ColorToken`.
+- **Verification:** from memory of the SwiftUI SDK; a unit test (`LedgerFormatTests.resolvedColorsRoundTripToTheSameToken`)
+  checks that every palette color survives `ColorToken → Color → resolve → ColorToken` unchanged, which would fail
+  if the components were linear.

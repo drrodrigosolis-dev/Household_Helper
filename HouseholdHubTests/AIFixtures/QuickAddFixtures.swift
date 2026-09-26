@@ -101,19 +101,62 @@ struct QuickAddFixtures {
 
     // MARK: Descriptions (owner decision 2026-09-26: allowed, in the note's own words)
 
-    static let descriptionCases: [(note: String, proposed: String, accepted: Bool)] = [
-        ("twelve dollars lunch with sam", "Lunch with Sam", true),
-        ("twelve dollars lunch with sam", "Dinner at a steakhouse", false),
-        ("coffee", "Coffee for 3", false),
-        ("coffee", String(repeating: "coffee ", count: 20), false),
-        ("coffee", "Coffee\nand cake", false),
+    struct DescriptionCase: Sendable, CustomTestStringConvertible {
+        let note: String
+        let proposed: String
+        let accepted: Bool
+        var testDescription: String { proposed.debugDescription }
+    }
+
+    static let descriptionCases: [DescriptionCase] = [
+        DescriptionCase(note: "twelve dollars lunch with sam", proposed: "Lunch with Sam", accepted: true),
+        DescriptionCase(note: "twelve dollars lunch with sam", proposed: "Dinner at a steakhouse", accepted: false),
+        DescriptionCase(note: "twelve dollars lunch with sam", proposed: "Twelve dollars lunch", accepted: false),
+        DescriptionCase(note: "coffee", proposed: "Coffee for 3", accepted: false),
+        DescriptionCase(note: "coffee", proposed: "Coffee\nand cake", accepted: false),
+        DescriptionCase(note: "coffee", proposed: "Coffee\rand cake", accepted: false),
+        DescriptionCase(note: "coffee", proposed: "Coffee\u{2028}and cake", accepted: false),
+        DescriptionCase(note: "coffee", proposed: "Coffee\tand cake", accepted: false),
+        DescriptionCase(note: "coffee", proposed: "Coffee\u{202E}ekac", accepted: false),
+        DescriptionCase(note: "coffee", proposed: "Cof\u{200B}fee", accepted: false),
+        // Only short shared words ("at", "a") don't count as the note's own words.
+        DescriptionCase(note: "at a cafe", proposed: "Meal at a diner", accepted: false),
+        DescriptionCase(
+            note: "coffee", proposed: "Coffee " + String(repeating: "x", count: 73), accepted: true),
+        DescriptionCase(
+            note: "coffee", proposed: "Coffee " + String(repeating: "x", count: 74), accepted: false),
     ]
 
-    @Test func descriptionsMustUseTheNotesOwnWords() {
-        for entry in Self.descriptionCases {
-            let result = QuickAddSuggestionValidator.description(entry.proposed, note: entry.note)
-            #expect((result != nil) == entry.accepted, "\(entry.proposed)")
-        }
+    @Test(arguments: descriptionCases)
+    func descriptionsMustUseTheNotesOwnWords(_ entry: DescriptionCase) {
+        let result = QuickAddSuggestionValidator.description(entry.proposed, note: entry.note)
+        #expect((result != nil) == entry.accepted)
+    }
+
+    @Test func validateWiresTheNoteIntoTheDescriptionCheck() {
+        let note = "twelve dollars lunch with sam"
+        let suggestion = QuickAddSuggestion(description: "Lunch with Sam")
+        let withNote = QuickAddSuggestionValidator.validate(
+            suggestion, parsed: Self.parse(note), note: note, currency: Self.currency, categories: Self.options,
+            now: Self.now, calendar: Self.calendar)
+        #expect(withNote.description == "Lunch with Sam")
+        let withoutNote = QuickAddSuggestionValidator.validate(
+            suggestion, parsed: Self.parse(note), currency: Self.currency, categories: Self.options, now: Self.now,
+            calendar: Self.calendar)
+        #expect(withoutNote.description == nil)
+    }
+
+    @Test func aDescriptionEqualToTheParsersTextChangesNothing() {
+        let parsed = Self.parse("lunch with sam")
+        let same = ValidatedQuickAdd(description: parsed.description)
+        let result = QuickAddSuggestionMerge.fieldsToApply(
+            same, form: Self.form(notes: parsed.description), parsed: parsed, categories: Self.options)
+        #expect(result.description == nil)
+        let empty = Self.parse("12")
+        let fill = QuickAddSuggestionMerge.fieldsToApply(
+            ValidatedQuickAdd(description: "Lunch"), form: Self.form(notes: ""), parsed: empty,
+            categories: Self.options)
+        #expect(fill.description == "Lunch", "An empty parser description with untouched notes can be filled")
     }
 
     @Test func aSuggestedDescriptionReplacesOnlyTheParsersOwnText() {

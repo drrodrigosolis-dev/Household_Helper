@@ -5,8 +5,8 @@ import SwiftData
 import SwiftUI
 
 /// Analytics (spec §24.2): period selector, spending by category, income vs expense trend, top merchants. Every
-/// chart has the same numbers in a table and an audio-graph descriptor (§24.5). Posted transactions only (Sprint 5
-/// default 2).
+/// chart has the same numbers in a table and an audio-graph descriptor (§24.5). Posted transactions, plus pending
+/// ones when Include pending is on (owner decision 2026-09-26).
 struct AnalyticsView: View {
     @Environment(\.services) private var services
     @Environment(AppRouter.self) private var router
@@ -14,8 +14,15 @@ struct AnalyticsView: View {
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
 
     @State private var period: AnalyticsPeriod?
-    /// The report with the period it was computed for, so a late result for another period is never shown.
-    @State private var loaded: (period: AnalyticsPeriod, report: AnalyticsReport)?
+    /// The report with the period and pending choice it was computed for, so a late or stale result is never shown.
+    @State private var loaded: (key: ReportKey, report: AnalyticsReport)?
+
+    struct ReportKey: Hashable {
+        let period: AnalyticsPeriod
+        let includesPending: Bool
+    }
+
+    private var reportKey: ReportKey { ReportKey(period: selectedPeriod, includesPending: includesPending) }
     @State private var loadFailed = false
     private let calendar = HouseholdCalendar(timeZone: .current)
 
@@ -37,7 +44,7 @@ struct AnalyticsView: View {
                 Toggle("Include pending", isOn: includePendingBinding)
                     .accessibilityIdentifier("analytics.includePending")
             }
-            if let loaded, loaded.period == selectedPeriod {
+            if let loaded, loaded.key == reportKey {
                 content(loaded.report)
             } else if loadFailed {
                 ContentUnavailableView(
@@ -48,17 +55,26 @@ struct AnalyticsView: View {
             }
         }
         .navigationTitle("Analytics")
-        .task(id: selectedPeriod) { await refresh() }
+        .task(id: reportKey) { await refresh() }
         .onReceive(storeSaves) { _ in Task { await refresh() } }
     }
 
     @ViewBuilder
     private func content(_ report: AnalyticsReport) -> some View {
-        Section("Summary") {
+        Section {
             LabeledContent("Income") { AmountText(report.income.formatted()) }
             LabeledContent("Expenses") { AmountText(report.expense.formatted()) }
             LabeledContent("Net") { AmountText(report.net.formatted()) }
                 .accessibilityIdentifier("analytics.net")
+        } header: {
+            Text("Summary")
+        } footer: {
+            // Every figure on this screen follows the switch, so say which transactions it covers.
+            if includesPending {
+                Text("Includes pending transactions. Spent this week on the Dashboard counts posted ones only.")
+            } else {
+                Text("Posted transactions only.")
+            }
         }
         if report.income.minorUnits == 0 && report.expense.minorUnits == 0 {
             Section {
@@ -103,7 +119,7 @@ struct AnalyticsView: View {
         return AnalyticsFacts(
             periodTitle: AnalyticsFormat.periodTitle(selectedPeriod), income: report.income.formatted(),
             expense: report.expense.formatted(), net: report.net.formatted(), balance: balance,
-            topCategories: Array(top), topMerchants: merchants)
+            topCategories: Array(top), topMerchants: merchants, includesPending: includesPending)
     }
 
     private var includesPending: Bool { settings.first?.analyticsIncludesPending ?? false }
@@ -125,14 +141,14 @@ struct AnalyticsView: View {
 
     private func refresh() async {
         guard let services else { return }
-        let requested = selectedPeriod
+        let requested = reportKey
         do {
-            let result = try await services.analytics.report(period: requested, now: .now, calendar: calendar)
-            guard requested == selectedPeriod else { return }
+            let result = try await services.analytics.report(period: requested.period, now: .now, calendar: calendar)
+            guard requested == reportKey else { return }
             loaded = (requested, result)
             loadFailed = false
         } catch {
-            guard requested == selectedPeriod else { return }
+            guard requested == reportKey else { return }
             // Never leave earlier figures on screen under a failure.
             loaded = nil
             loadFailed = true
@@ -143,8 +159,8 @@ struct AnalyticsView: View {
     private func showBudget(_ categoryID: UUID?) {
         guard let categoryID else { return }
         let range: TransactionFilter.Period = selectedPeriod == .thisMonth ? .thisMonth : .all
-        // Posted only, like the figure that was tapped.
-        let filter = TransactionFilter(period: range, categoryID: categoryID, status: .posted)
+        // The same statuses as the figure that was tapped: posted only, or posted and pending.
+        let filter = TransactionFilter(period: range, categoryID: categoryID, status: includesPending ? nil : .posted)
         router.showBudget(.transactions, filter: filter)
     }
 }

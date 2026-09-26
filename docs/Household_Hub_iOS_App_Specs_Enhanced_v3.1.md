@@ -630,9 +630,11 @@ recurring
 imported
 widget
 naturalLanguage
+shortcut
 ```
 
-Source is provenance, not accounting classification.
+Source is provenance, not accounting classification. `shortcut` (added by owner decision 2026-09-26) marks entries
+recorded through the Log Transaction shortcut or Siri.
 
 ## 7.3 Category
 

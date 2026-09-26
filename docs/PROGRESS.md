@@ -20,6 +20,8 @@ that completes it (CLAUDE.md, "Autonomous CI-driven operation"; spec §28). Mirr
 Statuses: not started / in progress / CI green / blocked.
 
 ## Owner decisions (2026-09-26)
+**SchemaV1 frozen: not yet** (freezes at the first install on the owner's device; update this line then).
+
 1. **Widget on a free-team device shows the sample figures** (spec §5.2/§24.4 as written), not an amount-free
    placeholder. Advisor's note on record: on a real phone those figures can be mistaken for the real balance.
 2. **SchemaV1 freezes at the first install on the owner's device.** Until then fields may still be added to it

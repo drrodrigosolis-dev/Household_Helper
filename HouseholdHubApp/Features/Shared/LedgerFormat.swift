@@ -74,6 +74,15 @@ enum LedgerFormat {
     }
 }
 
+extension ColorToken {
+    /// An opaque token from a resolved SwiftUI color. `Color.Resolved.red/green/blue` are gamma-encoded sRGB
+    /// components (the `linear…` ones are not used), clamped to 0...1.
+    init(_ resolved: Color.Resolved) {
+        func channel(_ value: Float) -> UInt8 { UInt8((min(max(value, 0), 1) * 255).rounded()) }
+        self.init(red: channel(resolved.red), green: channel(resolved.green), blue: channel(resolved.blue))
+    }
+}
+
 extension Color {
     init(_ token: ColorToken) {
         self.init(

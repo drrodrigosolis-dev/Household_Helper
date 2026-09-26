@@ -2,9 +2,9 @@ import HouseholdHubCore
 import SwiftData
 import SwiftUI
 
-/// Settings › Intelligence (spec §7.11, §12): each on-device AI feature has its own switch, off by default
-/// (Sprint 7 default 1). Everything runs on this device; nothing is sent anywhere, and every feature has a non-AI
-/// path.
+/// Settings › Intelligence (spec §7.11, §12): each on-device AI feature has its own switch, on by default where
+/// Apple Intelligence is available (owner decision 2026-09-26) and shown off where it isn't. Everything runs on
+/// this device; nothing is sent anywhere, and every feature has a non-AI path.
 struct IntelligenceView: View {
     @Environment(\.services) private var services
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
@@ -41,7 +41,8 @@ struct IntelligenceView: View {
 
     private func binding(_ feature: TransactionService.AISwitch, _ value: KeyPath<AppSettings, Bool>) -> Binding<Bool> {
         Binding(
-            get: { settings.first?[keyPath: value] ?? false },
+            // Where the model is unavailable the feature can't run, so the switch reads off whatever is stored.
+            get: { available && (settings.first?[keyPath: value] ?? false) },
             set: { enabled in
                 Task { try? await services?.transactions.setAI(feature, enabled: enabled, now: .now) }
             })

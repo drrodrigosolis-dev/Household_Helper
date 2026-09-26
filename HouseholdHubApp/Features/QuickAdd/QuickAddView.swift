@@ -77,6 +77,9 @@ struct QuickAddView: View {
     @State private var typeFromText = false
     @State private var amountFromText = false
     @State private var categoryFromText = false
+    /// What the quick text (or a suggestion) last put in the notes field; notes follow the text only while they still
+    /// hold exactly that, so a note the user typed in Details is never overwritten.
+    @State private var notesFromText = ""
     /// Fields filled by a suggestion (merchant history or the on-device model), shown as such until edited.
     @State private var suggestedFields: Set<String> = []
     @State private var suggestionTask: Task<Void, Never>?
@@ -261,7 +264,10 @@ struct QuickAddView: View {
             hasDueDate = false
             dueFromText = false
         }
-        notes = parsed.description
+        if notes == notesFromText {
+            notes = parsed.description
+        }
+        notesFromText = parsed.description
         suggestedFields = []
         modelCategoryID = nil
         scheduleSuggestions(for: text, parsed: parsed, currency: currency, options: options, now: now)
@@ -342,6 +348,7 @@ struct QuickAddView: View {
         }
         if let description = allowed.description {
             notes = description
+            notesFromText = description
             showDetails = true
             suggestedFields.insert("notes")
         }

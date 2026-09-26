@@ -7,6 +7,8 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.services) private var services
     @Environment(\.self) private var environment
+    /// The pending custom-accent save: dragging in the color picker sends many values, and only the last is kept.
+    @State private var accentWrite: Task<Void, Never>?
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
 
     var body: some View {
@@ -63,6 +65,9 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings.theme")
                     Picker("Accent color", selection: accentBinding) {
                         Text("Default").tag(ColorToken?.none)
+                        if let custom = settings.first?.accentColor, !CategoryEditorView.palette.contains(custom) {
+                            Text("Custom").tag(ColorToken?.some(custom))
+                        }
                         ForEach(CategoryEditorView.palette, id: \.self) { token in
                             Label {
                                 Text(CategoryEditorView.colorName(token))
@@ -150,26 +155,23 @@ struct SettingsView: View {
         Binding(
             get: { settings.first?.accentColor.map { Color($0) } ?? .accentColor },
             set: { color in
-                let resolved = color.resolve(in: environment)
-                func channel(_ value: Float) -> UInt8 { UInt8((min(max(value, 0), 1) * 255).rounded()) }
-                let token = ColorToken(
-                    red: channel(resolved.red), green: channel(resolved.green), blue: channel(resolved.blue))
+                let token = ColorToken(color.resolve(in: environment))
                 let theme = settings.first?.selectedTheme ?? .system
-                Task { try? await services?.transactions.setAppearance(theme: theme, accent: token, now: .now) }
+                accentWrite?.cancel()
+                accentWrite = Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    guard !Task.isCancelled else { return }
+                    try? await services?.transactions.setAppearance(theme: theme, accent: token, now: .now)
+                }
             })
     }
 
-    /// Buttons and links take the accent color, so a very light or very dark choice gets a warning (3:1 is the
-    /// minimum for controls against their background).
+    /// Buttons and links take the accent color, so a choice below 3:1 against the list background gets a warning.
     private var accentWarning: String? {
-        guard let accent = settings.first?.accentColor else { return nil }
-        let light = accent.contrastRatio(with: .white) >= 3
-        let dark = accent.contrastRatio(with: .black) >= 3
-        switch (light, dark) {
-        case (true, true): return nil
-        case (false, true): return String(localized: "This color is hard to see in Light Mode.")
-        case (true, false): return String(localized: "This color is hard to see in Dark Mode.")
-        case (false, false): return String(localized: "This color is hard to see.")
+        switch settings.first?.accentColor?.accentVisibility ?? .fine {
+        case .fine: return nil
+        case .hardInLightMode: return String(localized: "This color is hard to see in Light Mode.")
+        case .hardInDarkMode: return String(localized: "This color is hard to see in Dark Mode.")
         }
     }
 

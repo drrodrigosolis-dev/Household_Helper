@@ -52,6 +52,21 @@ public struct ColorToken: Codable, Hashable, Sendable {
         contrastRatio(with: background) >= (largeText ? 3 : 4.5)
     }
 
+    /// Where an accent color used for buttons and links falls below 3:1 against the list backgrounds it sits on.
+    public enum AccentVisibility: Equatable, Sendable {
+        case fine
+        case hardInLightMode
+        case hardInDarkMode
+    }
+
+    /// Checked against white (Light Mode) and the dark grouped background (Dark Mode). Every color reaches 3:1
+    /// against at least one of them, so a color is never hard to see in both.
+    public var accentVisibility: AccentVisibility {
+        if contrastRatio(with: .white) < 3 { return .hardInLightMode }
+        if contrastRatio(with: .darkSecondaryBackground) < 3 { return .hardInDarkMode }
+        return .fine
+    }
+
     /// iOS's secondary grouped background in Dark Mode, where the Analytics chart sits.
     public static let darkSecondaryBackground = ColorToken(red: 0x1C, green: 0x1C, blue: 0x1E)
 
