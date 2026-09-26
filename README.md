@@ -1,50 +1,28 @@
-# Household Helper
+# Household Hub
 
-A SwiftUI iOS app.
+Local-first iPhone app (iOS 26+) for household budget, wishlist, and tasks. Spec:
+[`docs/Household_Hub_iOS_App_Specs_Enhanced_v3.1.md`](docs/Household_Hub_iOS_App_Specs_Enhanced_v3.1.md)
+(split for agents in [`docs/spec/`](docs/spec/00-index.md)). Progress: [`docs/PROGRESS.md`](docs/PROGRESS.md).
 
-## Requirements
+## Verification
+`.github/workflows/verify.yml` on GitHub-hosted macOS runners is the authoritative gate: it generates the project,
+lints, builds for the iOS Simulator, and runs unit (Swift Testing) and UI (XCTest) tests.
 
-- macOS with Xcode 16+ (this project cannot be built or run on Linux/CI containers — Xcode's iOS toolchain doesn't exist there)
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
-
-## Why XcodeGen instead of a committed `.xcodeproj`
-
-The `.xcodeproj` file is generated from `project.yml` and is git-ignored. This
-avoids the constant merge-conflict noise `.pbxproj` files cause and keeps the
-project definition (targets, settings, dependencies) readable and diffable.
-
-## Getting started
-
+## On a Mac
 ```bash
-git clone <this repo>
-cd Household_Helper
-xcodegen generate
-open HouseholdHelper.xcodeproj
+Scripts/bootstrap.sh     # checks tools, installs nothing
+Scripts/generate.sh      # project.yml -> HouseholdHub.xcodeproj (XcodeGen; the .xcodeproj is git-ignored)
+Scripts/verify.sh        # same steps as CI (see docs/MOVING-TO-MAC.md)
+open HouseholdHub.xcodeproj
 ```
 
-Then build and run the `HouseholdHelper` scheme on a simulator or device from
-Xcode.
-
-Whenever you add/remove source files or change target settings, edit
-`project.yml` and re-run `xcodegen generate` (do this after every `git pull`
-that touches `project.yml` too).
-
-## Project layout
-
+## Layout
 ```
-project.yml                          # XcodeGen spec (source of truth for the Xcode project)
-Sources/HouseholdHelper/
-  HouseholdHelperApp.swift           # @main App entry point
-  Views/                             # SwiftUI views
-  Models/                            # Data models
-  Resources/Assets.xcassets/         # App icon, colors, images
-  Info.plist
-Tests/HouseholdHelperTests/          # Unit tests
-.github/workflows/ios.yml            # CI: generates project, builds, tests
+project.yml            XcodeGen spec (edit this, not the .xcodeproj)
+HouseholdHubApp/       app target
+HouseholdHubTests/     Swift Testing unit/domain tests
+HouseholdHubUITests/   XCTest UI tests
+Scripts/               bootstrap, doctor, generate, format, lint, build, test, ui-test, verify
+.claude/               Claude Code settings, hooks, skills, subagents
+docs/                  spec, split spec, progress, research log
 ```
-
-## CI
-
-`.github/workflows/ios.yml` runs on `macos-15` GitHub-hosted runners (the only
-place this project actually builds), regenerating the Xcode project with
-XcodeGen and running `xcodebuild build`/`test` against an iPhone 16 simulator.
