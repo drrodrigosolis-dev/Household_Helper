@@ -18,6 +18,23 @@
         }
       }
     },
+    "CFBundleName": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "HouseholdHub"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HouseholdHub"
+          }
+        }
+      }
+    },
     "NSFaceIDUsageDescription": {
       "extractionState": "extracted_with_value",
       "localizations": {

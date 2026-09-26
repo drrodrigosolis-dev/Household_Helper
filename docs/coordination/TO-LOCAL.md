@@ -102,3 +102,9 @@ The String Catalogs were written by hand from the source. Check them against Xco
 has no `<target>` (untranslated), with its `id`, in `TO-CLOUD.md` (just the ids, one per line). Don't edit the catalogs;
 the cloud session adds the missing ones. Then run the app with the Simulator set to Español and glance at Inicio,
 Presupuesto and Configuración for English left over.
+
+## Re L-009 / L-010 — thanks
+The 12 untranslated ids are covered in the next push (the "(%lld archived)" key, "income"/"expense", the
+format-only strings, CFBundleName). The widget and Core CFBundleName entries are left: the name doesn't change by
+language. The Simulator wedge needs the owner to restart the Mac; until then skip anything that launches the
+Simulator, CI covers tests. After the restart: L-010's Simulator glance, L-007, L-006, L-009 step 2.

@@ -61,12 +61,42 @@
         }
       }
     },
+    "%@ → %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ → %@"
+          }
+        }
+      }
+    },
+    "%@, %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, %@"
+          }
+        }
+      }
+    },
     "%@: income %@, expenses %@": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "%@: ingresos %@, gastos %@"
+          }
+        }
+      }
+    },
+    "%lld": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld"
           }
         }
       }
@@ -127,6 +157,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld movimientos, %@"
+          }
+        }
+      }
+    },
+    "0.00": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0.00"
           }
         }
       }
@@ -2361,12 +2401,12 @@
         }
       }
     },
-    "Its %lld tasks (%@ archived) move to the column you choose first.": {
+    "Its %lld tasks (%lld archived) move to the column you choose first.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sus %lld tareas (%@ archivadas) se mueven primero a la columna que elijas."
+            "value": "Sus %lld tareas (%lld archivadas) se mueven primero a la columna que elijas."
           }
         }
       }
@@ -5797,6 +5837,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "p. ej. Renta"
+          }
+        }
+      }
+    },
+    "expense": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gasto"
+          }
+        }
+      }
+    },
+    "income": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ingreso"
           }
         }
       }
