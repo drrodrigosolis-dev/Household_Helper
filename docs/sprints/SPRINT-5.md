@@ -26,13 +26,12 @@ for review. Binding: §2 (deterministic analytics layer first), §24.2 Analytics
 ## Items
 | # | Item | Spec | Built (CI green) | Walked |
 |---|---|---|---|---|
-| 1 | `AnalyticsPeriod` + `AppSettings.defaultAnalyticsPeriod` | §7.11 | ☐ | tests |
-| 2 | `AnalyticsEngine` (pure): totals, by category, trend buckets, top merchants | §2, §9.4 | ☐ | tests |
-| 3 | `AnalyticsService` (off the main actor) + performance test | §4.4, NFR | ☐ | tests |
-| 4 | Analytics screen: period selector, category donut + table, trend bars + table, top merchants | §24.2 | ☐ | ☐ |
-| 5 | Chart accessibility: `AXChartDescriptor`s and tables | §24.5 | ☐ | ☐ |
-| 6 | Category → Budget filtered | §24.2 | ☐ | ☐ |
+| 1 | `AnalyticsPeriod` + `AppSettings.defaultAnalyticsPeriod` | §7.11 | ☑ | tests |
+| 2 | `AnalyticsEngine` (pure): totals, by category, trend buckets, top merchants | §2, §9.4 | ☑ | tests |
+| 3 | `AnalyticsService` (off the main actor) + performance test | §4.4, NFR | ☑ | tests |
+| 4 | Analytics screen: period selector, category donut + table, trend bars + table, top merchants | §24.2 | ☑ | ☑ |
+| 5 | Chart accessibility: `AXChartDescriptor`s and tables | §24.5 | ☑ | ☑ |
+| 6 | Category → Budget filtered | §24.2 | ☑ | ☑ (UI test) |
 
 ## Close-out
-☐ CI green on final head · ☐ walk screenshots saved to `docs/walk/sprint-5/` and reviewed · ☐ data-safety review
-(totals match the ledger) · ☐ PROGRESS + PR · ☐ WALK-QUEUE
+☑ CI green: run 36216543703 on `a41b742` · ☑ walk screenshots in `docs/walk/sprint-9/run-36214979821` (Sprints 5–9 walked together) and reviewed (large-text category names fixed after) · ☑ data-safety review (totals match the ledger) · ☑ PROGRESS + PR · ☑ WALK-QUEUE (nothing queued)

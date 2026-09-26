@@ -32,16 +32,13 @@ collapsed, never auto-generated when AI is off).
 ## Items
 | # | Item | Spec | Built (CI green) | Walked |
 |---|---|---|---|---|
-| 1 | AI switches in `AppSettings` + Settings › Intelligence with availability | §7.11, §12.1 | ☐ | ☐ |
-| 2 | Deterministic category suggestion from merchant history | §12.3, §25 | ☐ | tests |
-| 3 | AI suggestion layer: typed drafts + validators (no persistence access) | §12.2 | ☐ | tests |
-| 4 | Foundation Models provider behind availability, with fallback | §12.1, §12.5 | ☐ | tests |
-| 5 | Quick Add: suggestions fill only empty fields, marked as suggested | §12.3, §25.4 | ☐ | ☐ |
-| 6 | Analytics narrative (collapsed, on demand) | §24.2 | ☐ | ☐ |
-| 7 | AI regression fixtures | §12.4 | ☐ | tests |
+| 1 | AI switches in `AppSettings` + Settings › Intelligence with availability | §7.11, §12.1 | ☑ | ☑ |
+| 2 | Deterministic category suggestion from merchant history | §12.3, §25 | ☑ | tests |
+| 3 | AI suggestion layer: typed drafts + validators (no persistence access) | §12.2 | ☑ | tests |
+| 4 | Foundation Models provider behind availability, with fallback | §12.1, §12.5 | ☑ | tests |
+| 5 | Quick Add: suggestions fill only empty fields, marked as suggested | §12.3, §25.4 | ☑ | device (WALK-QUEUE) |
+| 6 | Analytics narrative (collapsed, on demand) | §24.2 | ☑ | device (WALK-QUEUE) |
+| 7 | AI regression fixtures | §12.4 | ☑ | tests |
 
 ## Close-out
-☐ CI green on final head · ☐ walk screenshots saved to `docs/walk/sprint-7/` and reviewed · ☑ data-safety review
-(AI never writes; validation) — first pass blocked on a date overwrite and a substring figure check; both fixed with
-the should-fixes (strict amounts, no model description, segment-checked categories, stale-result cancellation,
-`isAIClassified`, merge rules as a pure Core function with tests) · ☐ PROGRESS + PR · ☐ WALK-QUEUE (on-device AI checks on a real device)
+☑ CI green: run 36216543703 on `a41b742` · ☑ walk screenshots in `docs/walk/sprint-9/run-36214979821` (Sprints 5–9 walked together) and reviewed (UI tests run without the model, so suggestions and the summary are checked on a device) · ☑ data-safety reviews (AI never writes; validation; owner's AI-on and description decisions reviewed) · ☑ PROGRESS + PR · ☑ WALK-QUEUE (on-device AI checks)

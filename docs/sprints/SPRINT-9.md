@@ -24,12 +24,11 @@ scope and the §24.2 Settings row that earlier sprints did not build. Defaults t
 ## Items
 | # | Item | Spec | Built (CI green) | Walked |
 |---|---|---|---|---|
-| 1 | Face ID gate + app-switcher cover | §2.1, §7.11 | ☐ | device (WALK-QUEUE) |
-| 2 | Task ↔ transaction link (editor picker, detail row, service validation) | §2.1, §7.8 | ☐ | ☐ |
-| 3 | Appearance: theme + accent | §7.11, §24.2 | ☐ | ☐ |
-| 4 | Default Quick Add type | §7.11 | ☐ | ☐ |
-| 5 | About section | §24.2 | ☐ | ☐ |
+| 1 | Face ID gate + app-switcher cover | §2.1, §7.11 | ☑ | device (WALK-QUEUE) |
+| 2 | Task ↔ transaction link (editor picker, detail row, service validation) | §2.1, §7.8 | ☑ | UI test (added in `d9dd076`, after this run) |
+| 3 | Appearance: theme + accent | §7.11, §24.2 | ☑ | ☑ |
+| 4 | Default Quick Add type | §7.11 | ☑ | ☑ |
+| 5 | About section | §24.2 | ☑ | ☑ |
 
 ## Close-out
-☐ CI green on final head · ☐ walk screenshots · ☐ data-safety review (link validation, backup fields) · ☐ migration
-audit (new settings fields) · ☐ PROGRESS + PR
+☑ CI green: run 36216543703 on `a41b742` · ☑ walk screenshots in `docs/walk/sprint-9/run-36214979821` (Sprints 5–9 walked together) · ☑ data-safety reviews (link validation, backup fields, lock across restores) · ☑ migration audit (new settings fields; SchemaV1 not frozen yet) · ☑ PROGRESS + PR

@@ -30,12 +30,11 @@ for review. Binding: §26 (backup DTO v1 and rules), §7.12, §5.5 (media), §21
 ## Items
 | # | Item | Spec | Built (CI green) | Walked |
 |---|---|---|---|---|
-| 1 | `BackupDTO` v1 for every model + media manifest | §26 | ☐ | tests |
-| 2 | `BackupService.export`: consistent snapshot, DTO + media list | §26 | ☐ | tests |
-| 3 | `BackupService.restore`: full validation, then replace-all in one save; media copy | §26.1 | ☐ | tests |
-| 4 | CSV export of transactions with quoting and formula guard | §21 | ☐ | tests |
-| 5 | Settings › Data: Back up, Restore (confirm), Export CSV | §24.2 | ☐ | ☐ |
+| 1 | `BackupDTO` v1 for every model + media manifest | §26 | ☑ | tests |
+| 2 | `BackupService.export`: consistent snapshot, DTO + media list | §26 | ☑ | tests |
+| 3 | `BackupService.restore`: full validation, then replace-all in one save; media copy | §26.1 | ☑ | tests |
+| 4 | CSV export of transactions with quoting and formula guard | §21 | ☑ | tests |
+| 5 | Settings › Data: Back up, Restore (confirm), Export CSV | §24.2 | ☑ | ☑ |
 
 ## Close-out
-☐ CI green on final head · ☐ walk screenshots saved to `docs/walk/sprint-6/` and reviewed · ☐ data-safety review
-(round trip, atomic restore, secrets) · ☐ PROGRESS + PR · ☐ WALK-QUEUE (Google Sheets decision)
+☑ CI green: run 36216543703 on `a41b742` · ☑ walk screenshots in `docs/walk/sprint-9/run-36214979821` (Sprints 5–9 walked together) and reviewed · ☑ data-safety reviews (round trip, atomic restore, photos, lock setting) · ☑ PROGRESS + PR · ☑ WALK-QUEUE (Files-app restore on a device; Google Sheets dropped by the owner)

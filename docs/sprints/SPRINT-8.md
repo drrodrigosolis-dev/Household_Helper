@@ -39,15 +39,13 @@ no App Group, no paid capability may become a dependency), §9 (current vs pendi
 ## Items
 | # | Item | Spec | Built (CI green) | Walked |
 |---|---|---|---|---|
-| 1 | Verify WidgetKit / App Intents API shapes for iOS 26 (research skill) and record | §19.1 | ☐ | doc |
-| 2 | `WidgetSnapshot` + builder in Core, parity with Dashboard figures | §9, §24.4 | ☐ | tests |
-| 3 | `WidgetDataProvider` (fixture + App Group) and `WidgetSyncService` (write on change) | §5.2 | ☐ | tests |
-| 4 | Widget extension target in `project.yml` (small + medium), fixture previews | §24.4 | ☐ | ☐ |
-| 5 | `widgetShowsBalance` setting + Settings › Widget + backup field | §7.11 | ☐ | ☐ |
-| 6 | Deep link + `OpenQuickAddIntent` | §24.4 | ☐ | UI test |
-| 7 | `LogTransactionIntent` with confirmation, parser only | §25 | ☐ | tests |
+| 1 | Verify WidgetKit / App Intents API shapes for iOS 26 (research skill) and record | §19.1 | ☑ | doc |
+| 2 | `WidgetSnapshot` + builder in Core, parity with Dashboard figures | §9, §24.4 | ☑ | tests |
+| 3 | `WidgetDataProvider` (fixture + App Group) and `WidgetSyncService` (write on change) | §5.2 | ☑ | tests |
+| 4 | Widget extension target in `project.yml` (small + medium), fixture previews | §24.4 | ☑ | device (WALK-QUEUE) |
+| 5 | `widgetShowsBalance` setting + Settings › Widget + backup field | §7.11 | ☑ | ☑ |
+| 6 | Deep link + `OpenQuickAddIntent` | §24.4 | ☑ | UI test |
+| 7 | `LogTransactionIntent` with confirmation, parser only | §25 | ☑ | tests |
 
 ## Close-out
-☐ CI green on final head · ☐ walk screenshots saved to `docs/walk/sprint-8/` and reviewed · ☐ data-safety review
-(intent writes, snapshot contents) · ☐ migration audit (new setting) · ☐ PROGRESS + PR · ☐ WALK-QUEUE (widget on the
-Home Screen and Shortcuts on a device; App Group path once a paid team exists)
+☑ CI green: run 36216543703 on `a41b742` · ☑ walk screenshots in `docs/walk/sprint-9/run-36214979821` (Sprints 5–9 walked together) (widget itself needs the Home Screen) · ☑ data-safety review (intent writes, snapshot contents) · ☑ migration audit (new setting) · ☑ PROGRESS + PR · ☑ WALK-QUEUE (widget and Shortcuts on a device; App Group path deferred by the owner)
