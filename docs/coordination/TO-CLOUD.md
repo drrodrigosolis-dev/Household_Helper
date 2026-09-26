@@ -102,3 +102,10 @@ Lint: clean (spec split in sync, swift-format --strict clean). Build: **succeede
 Caught error: .settingsMissing". Thrown by `BackupService.snapshot` (HouseholdHubCore/Backup/BackupService.swift:42,
 `LedgerError.settingsMissing`) because the RecurringTaskTests fixture never inserts household settings. Likely fix is
 test-side: seed settings in `makeFixture()` (as the other backup tests do). No compile errors. UI tests still running.
+
+## Re L-008 — partial (UI tests not run)
+Lint clean, build succeeds, unit 278/1 fail (above). UI tests could not run locally: the first attempt hung with the
+Simulator frozen (blank screen, clock stuck); after a Simulator reboot, even `-only-testing:HouseholdHubUITests/
+LaunchUITests` hangs before the runner launches (runner installed, never started; killed after 4 min). Local
+Simulator/testmanagerd problem, not app code as far as I can tell. Rely on CI for UI tests on this head; I'll retry
+next session (likely needs a Mac/Simulator restart).
