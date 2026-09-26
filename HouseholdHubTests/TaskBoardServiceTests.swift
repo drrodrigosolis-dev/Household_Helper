@@ -72,7 +72,8 @@ struct TaskBoardServiceTests {
         try await fixture.board.seedDefaultColumnsIfNeeded(now: now)
         let columns = try fixture.columns()
         #expect(columns.map(\.name) == ["To Do", "In Progress", "Done"])
-        #expect(columns.allSatisfy(\.isSystem))
+        let allSystem = columns.allSatisfy { $0.isSystem }
+        #expect(allSystem)
         #expect(columns.map(\.sortOrder) == [0, 1, 2])
     }
 
