@@ -10,8 +10,8 @@ that completes it (CLAUDE.md, "Autonomous CI-driven operation"; spec §28). Mirr
 | 2 — Domain foundation | CI green | Sprint 1. Run 36196665245 on `ddc4b64` (58 unit, 3 UI). Money, Currency, HouseholdCalendar, ledger models, recurrence engine, balance calculator, transaction/category services. A data-safety review blocked the gate on 6 findings, all fixed before green. Details: `docs/sprints/SPRINT-1.md`. |
 | 3 — Core UX | CI green | Sprint 2, run 36205435799 on `9635f01`. Walked in light/dark/largest text (`docs/walk/`); dark capture and large-text layout fixed along the way. Judgment call: category management goes under More › Settings › Categories (no §24.2 screen for it). |
 | 4 — Wishlist | CI green | Sprint 3, run 36205435799 on `9635f01`. Purchase conversion is one atomic save on the transaction service; data-safety review (1 blocking, 3 should-fix) fixed before green. Default taken: a purchase transaction cannot be cancelled or turned into income (delete it instead). |
-| 5 — Tasks | in progress | Sprint 4. Board, subtasks, columns, Quick Add Task built and green on run 36205435799 on `9635f01`; data-safety fixes (`1c11590`) awaiting CI. Defaults for review in `docs/sprints/SPRINT-4.md` (last column = done). |
-| 6 — Analytics | not started | |
+| 5 — Tasks | CI green | Sprint 4, run 36205565139 on `1c11590`. Kanban board with drag and non-drag moves, subtasks, columns (delete moves tasks first), Quick Add Task. Data-safety review (1 blocking: missing invariant tests; 3 should-fix) fixed before green. Default for review: the last column is the done column (`docs/sprints/SPRINT-4.md`). |
+| 6 — Analytics | in progress | Sprint 5 (`docs/sprints/SPRINT-5.md`). Posted transactions only; charts carry audio-graph descriptors and tables. |
 | 7 — Backup/export | not started | |
 | 8 — Intelligence | not started | |
 | 9 — Optional system surfaces | not started | |

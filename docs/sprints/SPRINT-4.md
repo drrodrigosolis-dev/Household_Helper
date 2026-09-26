@@ -36,5 +36,8 @@ for review. Binding: §7.8–§7.10, §8.5, §24.2 Tasks row, §24.3 (Quick Add 
 | 8 | Quick Add Task segment; Dashboard activity includes tasks | §24.3, §24.2 | ☑ | ☑ |
 
 ## Close-out
-☐ CI green on final head (built green on run 36205435799 on `9635f01`; review fixes `1c11590` pending) · ☑ walk screenshots saved to `docs/walk/sprint-4/` and reviewed · ☑ data-safety review
-(column delete, cascade, links) · ☐ PROGRESS + PR · ☐ WALK-QUEUE
+☑ CI green on final head (run 36205565139 on `1c11590`, with the data-safety fixes) · ☑ walk screenshots saved to `docs/walk/sprint-4/` and reviewed · ☑ data-safety review
+(column delete, cascade, links) · ☑ PROGRESS + PR · ☐ WALK-QUEUE
+
+Closed 2026-09-26: CI green on run 36205565139 on `1c11590`. The three walk layout fixes (`549bca8`) ride on
+Sprint 5's head and are re-checked in its walk.
