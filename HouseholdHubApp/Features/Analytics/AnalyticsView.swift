@@ -69,7 +69,7 @@ struct AnalyticsView: View {
                         : Text("Posted income and expenses appear here. Turn on Include pending to count those too."))
             }
         } else {
-            if settings.first?.aiInsightsEnabled == true, OnDeviceModel.isAvailable {
+            if settings.first?.aiInsightsEnabled == true, AppInfo.onDeviceModelAvailable {
                 NarrativeSection(facts: facts(report))
             }
             CategorySection(

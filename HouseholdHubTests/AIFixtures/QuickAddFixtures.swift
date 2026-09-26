@@ -99,6 +99,34 @@ struct QuickAddFixtures {
         #expect(!Self.parse("4.50 coffee").dateRecognized)
     }
 
+    // MARK: Descriptions (owner decision 2026-09-26: allowed, in the note's own words)
+
+    static let descriptionCases: [(note: String, proposed: String, accepted: Bool)] = [
+        ("twelve dollars lunch with sam", "Lunch with Sam", true),
+        ("twelve dollars lunch with sam", "Dinner at a steakhouse", false),
+        ("coffee", "Coffee for 3", false),
+        ("coffee", String(repeating: "coffee ", count: 20), false),
+        ("coffee", "Coffee\nand cake", false),
+    ]
+
+    @Test func descriptionsMustUseTheNotesOwnWords() {
+        for entry in Self.descriptionCases {
+            let result = QuickAddSuggestionValidator.description(entry.proposed, note: entry.note)
+            #expect((result != nil) == entry.accepted, "\(entry.proposed)")
+        }
+    }
+
+    @Test func aSuggestedDescriptionReplacesOnlyTheParsersOwnText() {
+        let parsed = Self.parse("twelve dollars lunch with sam")
+        let suggestion = ValidatedQuickAdd(description: "Lunch with Sam")
+        let untouched = QuickAddSuggestionMerge.fieldsToApply(
+            suggestion, form: Self.form(notes: parsed.description), parsed: parsed, categories: Self.options)
+        #expect(untouched.description == "Lunch with Sam")
+        let edited = QuickAddSuggestionMerge.fieldsToApply(
+            suggestion, form: Self.form(notes: "Team lunch"), parsed: parsed, categories: Self.options)
+        #expect(edited.description == nil)
+    }
+
     // MARK: Merging into a form the user may have changed meanwhile
 
     private static let yesterday = calendar.calendar.date(byAdding: .day, value: -1, to: now)!
@@ -108,9 +136,10 @@ struct QuickAddFixtures {
 
     private static func form(
         _ type: TransactionType? = .expense, amountIsEmpty: Bool = true, categoryID: UUID? = nil,
-        occurredAt: Date = now
+        occurredAt: Date = now, notes: String = ""
     ) -> QuickAddFormSnapshot {
-        QuickAddFormSnapshot(type: type, amountIsEmpty: amountIsEmpty, categoryID: categoryID, occurredAt: occurredAt)
+        QuickAddFormSnapshot(
+            type: type, amountIsEmpty: amountIsEmpty, categoryID: categoryID, occurredAt: occurredAt, notes: notes)
     }
 
     @Test func mergeFillsAnUntouchedForm() {
@@ -205,13 +234,14 @@ struct IntelligenceTests {
         #expect(try await ledger.suggestedCategory(forMerchantText: "Café Luna", type: .expense) == groceries)
     }
 
-    @Test func aiSwitchesStartOffAndRoundTripThroughBackups() async throws {
+    @Test func aiSwitchesStartOnAndRoundTripThroughBackups() async throws {
         let container = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
         let ledger = TransactionService.make(container: container)
         try await ledger.ensureSettings(currencyCode: "CAD", now: now)
         let settings = try #require(try ModelContext(container).fetch(FetchDescriptor<AppSettings>()).first)
-        #expect(!settings.aiCategorizationEnabled && !settings.naturalLanguageEnabled && !settings.aiInsightsEnabled)
-        try await ledger.setAI(.insights, enabled: true, now: now)
+        // On by default (owner decision 2026-09-26); they only act where the model is available.
+        #expect(settings.aiCategorizationEnabled && settings.naturalLanguageEnabled && settings.aiInsightsEnabled)
+        try await ledger.setAI(.naturalLanguage, enabled: false, now: now)
         let backup = try await BackupService.make(container: container).snapshot(now: now, appVersion: "1") { _ in nil }
         #expect(backup.settings.aiInsightsEnabled == true)
         #expect(backup.settings.naturalLanguageEnabled == false)
@@ -250,12 +280,13 @@ struct IntelligenceTests {
         #expect(try #require(records.first { $0.id == bareID }).isAIClassified == false)
     }
 
-    @Test func aiSwitchesRestoreFromBackupsAndOldBackupsLeaveThemOff() async throws {
+    @Test func aiSwitchesRestoreFromBackupsAndOldBackupsReadTheDefault() async throws {
         let source = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
         let ledger = TransactionService.make(container: source)
         try await ledger.ensureSettings(currencyCode: "CAD", now: now)
         try await ledger.setAI(.categorization, enabled: true, now: now)
         try await ledger.setAI(.naturalLanguage, enabled: true, now: now)
+        try await ledger.setAI(.insights, enabled: false, now: now)
         var backup = try await BackupService.make(container: source).snapshot(now: now, appVersion: "1") { _ in nil }
 
         let target = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
@@ -263,13 +294,13 @@ struct IntelligenceTests {
         var settings = try #require(try ModelContext(target).fetch(FetchDescriptor<AppSettings>()).first)
         #expect(settings.aiCategorizationEnabled && settings.naturalLanguageEnabled && !settings.aiInsightsEnabled)
 
-        // A backup written before these switches existed has no values for them: they come back off.
+        // A backup written before these switches existed has no values for them: they come back as the default, on.
         backup.settings.aiCategorizationEnabled = nil
         backup.settings.naturalLanguageEnabled = nil
         backup.settings.aiInsightsEnabled = nil
         _ = try await BackupService.make(container: target).restore(backup, availableMedia: [], now: now)
         settings = try #require(try ModelContext(target).fetch(FetchDescriptor<AppSettings>()).first)
-        #expect(!settings.aiCategorizationEnabled && !settings.naturalLanguageEnabled && !settings.aiInsightsEnabled)
+        #expect(settings.aiCategorizationEnabled && settings.naturalLanguageEnabled && settings.aiInsightsEnabled)
     }
 
     private static let facts = AnalyticsFacts(

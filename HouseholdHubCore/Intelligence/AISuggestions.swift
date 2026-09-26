@@ -1,8 +1,8 @@
 import Foundation
 
 /// What an on-device model may propose for a Quick Add text (spec §12.2 "structured output"). Every field is a raw
-/// proposal; `QuickAddSuggestionValidator` decides what, if anything, reaches the editable fields. There is no
-/// description field: the note's own words are the description, so a model can't put words in the user's mouth.
+/// proposal; `QuickAddSuggestionValidator` decides what, if anything, reaches the editable fields. A description is
+/// accepted only in the note's own words (owner decision 2026-09-26 to allow it, with that guard).
 public struct QuickAddSuggestion: Equatable, Sendable {
     /// The amount exactly as the model wrote it; read with the §25 number grammar, never loosely.
     public var amount: String?
@@ -11,12 +11,18 @@ public struct QuickAddSuggestion: Equatable, Sendable {
     public var categoryName: String?
     /// Days from today, e.g. -1 for yesterday.
     public var dayOffset: Int?
+    /// A tidier description, e.g. "Lunch with Sam" for "twelve dollars lunch with sam".
+    public var description: String?
 
-    public init(amount: String? = nil, type: String? = nil, categoryName: String? = nil, dayOffset: Int? = nil) {
+    public init(
+        amount: String? = nil, type: String? = nil, categoryName: String? = nil, dayOffset: Int? = nil,
+        description: String? = nil
+    ) {
         self.amount = amount
         self.type = type
         self.categoryName = categoryName
         self.dayOffset = dayOffset
+        self.description = description
     }
 }
 
@@ -26,16 +32,21 @@ public struct ValidatedQuickAdd: Equatable, Sendable {
     public var type: TransactionType?
     public var categoryID: UUID?
     public var occurredAt: Date?
+    public var description: String?
 
-    public init(amount: Money? = nil, type: TransactionType? = nil, categoryID: UUID? = nil, occurredAt: Date? = nil) {
+    public init(
+        amount: Money? = nil, type: TransactionType? = nil, categoryID: UUID? = nil, occurredAt: Date? = nil,
+        description: String? = nil
+    ) {
         self.amount = amount
         self.type = type
         self.categoryID = categoryID
         self.occurredAt = occurredAt
+        self.description = description
     }
 
     public var isEmpty: Bool {
-        amount == nil && type == nil && categoryID == nil && occurredAt == nil
+        amount == nil && type == nil && categoryID == nil && occurredAt == nil && description == nil
     }
 }
 
@@ -46,9 +57,10 @@ public enum QuickAddSuggestionValidator {
     public static let maxDayOffset = 31
     /// A sanity cap in major units; larger amounts are typed, not suggested.
     public static let maxAmount: Decimal = 1_000_000
+    public static let maxDescriptionLength = 80
 
     public static func validate(
-        _ suggestion: QuickAddSuggestion, parsed: QuickAddParse, currency: Currency,
+        _ suggestion: QuickAddSuggestion, parsed: QuickAddParse, note: String = "", currency: Currency,
         categories: [QuickAddCategoryOption], now: Date, calendar: HouseholdCalendar
     ) -> ValidatedQuickAdd {
         var result = ValidatedQuickAdd()
@@ -69,7 +81,22 @@ public enum QuickAddSuggestionValidator {
         if !parsed.dateRecognized, let offset = suggestion.dayOffset, (-maxDayOffset)...(-1) ~= offset {
             result.occurredAt = calendar.calendar.date(byAdding: .day, value: offset, to: now)
         }
+        result.description = description(suggestion.description, note: note)
         return result
+    }
+
+    /// A single short line that shares at least one word with the note, so the model tidies the user's words rather
+    /// than inventing new ones. Digits are not allowed: amounts belong in the amount field.
+    static func description(_ proposed: String?, note: String) -> String? {
+        guard let text = proposed?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty,
+            text.count <= maxDescriptionLength, !text.contains(where: { $0.isNewline || $0.isNumber })
+        else { return nil }
+        func words(_ string: String) -> Set<String> {
+            Set(
+                string.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init)
+                    .filter { $0.count >= 3 })
+        }
+        return words(text).isDisjoint(with: words(note)) ? nil : text
     }
 
     /// A positive amount in the §25 grammar with no more decimals than the currency has, under the sanity cap.
@@ -89,12 +116,15 @@ public struct QuickAddFormSnapshot: Equatable, Sendable {
     public var amountIsEmpty: Bool
     public var categoryID: UUID?
     public var occurredAt: Date
+    /// The notes field as it is now; a suggested description replaces it only while it still holds the parser's text.
+    public var notes: String
 
-    public init(type: TransactionType?, amountIsEmpty: Bool, categoryID: UUID?, occurredAt: Date) {
+    public init(type: TransactionType?, amountIsEmpty: Bool, categoryID: UUID?, occurredAt: Date, notes: String = "") {
         self.type = type
         self.amountIsEmpty = amountIsEmpty
         self.categoryID = categoryID
         self.occurredAt = occurredAt
+        self.notes = notes
     }
 }
 
@@ -122,6 +152,9 @@ public enum QuickAddSuggestionMerge {
         // Only a date that is still the parser's own default: not one the text named, not one the user picked.
         if !parsed.dateRecognized, form.occurredAt == parsed.occurredAt {
             result.occurredAt = suggestion.occurredAt
+        }
+        if form.notes == parsed.description, suggestion.description != parsed.description {
+            result.description = suggestion.description
         }
         return result
     }

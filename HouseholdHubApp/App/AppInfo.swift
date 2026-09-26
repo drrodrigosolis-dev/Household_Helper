@@ -10,6 +10,12 @@ enum AppInfo {
     static var build: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
     }
+    /// Whether on-device Apple Intelligence may be used. UI tests always run without it: CI's simulator model is
+    /// unreliable, and suggestions arriving mid-test would make results depend on the model.
+    static var onDeviceModelAvailable: Bool {
+        !ProcessInfo.processInfo.arguments.contains(LaunchArguments.uiTesting) && OnDeviceModel.isAvailable
+    }
+
     /// The App Group shared with the widget, when one is configured (spec §5.2); nil under the free Personal Team.
     static var appGroupIdentifier: String? {
         let value = Bundle.main.object(forInfoDictionaryKey: WidgetSnapshot.appGroupInfoKey) as? String

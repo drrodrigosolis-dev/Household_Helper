@@ -37,7 +37,8 @@ public enum OnDeviceModel {
                     amount: guess.amount.isEmpty ? nil : guess.amount,
                     type: guess.kind.isEmpty ? nil : guess.kind,
                     categoryName: guess.category.isEmpty ? nil : guess.category,
-                    dayOffset: guess.dayOffset == 0 ? nil : guess.dayOffset)
+                    dayOffset: guess.dayOffset == 0 ? nil : guess.dayOffset,
+                    description: guess.summary.isEmpty ? nil : guess.summary)
             } catch {
                 return nil
             }
@@ -79,5 +80,7 @@ public enum OnDeviceModel {
         var category: String
         @Guide(description: "Days from today the note refers to: 0 today or not stated, -1 yesterday")
         var dayOffset: Int
+        @Guide(description: "A short description using the note's own words, without the amount, or empty")
+        var summary: String
     }
 #endif

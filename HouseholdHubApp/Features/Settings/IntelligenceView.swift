@@ -9,7 +9,7 @@ struct IntelligenceView: View {
     @Environment(\.services) private var services
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
 
-    private var available: Bool { OnDeviceModel.isAvailable }
+    private var available: Bool { AppInfo.onDeviceModelAvailable }
 
     var body: some View {
         List {

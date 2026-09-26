@@ -184,9 +184,9 @@ extension BackupService {
         model.startingBalanceDate = dto.startingBalanceDate
         model.includePendingInProjection = dto.includePendingInProjection
         model.defaultAnalyticsPeriodRawValue = dto.defaultAnalyticsPeriod
-        model.aiCategorizationEnabled = dto.aiCategorizationEnabled ?? false
-        model.naturalLanguageEnabled = dto.naturalLanguageEnabled ?? false
-        model.aiInsightsEnabled = dto.aiInsightsEnabled ?? false
+        model.aiCategorizationEnabled = dto.aiCategorizationEnabled ?? true
+        model.naturalLanguageEnabled = dto.naturalLanguageEnabled ?? true
+        model.aiInsightsEnabled = dto.aiInsightsEnabled ?? true
         model.widgetShowsBalance = dto.widgetShowsBalance ?? true
         model.analyticsIncludesPending = dto.analyticsIncludesPending ?? false
         // Preferences are normalized on the way in: a missing or unknown value is stored as the default, so the store

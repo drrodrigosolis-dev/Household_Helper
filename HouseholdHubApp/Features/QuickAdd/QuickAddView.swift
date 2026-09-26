@@ -278,7 +278,7 @@ struct QuickAddView: View {
         // model's category pick. Merchant history needs neither.
         let understand = settings.first?.naturalLanguageEnabled ?? false
         let categorize = settings.first?.aiCategorizationEnabled ?? false
-        let useModel = (understand || categorize) && OnDeviceModel.isAvailable
+        let useModel = (understand || categorize) && AppInfo.onDeviceModelAvailable
         let type = self.type
         suggestionEntry = entry
         suggestionTask = Task {
@@ -297,7 +297,7 @@ struct QuickAddView: View {
                 text == input
             else { return }
             var checked = QuickAddSuggestionValidator.validate(
-                raw, parsed: parsed, currency: currency, categories: options, now: now,
+                raw, parsed: parsed, note: input, currency: currency, categories: options, now: now,
                 calendar: HouseholdCalendar(timeZone: .current))
             if !understand {
                 checked = ValidatedQuickAdd(categoryID: checked.categoryID)
@@ -316,7 +316,7 @@ struct QuickAddView: View {
         let form = QuickAddFormSnapshot(
             type: entry == .expense || entry == .income ? type : nil,
             amountIsEmpty: amountText.trimmingCharacters(in: .whitespaces).isEmpty, categoryID: categoryID,
-            occurredAt: occurredAt)
+            occurredAt: occurredAt, notes: notes)
         let allowed = QuickAddSuggestionMerge.fieldsToApply(
             suggestion, form: form, parsed: parsed, categories: options)
         if let amount = allowed.amount {
@@ -339,6 +339,11 @@ struct QuickAddView: View {
         if let date = allowed.occurredAt {
             occurredAt = date
             suggestedFields.insert("date")
+        }
+        if let description = allowed.description {
+            notes = description
+            showDetails = true
+            suggestedFields.insert("notes")
         }
     }
 

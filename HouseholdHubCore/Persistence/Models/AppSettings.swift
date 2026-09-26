@@ -17,10 +17,11 @@ extension SchemaV1 {
         public var defaultAnalyticsPeriodRawValue: String = AnalyticsPeriod.thisMonth.rawValue
         /// Whether Analytics also counts pending transactions (owner decision 2026-09-26). Off by default.
         public var analyticsIncludesPending: Bool = false
-        /// On-device AI switches (spec §7.11, §12). Off until the user turns them on (Sprint 7 default 1).
-        public var aiCategorizationEnabled: Bool = false
-        public var naturalLanguageEnabled: Bool = false
-        public var aiInsightsEnabled: Bool = false
+        /// On-device AI switches (spec §7.11, §12). On by default (owner decision 2026-09-26); they only take effect
+        /// where Apple Intelligence is available, and each can be turned off.
+        public var aiCategorizationEnabled: Bool = true
+        public var naturalLanguageEnabled: Bool = true
+        public var aiInsightsEnabled: Bool = true
         /// Whether the Home Screen widget shows amounts (spec §7.11). On by default (Sprint 8 default 4).
         public var widgetShowsBalance: Bool = true
         /// Optional Face ID / passcode gate (spec §2.1, §7.11). Device configuration: never written to a backup
