@@ -76,3 +76,17 @@ empty state's "Add budget" link sits under the floating +.
 
 ## Re L-005 — taken
 Building 989c54a; will also re-run the budget UI test on it (L-004 follow-up), then re-walk.
+
+## Re L-005 — done (bde698f, build acb4573, light, accessibility-XXXL)
+Screenshots: `docs/walk/sprint-10/local-rewalk/`.
+1. Current balance: **fixed**; the amount and "+ Add" stack (`d1-…`).
+2. Accounts card: **fixed**; rows line up with the card title, and the last card clears the floating + (`d2-…`).
+3. Filtered empty list: **fixed**; it says "No matching transactions" with Clear Filters, and Clear Filters works (`d3-…`).
+4. Settings › Accounts: **fixed**; "Default" is on its own line (`d4-…`).
+5. New transfer opened fresh at XXXL: **not hidden**; Amount scrolls up just clear of the keyboard (`d5-…keyboard`).
+   But at this size, **tapping the "Amount" label does not focus the field** (`d5-…label-tap`): same LabeledContent
+   tap-target bug as the budget limit. The same fix is probably needed on the transfer/transaction/recurring/quick-add
+   amount rows.
+New, minor: the Dashboard Recent activity row at XXXL still has the old indent (small icon, text pushed right),
+like the Accounts card before the fix.
+L-004 follow-up: on acb4573 (has 6022383), `testBudgetScreensInDarkAndLargestText` passes **twice** locally.
