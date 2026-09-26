@@ -172,10 +172,13 @@ struct WishlistPurchaseView: View {
     @Environment(\.services) private var services
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
+    @Query(sort: \Account.sortOrder) private var accounts: [Account]
 
     @State private var priceText: String
     @State private var purchasedAt = Date.now
     @State private var categoryID: UUID?
+    /// nil = the default account (Sprint 10 decision 9).
+    @State private var accountID: UUID?
     @State private var errorMessage: String?
     @State private var isSaving = false
 
@@ -208,6 +211,16 @@ struct WishlistPurchaseView: View {
                         Text(category.name).tag(UUID?.some(category.id))
                     }
                 }
+                let active = accounts.filter { !$0.isArchived }
+                if active.count > 1 {
+                    Picker("Paid from", selection: $accountID) {
+                        Text("Default account").tag(UUID?.none)
+                        ForEach(active) { account in
+                            Text(account.name).tag(UUID?.some(account.id))
+                        }
+                    }
+                    .accessibilityIdentifier("wishlist.purchase.account")
+                }
             } footer: {
                 Text("Records one expense in Budget and marks \(item.name) as purchased.")
             }
@@ -235,7 +248,8 @@ struct WishlistPurchaseView: View {
         defer { isSaving = false }
         do {
             try await services.transactions.purchaseWishlistItem(
-                item.id, actualPrice: price, occurredAt: purchasedAt, categoryID: categoryID, now: .now)
+                item.id, actualPrice: price, occurredAt: purchasedAt, categoryID: categoryID, accountID: accountID,
+                now: .now)
             dismiss()
         } catch {
             errorMessage = String(localized: "The purchase couldn't be recorded. Nothing was changed.")

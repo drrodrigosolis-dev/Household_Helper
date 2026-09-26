@@ -18,6 +18,11 @@ public struct BalanceSnapshot: Equatable, Sendable {
 public struct AccountBalance: Equatable, Sendable {
     public let accountID: UUID
     public let snapshot: BalanceSnapshot
+
+    public init(accountID: UUID, snapshot: BalanceSnapshot) {
+        self.accountID = accountID
+        self.snapshot = snapshot
+    }
 }
 
 /// Every account's figures and the household's, which are their sums (Sprint 10 decisions 1 and 5: transfers move

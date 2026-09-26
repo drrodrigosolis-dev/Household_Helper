@@ -472,8 +472,9 @@ public actor TransactionService {
 
     public func dashboardSummary(now: Date, calendar: HouseholdCalendar, days: Int = 7) throws -> DashboardSummary {
         let settings = try requireSettings()
-        let balance = try balanceSnapshot(
+        let all = try balances(
             now: now, calendar: calendar, includePendingInProjection: settings.includePendingInProjection)
+        let balance = all.household
 
         let weekStart = calendar.startOfWeek(for: now)
         let expense = TransactionType.expense.rawValue
@@ -517,7 +518,7 @@ public actor TransactionService {
             }
         }
         upcoming.sort { $0.date < $1.date }
-        return DashboardSummary(balance: balance, spentThisWeek: spent, upcoming: upcoming)
+        return DashboardSummary(balance: balance, spentThisWeek: spent, upcoming: upcoming, accounts: all.accounts)
     }
 
     public func setSeriesEnabled(_ enabled: Bool, series id: UUID, now: Date) throws {

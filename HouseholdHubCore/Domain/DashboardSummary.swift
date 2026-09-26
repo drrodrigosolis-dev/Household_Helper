@@ -26,10 +26,15 @@ public struct DashboardSummary: Equatable, Sendable {
     public let spentThisWeek: Money
     /// Unrecorded recurring occurrences from the start of today through the next 7 days, soonest first.
     public let upcoming: [UpcomingOccurrence]
+    /// Each account's figures, in the Accounts list order (Sprint 10 decision 7); `balance` is their sum.
+    public let accounts: [AccountBalance]
 
-    public init(balance: BalanceSnapshot, spentThisWeek: Money, upcoming: [UpcomingOccurrence]) {
+    public init(
+        balance: BalanceSnapshot, spentThisWeek: Money, upcoming: [UpcomingOccurrence], accounts: [AccountBalance] = []
+    ) {
         self.balance = balance
         self.spentThisWeek = spentThisWeek
         self.upcoming = upcoming
+        self.accounts = accounts
     }
 }

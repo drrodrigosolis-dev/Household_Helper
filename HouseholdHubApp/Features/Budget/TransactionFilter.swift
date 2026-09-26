@@ -1,7 +1,7 @@
 import Foundation
 import HouseholdHubCore
 
-/// Budget › Transactions filter bar state (spec §24.2: period, category, status).
+/// Budget › Transactions filter bar state (spec §24.2: period, category, status; Sprint 10: account).
 struct TransactionFilter: Hashable {
     enum Period: String, CaseIterable, Identifiable {
         case all
@@ -15,6 +15,8 @@ struct TransactionFilter: Hashable {
     var period = Period.all
     var categoryID: UUID?
     var status: TransactionStatus?
+    /// Transactions in this account, including transfers into or out of it.
+    var accountID: UUID?
 
     /// Earliest `occurredAt` included, in the household calendar.
     func startDate(now: Date, calendar: HouseholdCalendar) -> Date? {

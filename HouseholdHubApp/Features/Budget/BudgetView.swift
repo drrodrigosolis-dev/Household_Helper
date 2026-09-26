@@ -13,7 +13,9 @@ struct BudgetView: View {
 
     @Environment(AppRouter.self) private var router
     @State private var isPresentingQuickAdd = false
+    @State private var isPresentingTransfer = false
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
+    @Query(sort: \Account.sortOrder) private var accounts: [Account]
 
     var body: some View {
         @Bindable var router = router
@@ -40,10 +42,22 @@ struct BudgetView: View {
             .navigationTitle("Budget")
             .toolbar {
                 if router.budgetSegment == .transactions {
+                    // Transfers need two accounts (Sprint 10 decision 8).
+                    if accounts.filter({ !$0.isArchived }).count > 1 {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("New transfer", systemImage: "arrow.left.arrow.right") {
+                                isPresentingTransfer = true
+                            }
+                            .accessibilityIdentifier("budget.newTransfer")
+                        }
+                    }
                     ToolbarItem(placement: .topBarTrailing) { filterMenu(filter: $router.budgetFilter) }
                 }
             }
             .sheet(isPresented: $isPresentingQuickAdd) { QuickAddView() }
+            .sheet(isPresented: $isPresentingTransfer) {
+                NavigationStack { TransferEditorView() }
+            }
         }
     }
 
@@ -59,6 +73,14 @@ struct BudgetView: View {
                 Text("All categories").tag(UUID?.none)
                 ForEach(categories) { category in
                     Text(category.name).tag(UUID?.some(category.id))
+                }
+            }
+            if accounts.count > 1 {
+                Picker("Account", selection: filter.accountID) {
+                    Text("All accounts").tag(UUID?.none)
+                    ForEach(accounts) { account in
+                        Text(account.name).tag(UUID?.some(account.id))
+                    }
                 }
             }
             Picker("Status", selection: filter.status) {

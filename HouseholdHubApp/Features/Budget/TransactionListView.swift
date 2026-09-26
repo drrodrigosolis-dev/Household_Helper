@@ -19,6 +19,7 @@ private struct FilteredTransactions: View {
     @Environment(\.services) private var services
     @Query private var records: [TransactionRecord]
     @Query private var categories: [CategoryRecord]
+    @Query(sort: \Account.sortOrder) private var accounts: [Account]
     let limit: Int
     let loadMore: () -> Void
 
@@ -34,10 +35,13 @@ private struct FilteredTransactions: View {
         let anyCategory = filter.categoryID == nil
         let status = filter.status?.rawValue ?? ""
         let anyStatus = filter.status == nil
+        let accountID: UUID? = filter.accountID
+        let anyAccount = filter.accountID == nil
         var descriptor = FetchDescriptor<TransactionRecord>(
             predicate: #Predicate {
                 $0.occurredAt >= start && (anyCategory || $0.categoryID == categoryID)
                     && (anyStatus || $0.statusRawValue == status)
+                    && (anyAccount || $0.accountID == accountID || $0.transferAccountID == accountID)
             },
             sortBy: [SortDescriptor(\.occurredAt, order: .reverse)])
         descriptor.fetchLimit = limit
@@ -75,7 +79,11 @@ private struct FilteredTransactions: View {
             }
         }
         .navigationDestination(item: $editing) { record in
-            TransactionEditorView(record: record)
+            if record.type == .transfer {
+                TransferEditorView(record: record)
+            } else {
+                TransactionEditorView(record: record)
+            }
         }
         .confirmationDialog(
             "Delete this transaction?", isPresented: deleteDialogShown, titleVisibility: .visible,
@@ -89,7 +97,7 @@ private struct FilteredTransactions: View {
 
     private func row(_ record: TransactionRecord) -> some View {
         let category = categories.first { $0.id == record.categoryID }
-        return TransactionRow(record: record, category: category)
+        return TransactionRow(record: record, category: category, accounts: accounts)
             .contentShape(Rectangle())
             .onTapGesture { editing = record }
             .accessibilityAddTraits(.isButton)
@@ -171,14 +179,31 @@ private struct FilteredTransactions: View {
 struct TransactionRow: View {
     let record: TransactionRecord
     let category: CategoryRecord?
+    /// Every account, so a row can name its own when there is more than one (Sprint 10 decision 7).
+    var accounts: [Account] = []
     @Environment(\.dynamicTypeSize) private var typeSize
 
+    private func accountName(_ id: UUID?) -> String? {
+        accounts.first { $0.id == id }?.name
+    }
+
     private var title: String {
-        record.merchantNameSnapshot ?? record.notes ?? category?.name ?? String(localized: "Transaction")
+        if record.type == .transfer {
+            let destination = accountName(record.transferAccountID) ?? String(localized: "another account")
+            return record.notes ?? String(localized: "Transfer to \(destination)")
+        }
+        return record.merchantNameSnapshot ?? record.notes ?? category?.name ?? String(localized: "Transaction")
     }
 
     private var subtitle: String {
         var parts: [String] = []
+        if record.type == .transfer {
+            let source = accountName(record.accountID) ?? String(localized: "another account")
+            let destination = accountName(record.transferAccountID) ?? String(localized: "another account")
+            parts.append(String(localized: "\(source) → \(destination)"))
+        } else if accounts.count > 1, let name = accountName(record.accountID) {
+            parts.append(name)
+        }
         if let category, record.merchantNameSnapshot != nil || record.notes != nil {
             parts.append(category.name)
         }
@@ -190,7 +215,9 @@ struct TransactionRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            CategoryBadge(icon: category?.icon ?? "questionmark", color: category?.color)
+            CategoryBadge(
+                icon: record.type == .transfer ? "arrow.left.arrow.right" : category?.icon ?? "questionmark",
+                color: category?.color)
             rowLayout {
                 details
                 if !typeSize.isAccessibilitySize {

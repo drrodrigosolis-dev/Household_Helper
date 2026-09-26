@@ -10,6 +10,7 @@ struct DashboardView: View {
     @Environment(AppRouter.self) private var router
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
+    @Query(sort: \Account.sortOrder) private var accountRecords: [Account]
     @Query private var recent: [TransactionRecord]
     @Query private var recentWishes: [WishlistItem]
     @Query private var recentTasks: [TaskItem]
@@ -71,6 +72,9 @@ struct DashboardView: View {
                 VStack(spacing: 16) {
                     if let summary {
                         balanceCards(summary)
+                        if summary.accounts.count > 1 {
+                            accountsCard(summary.accounts)
+                        }
                         upcomingCard(summary.upcoming)
                     } else if loadFailed {
                         ContentUnavailableView(
@@ -142,6 +146,35 @@ struct DashboardView: View {
         }
     }
 
+    /// Each account's current figure (Sprint 10 decision 7); a row opens Budget filtered to that account.
+    private func accountsCard(_ balances: [AccountBalance]) -> some View {
+        DashboardCard(title: "Accounts", identifier: "dashboard.accounts") {
+            router.showBudget(.transactions)
+        } content: {
+            VStack(spacing: 8) {
+                ForEach(balances, id: \.accountID) { balance in
+                    if let account = accountRecords.first(where: { $0.id == balance.accountID }) {
+                        Button {
+                            router.showBudget(.transactions, filter: TransactionFilter(accountID: account.id))
+                        } label: {
+                            rowLayout {
+                                Label(account.name, systemImage: AccountFormat.icon(account.kind))
+                                if !typeSize.isAccessibilitySize {
+                                    Spacer()
+                                }
+                                Text(AccountFormat.balanceText(balance.snapshot.current, kind: account.kind))
+                                    .monospacedDigit()
+                            }
+                            .accessibilityElement(children: .combine)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("dashboard.account")
+                    }
+                }
+            }
+        }
+    }
+
     private var rowLayout: AnyLayout {
         if typeSize.isAccessibilitySize {
             return AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
@@ -199,7 +232,8 @@ struct DashboardView: View {
                             Button {
                                 router.showBudget(.transactions)
                             } label: {
-                                TransactionRow(record: record, category: category(of: record))
+                                TransactionRow(
+                                    record: record, category: category(of: record), accounts: accountRecords)
                             }
                             .buttonStyle(.plain)
                         case .wishlist(let item):
