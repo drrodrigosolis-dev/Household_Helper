@@ -54,11 +54,17 @@ struct WishlistView: View {
     @State private var priority: Priority?
     @State private var status = StatusFilter.active
     @State private var isAdding = false
+    /// Sprint 14: name, notes and price.
+    @State private var searchText = ""
 
     private var visible: [WishlistItem] {
+        let query = SearchQuery(searchText)
         // Highest priority first; `items` is newest first and the sort is stable, so ties stay newest first.
-        items.filter { status.includes($0.status) && (priority == nil || $0.priority == priority) }
-            .sorted { $0.priority > $1.priority }
+        return items.filter {
+            status.includes($0.status) && (priority == nil || $0.priority == priority)
+                && query.matches([$0.name, $0.notes], amount: $0.actualPrice ?? $0.estimatedPrice)
+        }
+        .sorted { $0.priority > $1.priority }
     }
 
     var body: some View {
@@ -68,6 +74,7 @@ struct WishlistView: View {
                 switch router.wishlistSegment {
                 case .items:
                     content
+                        .searchable(text: $searchText, prompt: "Search wishlist")
                         .safeAreaInset(edge: .top) { chips }
                         .toolbar {
                             ToolbarItem(placement: .topBarTrailing) { layoutToggle }

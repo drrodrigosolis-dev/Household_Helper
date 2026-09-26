@@ -16,6 +16,8 @@ struct BudgetView: View {
     @Environment(AppRouter.self) private var router
     @State private var isPresentingQuickAdd = false
     @State private var isPresentingTransfer = false
+    /// Sprint 14: searches the transactions the filter allows.
+    @State private var searchText = ""
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
     @Query(sort: \Account.sortOrder) private var accounts: [Account]
 
@@ -25,7 +27,8 @@ struct BudgetView: View {
             Group {
                 switch router.budgetSegment {
                 case .transactions:
-                    TransactionListView(filter: router.budgetFilter)
+                    TransactionListView(filter: router.budgetFilter, search: searchText)
+                        .searchable(text: $searchText, prompt: "Search transactions")
                         .refreshable { isPresentingQuickAdd = true }
                 case .recurring:
                     RecurringListView()

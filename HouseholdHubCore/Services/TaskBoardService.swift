@@ -218,6 +218,15 @@ public actor TaskBoardService {
         try commit()
     }
 
+    /// Open tasks on the board with a due date, for due-day reminders (Sprint 14).
+    public func reminderSources() throws -> [TaskReminderSource] {
+        let descriptor = FetchDescriptor<TaskItem>(
+            predicate: #Predicate { $0.completedAt == nil && $0.archivedAt == nil && $0.dueDate != nil })
+        return try modelContext.fetch(descriptor).compactMap { task in
+            task.dueDate.map { TaskReminderSource(taskID: task.id, title: task.title, dueDate: $0) }
+        }
+    }
+
     // MARK: Subtasks
 
     @discardableResult

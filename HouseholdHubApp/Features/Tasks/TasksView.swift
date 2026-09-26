@@ -15,10 +15,21 @@ struct TasksView: View {
     @State private var isManagingColumns = false
     @State private var pendingDelete: TaskItem?
     @State private var errorMessage: String?
+    /// Sprint 14: narrows every column to the tasks whose title, notes or subtasks match.
+    @State private var searchText = ""
+
+    private var query: SearchQuery { SearchQuery(searchText) }
+
+    private func matches(_ task: TaskItem, _ query: SearchQuery) -> Bool {
+        guard !query.isEmpty else { return true }
+        let steps = subtasks.filter { $0.taskID == task.id }.map { Optional($0.title) }
+        return query.matches([task.title, task.notes] + steps)
+    }
 
     var body: some View {
         NavigationStack {
             board
+                .searchable(text: $searchText, prompt: "Search tasks")
                 .quickAddAccess()
                 .navigationTitle("Tasks")
                 .navigationDestination(for: UUID.self) { id in
@@ -71,7 +82,8 @@ struct TasksView: View {
     }
 
     private func columnView(_ column: BoardColumn) -> some View {
-        let cards = tasks.filter { $0.columnID == column.id }
+        let query = query
+        let cards = tasks.filter { $0.columnID == column.id && matches($0, query) }
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(column.name).font(.headline)

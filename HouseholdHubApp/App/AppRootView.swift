@@ -81,7 +81,11 @@ struct AppRootView: View {
                 isUnlocked = false
                 unlockFailed = false
                 // Leaving the app is when the Home Screen becomes visible; refresh the widget's figures then.
-                Task { await WidgetSync.refresh(services) }
+                Task {
+                    await WidgetSync.refresh(services)
+                    // Reminders follow the latest tasks and bills (Sprint 14).
+                    await ReminderSync.refresh(services)
+                }
             }
         }
     }

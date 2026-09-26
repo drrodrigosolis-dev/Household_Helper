@@ -7,11 +7,15 @@ struct TransactionListView: View {
     private static let pageSize = 200
 
     let filter: TransactionFilter
+    /// Sprint 14: words in the notes, merchant, category or account, or an exact amount.
+    var search = ""
     @State private var limit = TransactionListView.pageSize
 
     var body: some View {
-        FilteredTransactions(filter: filter, limit: limit) { limit += TransactionListView.pageSize }
-            .id(filter)
+        FilteredTransactions(filter: filter, search: SearchQuery(search), limit: limit) {
+            limit += TransactionListView.pageSize
+        }
+        .id(filter)
     }
 }
 
@@ -23,6 +27,7 @@ private struct FilteredTransactions: View {
     @Query(sort: \Account.sortOrder) private var accounts: [Account]
     let limit: Int
     let loadMore: () -> Void
+    let search: SearchQuery
     /// Whether a filter narrows the list, so the empty state can offer to clear it.
     let isFiltered: Bool
 
@@ -31,7 +36,7 @@ private struct FilteredTransactions: View {
     @State private var errorMessage: String?
     private let calendar = HouseholdCalendar(timeZone: .current)
 
-    init(filter: TransactionFilter, limit: Int, loadMore: @escaping () -> Void) {
+    init(filter: TransactionFilter, search: SearchQuery, limit: Int, loadMore: @escaping () -> Void) {
         let calendar = HouseholdCalendar(timeZone: .current)
         let start = filter.startDate(now: .now, calendar: calendar) ?? .distantPast
         let categoryID: UUID? = filter.categoryID
@@ -47,8 +52,12 @@ private struct FilteredTransactions: View {
                     && (anyAccount || $0.accountID == accountID || $0.transferAccountID == accountID)
             },
             sortBy: [SortDescriptor(\.occurredAt, order: .reverse)])
-        descriptor.fetchLimit = limit
+        // A search looks through everything the filter allows; the household's history is small.
+        if search.isEmpty {
+            descriptor.fetchLimit = limit
+        }
         _records = Query(descriptor)
+        self.search = search
         self.limit = limit
         self.loadMore = loadMore
         self.isFiltered = filter.isActive
@@ -56,17 +65,19 @@ private struct FilteredTransactions: View {
 
     var body: some View {
         Group {
-            if records.isEmpty, isFiltered {
+            if shown.isEmpty, isFiltered || !search.isEmpty {
                 // Found in the local Sprint 10 walk: an empty filtered list must say the filter hides everything.
                 ContentUnavailableView {
                     Label("No matching transactions", systemImage: "line.3.horizontal.decrease.circle")
                 } description: {
                     Text("Nothing matches these filters.")
                 } actions: {
-                    Button("Clear Filters") { router.budgetFilter = TransactionFilter() }
-                        .accessibilityIdentifier("budget.clearFilters")
+                    if isFiltered {
+                        Button("Clear Filters") { router.budgetFilter = TransactionFilter() }
+                            .accessibilityIdentifier("budget.clearFilters")
+                    }
                 }
-            } else if records.isEmpty {
+            } else if shown.isEmpty {
                 ContentUnavailableView(
                     "No transactions", systemImage: "list.bullet.rectangle",
                     description: Text("Use Quick Add to record an expense or income."))
@@ -84,7 +95,7 @@ private struct FilteredTransactions: View {
                             Text(dayLabel(day))
                         }
                     }
-                    if records.count >= limit {
+                    if search.isEmpty, records.count >= limit {
                         Button("Show more", action: loadMore)
                             .accessibilityIdentifier("budget.showMore")
                     }
@@ -171,8 +182,19 @@ private struct FilteredTransactions: View {
         }
     }
 
+    /// The fetched records narrowed by the search, if any.
+    private var shown: [TransactionRecord] {
+        guard !search.isEmpty else { return records }
+        return records.filter { record in
+            let category = categories.first { $0.id == record.categoryID }?.name
+            let names = accounts.filter { $0.id == record.accountID || $0.id == record.transferAccountID }
+                .map { Optional($0.name) }
+            return search.matches([record.notes, record.merchantNameSnapshot, category] + names, amount: record.amount)
+        }
+    }
+
     private var recordsByDay: [Date: [TransactionRecord]] {
-        Dictionary(grouping: records) { calendar.startOfDay(for: $0.occurredAt) }
+        Dictionary(grouping: shown) { calendar.startOfDay(for: $0.occurredAt) }
     }
 
     private var days: [Date] {

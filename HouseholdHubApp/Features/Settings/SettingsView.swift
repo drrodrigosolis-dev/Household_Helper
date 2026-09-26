@@ -113,6 +113,7 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("settings.quickAddType")
                 }
+                RemindersSection()
                 Section {
                     Toggle("Show amounts in widget", isOn: widgetShowsBalanceBinding)
                         .accessibilityIdentifier("settings.widgetShowsBalance")

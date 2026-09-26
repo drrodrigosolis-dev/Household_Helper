@@ -92,7 +92,7 @@ where money sits. Each is one sprint (`docs/sprints/SPRINT-10…`), closed only 
 | 10 | Multiple accounts + transfers (household balance = sum of accounts; §9 terms per account) | CI green (run 36251732218 on `e5ddfb7`); large-text re-walk pending |
 | 11 | Category budgets (monthly limits, rollover on by default, progress on Dashboard and Analytics) | built, review fixes pushed; awaiting CI |
 | 12 | Savings goals (target and date, monthly amount needed; can point at a wishlist item) | built, data-safety review fixed; awaiting CI |
-| 13 | Recurring tasks (reuse the recurrence rules) | built; awaiting CI and review |
-| 14 | Search (deterministic) + local reminders (task due dates, upcoming bills) | not started |
+| 13 | Recurring tasks (reuse the recurrence rules) | built, data-safety review fixed; awaiting CI |
+| 14 | Search (deterministic) + local reminders (task due dates, upcoming bills) | built; awaiting CI and review |
 | 15 | CSV import (user-picked file, column mapping, preview, duplicate check, one atomic save) | not started |
 | 16 | Spanish translation (String Catalog; walked in Spanish) | not started |

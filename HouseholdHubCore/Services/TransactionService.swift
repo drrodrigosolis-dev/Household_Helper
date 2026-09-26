@@ -506,6 +506,13 @@ public actor TransactionService {
         let weekLines = try modelContext.fetch(thisWeek).map { try $0.ledgerLine().amount }
         let spent = try Money.sum(weekLines, currencyCode: settings.currencyCode)
 
+        let upcoming = try upcomingOccurrences(now: now, calendar: calendar, days: days)
+        return DashboardSummary(balance: balance, spentThisWeek: spent, upcoming: upcoming, accounts: all.accounts)
+    }
+
+    /// Recurring occurrences from the start of today through the next `days` days that have not been recorded yet,
+    /// soonest first (the Dashboard's Upcoming card; Sprint 14 bill reminders).
+    public func upcomingOccurrences(now: Date, calendar: HouseholdCalendar, days: Int) throws -> [UpcomingOccurrence] {
         let dayStart = calendar.startOfDay(for: now)
         let end = calendar.calendar.date(byAdding: .day, value: days, to: dayStart) ?? dayStart
         let window = DateInterval(start: dayStart, end: max(end, dayStart))
@@ -537,7 +544,7 @@ public actor TransactionService {
             }
         }
         upcoming.sort { $0.date < $1.date }
-        return DashboardSummary(balance: balance, spentThisWeek: spent, upcoming: upcoming, accounts: all.accounts)
+        return upcoming
     }
 
     public func setSeriesEnabled(_ enabled: Bool, series id: UUID, now: Date) throws {
