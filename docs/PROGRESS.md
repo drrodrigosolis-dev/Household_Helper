@@ -29,4 +29,15 @@ Statuses: not started / in progress / CI green / blocked.
    runner doesn't offer).
 5. **Stay on the free Personal Team for v1.** App Groups, TestFlight, and CloudKit stay deferred; the widget keeps
    its fixture path.
+6. **Analytics can include pending** (overrides Sprint 5 default 2): an Include pending switch on Analytics, off by
+   default; pending items dated up to now then count, cancelled and future never do.
+7. **AI switches on by default where Apple Intelligence is available** (overrides Sprint 7 default 1); each can be
+   turned off. UI tests always run without the model.
+8. **The model may suggest a description** (overrides Sprint 7's "no model description"): only one short line, no
+   digits, sharing a word with what was typed, and only while the notes field still holds the parser's own text.
+9. **Receipt extraction and smart search are built after the move to the Mac** (Sprint 7 default 5 confirmed; on
+   the Mac backlog in `docs/MOVING-TO-MAC.md`).
+10. **Shortcut entries get their own source** (`TransactionSource.shortcut`, overrides Sprint 8's `.widget`).
+11. **Accent color: any color** via a color picker (overrides Sprint 9 default 3), with a warning when it would be
+    hard to see in Light or Dark Mode; the palette stays as quick choices.
 

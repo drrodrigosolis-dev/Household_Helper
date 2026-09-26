@@ -6,6 +6,7 @@ import SwiftUI
 /// Later phases add Face ID, AI toggles, backup/restore, export, and appearance here.
 struct SettingsView: View {
     @Environment(\.services) private var services
+    @Environment(\.self) private var environment
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
 
     var body: some View {
@@ -72,6 +73,11 @@ struct SettingsView: View {
                         }
                     }
                     .accessibilityIdentifier("settings.accent")
+                    ColorPicker("Custom accent", selection: customAccentBinding, supportsOpacity: false)
+                        .accessibilityIdentifier("settings.customAccent")
+                    if let warning = accentWarning {
+                        Text(warning).font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
                 Section("Quick Add") {
                     Picker("Opens on", selection: quickAddTypeBinding) {
@@ -137,6 +143,34 @@ struct SettingsView: View {
                 let theme = settings.first?.selectedTheme ?? .system
                 Task { try? await services?.transactions.setAppearance(theme: theme, accent: value, now: .now) }
             })
+    }
+
+    /// Any color (owner decision 2026-09-26), stored as an opaque sRGB token.
+    private var customAccentBinding: Binding<Color> {
+        Binding(
+            get: { settings.first?.accentColor.map { Color($0) } ?? .accentColor },
+            set: { color in
+                let resolved = color.resolve(in: environment)
+                func channel(_ value: Float) -> UInt8 { UInt8((min(max(value, 0), 1) * 255).rounded()) }
+                let token = ColorToken(
+                    red: channel(resolved.red), green: channel(resolved.green), blue: channel(resolved.blue))
+                let theme = settings.first?.selectedTheme ?? .system
+                Task { try? await services?.transactions.setAppearance(theme: theme, accent: token, now: .now) }
+            })
+    }
+
+    /// Buttons and links take the accent color, so a very light or very dark choice gets a warning (3:1 is the
+    /// minimum for controls against their background).
+    private var accentWarning: String? {
+        guard let accent = settings.first?.accentColor else { return nil }
+        let light = accent.contrastRatio(with: .white) >= 3
+        let dark = accent.contrastRatio(with: .black) >= 3
+        switch (light, dark) {
+        case (true, true): return nil
+        case (false, true): return String(localized: "This color is hard to see in Light Mode.")
+        case (true, false): return String(localized: "This color is hard to see in Dark Mode.")
+        case (false, false): return String(localized: "This color is hard to see.")
+        }
     }
 
     private var quickAddTypeBinding: Binding<QuickAddType> {

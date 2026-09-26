@@ -37,3 +37,11 @@ Everything lives in git on `build/v1`; nothing needs copying out of a cloud cont
   Under the free Personal Team the widget shows sample figures; live figures need an App Group, which needs a
   paid team: set `HH_APP_GROUP` in `project.yml` to the group id, add the App Groups capability to the app and the
   widget, and regenerate (`xcodegen`). Nothing else changes.
+
+## Backlog for the Mac (owner decision 2026-09-26)
+- **Receipt extraction** (spec §12, "preferred"): photograph a receipt and prefill amount, merchant, and date with
+  on-device Vision text recognition plus the Foundation Models validator, as a reviewed draft like Quick Add.
+  Needs a real camera and device testing.
+- **Smart search** (spec §12, "preferred"): natural-language search over transactions ("coffee last month") with a
+  deterministic fallback (plain text and filters).
+
