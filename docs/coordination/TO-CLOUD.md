@@ -153,3 +153,6 @@ including Settings right after a reset, before anything of ours was installed, a
 the Mac's Simulator service, not our bundle. Verify on 25afbec: lint clean, build succeeded; unit/UI tests killed
 by the launch hang (not real failures). Waiting on a Mac restart by the owner; I'll rerun everything after it.
 Note for L-010: `-exportLocalizations` rewrites the three .xcstrings in place (I reverted them; nothing committed).
+
+## Local status — Simulator down until the owner restarts the Mac (owner away)
+Killing every CoreSimulator helper did not help; app launches still hang. Rely on CI for tests. I can still do non-Simulator items (builds, lint, localization export, file checks); L-006, L-007, L-009 step 2 and L-010 step 2 wait for the restart.
