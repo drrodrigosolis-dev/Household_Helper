@@ -206,3 +206,41 @@ public enum BackupValidator {
         guard code == expected else { throw BackupError.currencyMismatch(entity: entity) }
     }
 }
+
+extension BackupDTO {
+    /// Drops optional links that point at nothing (or, for a wishlist item's task, at a task that doesn't point
+    /// back), returning how many were dropped. Export uses this so one stale optional link can't make the whole
+    /// backup impossible; required references are never touched, so the validator still catches real damage.
+    public mutating func droppingDanglingLinks() -> Int {
+        let categoryIDs = Set(categories.map(\.id))
+        let transactionIDs = Set(transactions.map(\.id))
+        let wishIDs = Set(wishlistItems.map(\.id))
+        var dropped = 0
+        for index in merchants.indices {
+            if let id = merchants[index].defaultCategoryID, !categoryIDs.contains(id) {
+                merchants[index].defaultCategoryID = nil
+                dropped += 1
+            }
+        }
+        for index in taskItems.indices {
+            if let id = taskItems[index].linkedWishlistItemID, !wishIDs.contains(id) {
+                taskItems[index].linkedWishlistItemID = nil
+                dropped += 1
+            }
+            if let id = taskItems[index].linkedTransactionID, !transactionIDs.contains(id) {
+                taskItems[index].linkedTransactionID = nil
+                dropped += 1
+            }
+        }
+        let backLinks = Dictionary(
+            taskItems.compactMap { task in task.linkedWishlistItemID.map { (task.id, $0) } },
+            uniquingKeysWith: { first, _ in first })
+        for index in wishlistItems.indices {
+            if let taskID = wishlistItems[index].linkedTaskID, backLinks[taskID] != wishlistItems[index].id {
+                wishlistItems[index].linkedTaskID = nil
+                dropped += 1
+            }
+        }
+        return dropped
+    }
+}

@@ -45,7 +45,9 @@ struct LogTransactionIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let services = await SharedServices.current else { throw Failure.unavailable }
+        guard let services = await SharedServices.current, !(await AppRouter.shared.isRestoring) else {
+            throw Failure.unavailable
+        }
         let now = Date.now
         let calendar = HouseholdCalendar(timeZone: .current)
         let draft: TransactionDraft

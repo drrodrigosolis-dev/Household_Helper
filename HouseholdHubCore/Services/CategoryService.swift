@@ -156,6 +156,7 @@ public actor CategoryService {
         // A merchant's default category is only a suggestion, so it follows without a kind check.
         for merchant in merchants {
             merchant.defaultCategoryID = destination
+            merchant.updatedAt = now
         }
         return transactions.count
     }

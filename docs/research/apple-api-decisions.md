@@ -85,3 +85,14 @@ availability conditions, deprecations, fallback. Verified against official Apple
   app target and reach app state through `@Dependency` (`AppDependencyManager`).
 - **Unverified (CI decides):** the extension building and running unsigned in the Simulator; the exact XcodeGen
   embedding (`app-extension` target, app `dependencies` with embed) and the `NSExtension` Info.plist dictionary.
+
+## Face ID gate (LocalAuthentication) — Phase 10, 2026-09-26
+- **API:** `LAContext.canEvaluatePolicy(.deviceOwnerAuthentication, error:)` and
+  `evaluatePolicy(.deviceOwnerAuthentication, localizedReason:) async throws -> Bool`; `biometryType` for the label.
+  iOS 8+ (async form iOS 15+). No entitlement; needs `NSFaceIDUsageDescription` (set via
+  `INFOPLIST_KEY_NSFaceIDUsageDescription`). Free Personal Team compatible.
+- **Why `.deviceOwnerAuthentication`, not `...WithBiometrics`:** the passcode is the fallback, so a failed or
+  unenrolled Face ID never locks the owner out. If the passcode is later removed the policy can't be evaluated; the
+  gate then turns itself off (the device is unprotected anyway) rather than lock the data away.
+- **Verification:** shapes from memory of the SDK, consistent with long-standing documentation; CI compiles it, and
+  behaviour needs a device (WALK-QUEUE). The CI simulator has no passcode, so the Settings switch is disabled there.

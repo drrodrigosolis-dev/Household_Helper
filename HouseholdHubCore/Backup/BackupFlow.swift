@@ -42,6 +42,7 @@ public struct BackupFlow: Sendable {
         }
         var backup = snapshot
         backup.mediaManifest = manifest
+        _ = backup.droppingDanglingLinks()
         let referenced = snapshot.wishlistItems.compactMap(\.mediaReference).count
         try BackupValidator.validate(backup)
         return Prepared(backup: backup, media: media, unreadablePhotos: referenced - manifest.count)

@@ -126,6 +126,15 @@ public actor TaskBoardService {
         draft.linkedWishlistItemID = try existingWishlistLink(draft.linkedWishlistItemID)
         draft.linkedTransactionID = try existingTransactionLink(draft.linkedTransactionID)
         let task = try requireTask(id)
+        // A wishlist item that pointed back at this task keeps that link only if the task still points at it;
+        // otherwise the pair would be one-sided and backups would refuse to validate.
+        let target: UUID? = id
+        let backLinked = try modelContext.fetch(
+            FetchDescriptor<WishlistItem>(predicate: #Predicate { $0.linkedTaskID == target }))
+        for wish in backLinked where wish.id != draft.linkedWishlistItemID {
+            wish.linkedTaskID = nil
+            wish.updatedAt = now
+        }
         task.title = draft.trimmedTitle
         task.priority = draft.priority
         apply(draft, to: task)

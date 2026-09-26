@@ -22,6 +22,8 @@ final class AppRouter {
     var isQuickAddPresented = false
     /// True while first-run setup is showing; outside requests to open Quick Add wait until it is done.
     var isOnboarding = false
+    /// True while a backup is being restored; nothing else may write meanwhile (the Log Transaction shortcut waits).
+    var isRestoring = false
 
     func showBudget(_ segment: BudgetView.Segment, filter: TransactionFilter = TransactionFilter()) {
         budgetSegment = segment

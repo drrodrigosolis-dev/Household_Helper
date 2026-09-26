@@ -88,7 +88,13 @@ public actor BackupService {
             modelContext.rollback()
         }
         do {
+            // The lock is this device's configuration, not backup data (§26.1): whichever settings row survives the
+            // merge keeps the value this device had, even when the backup's row has a different id.
+            let deviceLock = try modelContext.fetch(FetchDescriptor<AppSettings>()).contains { $0.faceIDEnabled }
             try merge([backup.settings], id: \.id, make: Self.make, apply: Self.apply)
+            for settings in try modelContext.fetch(FetchDescriptor<AppSettings>()) {
+                settings.faceIDEnabled = deviceLock
+            }
             try merge(backup.categories, id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.merchants, id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.transactions, id: \.id, make: Self.make, apply: Self.apply)
@@ -180,9 +186,12 @@ extension BackupService {
         model.naturalLanguageEnabled = dto.naturalLanguageEnabled ?? false
         model.aiInsightsEnabled = dto.aiInsightsEnabled ?? false
         model.widgetShowsBalance = dto.widgetShowsBalance ?? true
-        model.selectedThemeRawValue = dto.selectedTheme ?? ThemePreference.system.rawValue
-        model.accentColorHex = dto.accentColorHex ?? ""
-        model.defaultQuickAddTypeRawValue = dto.defaultQuickAddType ?? QuickAddType.expense.rawValue
+        // Preferences are normalized on the way in: a missing or unknown value is stored as the default, so the store
+        // never holds a value no screen can show.
+        model.selectedThemeRawValue = (dto.selectedTheme.flatMap(ThemePreference.init(rawValue:)) ?? .system).rawValue
+        model.accentColorHex = dto.accentColorHex.flatMap(ColorToken.init(hex:))?.hex ?? ""
+        model.defaultQuickAddTypeRawValue =
+            (dto.defaultQuickAddType.flatMap(QuickAddType.init(rawValue:)) ?? .expense).rawValue
         model.createdAt = dto.createdAt
         model.updatedAt = dto.updatedAt
     }

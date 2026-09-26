@@ -146,7 +146,11 @@ struct DataView: View {
         guard let flow else { return }
         pendingRestore = nil
         isRestoring = true
-        defer { isRestoring = false }
+        AppRouter.shared.isRestoring = true
+        defer {
+            isRestoring = false
+            AppRouter.shared.isRestoring = false
+        }
         do {
             let summary = try await flow.restore(pending.backup, media: pending.media, now: .now)
             if summary.missingMedia == 0 {

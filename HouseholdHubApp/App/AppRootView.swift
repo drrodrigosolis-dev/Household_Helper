@@ -76,6 +76,13 @@ struct AppRootView: View {
 
     private func unlock() async {
         guard isLocked, !isAuthenticating else { return }
+        // The device passcode was removed after the lock was turned on: nothing can authenticate, and the device
+        // itself is unprotected, so the gate turns itself off rather than lock the owner out of their data.
+        guard BiometricGate.isAvailable else {
+            try? await services?.transactions.setFaceIDEnabled(false, now: .now)
+            isUnlocked = true
+            return
+        }
         isAuthenticating = true
         let reason = String(localized: "Unlock Household Hub")
         let success = await BiometricGate.authenticate(reason: reason)
