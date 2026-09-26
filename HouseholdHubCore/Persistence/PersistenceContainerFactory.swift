@@ -4,10 +4,13 @@ import SwiftData
 public struct PersistenceConfiguration: Sendable, Equatable {
     public var useInMemoryStore: Bool
     public var appGroupIdentifier: String?
+    /// An explicit store file, for tests that reopen an on-disk store; the app uses the default location.
+    public var storeURL: URL?
 
-    public init(useInMemoryStore: Bool = false, appGroupIdentifier: String? = nil) {
+    public init(useInMemoryStore: Bool = false, appGroupIdentifier: String? = nil, storeURL: URL? = nil) {
         self.useInMemoryStore = useInMemoryStore
         self.appGroupIdentifier = appGroupIdentifier
+        self.storeURL = storeURL
     }
 
     public static let onDisk = PersistenceConfiguration()
@@ -31,6 +34,9 @@ public struct HouseholdContainerFactory: PersistenceContainerFactory {
     static func modelConfiguration(for configuration: PersistenceConfiguration, schema: Schema) -> ModelConfiguration {
         if configuration.useInMemoryStore {
             return ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+        }
+        if let url = configuration.storeURL {
+            return ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none)
         }
         if let identifier = configuration.appGroupIdentifier {
             return ModelConfiguration(schema: schema, groupContainer: .identifier(identifier), cloudKitDatabase: .none)

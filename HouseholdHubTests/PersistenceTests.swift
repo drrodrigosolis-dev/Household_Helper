@@ -83,6 +83,37 @@ struct PersistenceTests {
         #expect(CurrentSchema.versionIdentifier == Schema.Version(1, 0, 0))
     }
 
+    /// Phase 10 migration check: a store written to disk opens again through the factory and its migration plan
+    /// with every record intact. When SchemaV2 arrives, this test gains a V1 store to migrate.
+    @Test func onDiskStoreReopensThroughTheMigrationPlan() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(
+            path: "store-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = PersistenceConfiguration(storeURL: directory.appending(path: "Household.store"))
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        let backup: BackupDTO
+        do {
+            let container = try HouseholdContainerFactory().makeContainer(configuration: configuration)
+            let ledger = TransactionService.make(container: container)
+            try await ledger.completeOnboarding(
+                currencyCode: "CAD", startingBalance: Money(minorUnits: 10_000, currencyCode: "CAD"), asOf: now,
+                now: now)
+            try await CategoryService.make(container: container).seedSystemCategoriesIfNeeded(now: now)
+            try await TaskBoardService.make(container: container).seedDefaultColumnsIfNeeded(now: now)
+            try await ledger.create(
+                TransactionDraft(
+                    amount: Money(minorUnits: 4_750, currencyCode: "CAD"), type: .expense, occurredAt: now,
+                    notes: "coffee"),
+                now: now)
+            backup = try await BackupService.make(container: container).snapshot(now: now, appVersion: "1") { _ in nil }
+        }
+        let reopened = try HouseholdContainerFactory().makeContainer(configuration: configuration)
+        let again = try await BackupService.make(container: reopened).snapshot(now: now, appVersion: "1") { _ in nil }
+        #expect(again == backup)
+        #expect(again.transactions.count == 1)
+    }
+
     @Test func onDiskConfigurationNeverUsesCloudKitOrMemory() {
         let schema = Schema(versionedSchema: CurrentSchema.self)
         let config = HouseholdContainerFactory.modelConfiguration(for: .onDisk, schema: schema)
