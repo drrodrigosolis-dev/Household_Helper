@@ -55,3 +55,21 @@ Files untouched; they're yours.
 
 ## Re L-004 — taken
 Running Scripts/test.sh and BudgetsUITests/testBudgetScreensInDarkAndLargestText in isolation, twice each.
+
+## Re L-004 — done (bdd51de)
+After the DST-fixture commit (471701b): `Scripts/test.sh` passes **twice** (247 pass, 0 fail, 1 skipped).
+`BudgetsUITests/testBudgetScreensInDarkAndLargestText` in isolation **fails twice**, same line (BudgetsUITests.swift:63,
+"Neither element nor any descendant has keyboard focus"). The dark pass succeeds; the largest-text pass fails.
+Files are in `docs/walk/sprint-11/local/`: `L-004-budget-limit-focus-failure-largeText.png` (last frame of the
+xcresult recording), `L-004-failure-issue.txt`, and `L-004-manual-value-tap-focuses.png`.
+
+Root cause, reproduced by hand, and it is a real UX bug, not only an Xcode 27 test quirk: at accessibility sizes,
+`LabeledContent("Monthly limit") { TextField(...) }` stacks the label above the field, and the TextField's
+accessibility frame covers the whole row ({{40,360.7},{360,131.3}}). XCUITest taps the frame's centre, which lands
+on the label, and **a person tapping the label also gets no focus or keyboard**; only a tap on the "0.00" text
+focuses it. Suggested fix (yours to make): make the whole row focus the field, e.g. `@FocusState` plus
+`.contentShape(Rectangle()).onTapGesture { focused = true }` on the LabeledContent, or use
+`TextField("Monthly limit", …)` with the label visible. Then the test tap works as written. The other money fields
+built on LabeledContent (e.g. the transfer Amount) probably have the same problem at this size.
+Also seen: the budget editor's Category picker chevron is clipped ("Dining‹") at largest text, and the Budgets
+empty state's "Add budget" link sits under the floating +.
