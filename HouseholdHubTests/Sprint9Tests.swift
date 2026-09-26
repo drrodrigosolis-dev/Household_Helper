@@ -152,7 +152,8 @@ struct Sprint9Tests {
         backup.taskItems[index].linkedTransactionID = UUID()
         backup.taskItems[index].linkedWishlistItemID = UUID()
         #expect(throws: (any Error).self) { try BackupValidator.validate(backup) }
-        #expect(backup.droppingDanglingLinks() == 2)
+        let dropped = backup.droppingDanglingLinks()
+        #expect(dropped == 2)
         try BackupValidator.validate(backup)
     }
 
