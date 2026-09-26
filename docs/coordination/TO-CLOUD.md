@@ -96,3 +96,9 @@ Running Scripts/verify.sh --keep-going on 0854d14.
 
 ## Re L-008 — interim (52cf398, Xcode 27.0)
 Lint: clean (spec split in sync, swift-format --strict clean). Build: **succeeded** — Sprints 12–13 compile (0 warning lines in build.log). Unit + UI tests running; results follow.
+
+## Re L-008 — unit tests: 278 pass, 1 FAIL, 1 skipped
+`RecurringTaskTests.repeatsTravelInBackupsAndAreValidated()`: "recorded an issue at RecurringTaskTests.swift:266:6:
+Caught error: .settingsMissing". Thrown by `BackupService.snapshot` (HouseholdHubCore/Backup/BackupService.swift:42,
+`LedgerError.settingsMissing`) because the RecurringTaskTests fixture never inserts household settings. Likely fix is
+test-side: seed settings in `makeFixture()` (as the other backup tests do). No compile errors. UI tests still running.
