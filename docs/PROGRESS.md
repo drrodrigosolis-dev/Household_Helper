@@ -53,6 +53,8 @@ Statuses: not started / in progress / CI green / blocked.
 15. **SchemaV1 stays editable through the v1.1 data features** (accounts, budgets, goals, recurring tasks); it freezes
     at the first install on the owner's device as before, so installing before those are green would force migrations.
 16. **Sprint 10 defaults accepted ("run")**: the 11 account and transfer decisions in `docs/sprints/SPRINT-10.md`.
+17. **Budgets roll over by default, with a toggle on each budget** (Sprint 11); the other Sprint 11 defaults accepted.
+18. **Cloud ↔ local sessions** coordinate through `docs/coordination/` (two one-way files in the repo).
 
 ## Defaults awaiting the owner's review (Phase 10)
 - **Currency after records exist (§6.3):** Settings › Household refuses the change and says why, rather than §6.3's
