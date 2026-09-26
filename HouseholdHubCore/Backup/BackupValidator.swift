@@ -22,6 +22,13 @@ public enum BackupValidator {
         guard BackupDTO.readableSchemaVersions.contains(original.schemaVersion) else {
             throw BackupError.unsupportedSchemaVersion(original.schemaVersion)
         }
+        // The v1 format required the household baseline; a file without it is not one this app wrote, and upgrading
+        // it would invent a zero balance.
+        if original.schemaVersion == 1,
+            original.settings.startingBalanceMinorUnits == nil || original.settings.startingBalanceDate == nil
+        {
+            throw BackupError.missingReference(entity: "settings", field: "startingBalance")
+        }
         let backup = original.upgradedToCurrent()
         guard backup.schemaVersion == BackupDTO.currentSchemaVersion else {
             throw BackupError.unsupportedSchemaVersion(backup.schemaVersion)
@@ -147,6 +154,9 @@ public enum BackupValidator {
             try allows(record.categoryID, record.type, "transactions")
             try transferShape(
                 record.type, record.accountID, record.transferAccountID, record.categoryID, "transactions")
+            if record.type == TransactionType.transfer.rawValue, record.merchantID != nil {
+                throw BackupError.inconsistentLink(entity: "transactions", field: "merchantID")
+            }
             if record.source == TransactionSource.recurring.rawValue {
                 guard record.recurringSeriesID != nil, record.scheduledOccurrence != nil else {
                     throw BackupError.inconsistentLink(entity: "transactions", field: "recurringSeriesID")

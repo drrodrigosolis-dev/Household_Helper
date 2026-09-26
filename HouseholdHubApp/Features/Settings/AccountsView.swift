@@ -62,8 +62,8 @@ struct AccountsView: View {
         ) { account in
             Button("Delete \(account.name)", role: .destructive) { delete(account) }
             Button("Cancel", role: .cancel) {}
-        } message: { _ in
-            Text("An account with transactions can't be deleted; you'll be offered archiving instead.")
+        } message: { account in
+            Text(deleteMessage(account))
         }
         .confirmationDialog(
             "Account in use", isPresented: inUseShown, titleVisibility: .visible, presenting: inUse
@@ -129,6 +129,20 @@ struct AccountsView: View {
         return account.id == defaultID ? kind + " · " + String(localized: "Default") : kind
     }
 
+    /// States what leaves the household total with the account (its starting balance) and that it can't be undone.
+    private func deleteMessage(_ account: Account) -> String {
+        let consequence: String
+        if account.startingBalance.isZero {
+            consequence = String(localized: "It has no starting balance, so the household total doesn't change.")
+        } else {
+            let amount = AccountFormat.balanceText(account.startingBalance, kind: account.kind)
+            consequence = String(localized: "Its starting balance (\(amount)) leaves the household total.")
+        }
+        let rest = String(
+            localized: "This can't be undone. An account with transactions can't be deleted; archive it instead.")
+        return consequence + " " + rest
+    }
+
     private func archiveTitle(_ account: Account) -> LocalizedStringKey {
         account.isArchived ? "Restore" : "Archive"
     }
@@ -154,6 +168,7 @@ struct AccountsView: View {
         Task {
             do {
                 try await services.transactions.deleteAccount(id)
+                await WidgetSync.refresh(services)
                 errorMessage = nil
             } catch LedgerError.accountInUse {
                 inUse = accounts.first { $0.id == id }
@@ -169,6 +184,7 @@ struct AccountsView: View {
         Task {
             do {
                 try await services.transactions.setAccountArchived(archived, account: id, now: .now)
+                await WidgetSync.refresh(services)
                 errorMessage = nil
             } catch {
                 errorMessage = String(localized: "That account couldn't be changed.")

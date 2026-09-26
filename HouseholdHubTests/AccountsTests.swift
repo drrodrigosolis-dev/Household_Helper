@@ -324,4 +324,179 @@ struct AccountsTests {
         #expect(try AccountKind.creditCard.entered(fromStored: cad(-500)) == cad(500))
         #expect(try AccountKind.savings.stored(fromEntered: cad(500)) == cad(500))
     }
+
+    // MARK: Review follow-ups (Sprint 10 data-safety review)
+
+    @Test func aSeriesMovedAfterPostingIsNotProjectedTwice() throws {
+        let checking = UUID()
+        let savings = UUID()
+        let start = now.addingTimeInterval(-30 * 86_400)
+        let accounts = [
+            AccountBaseline(id: checking, kind: .bank, startingBalance: cad(0), startingBalanceDate: start),
+            AccountBaseline(id: savings, kind: .savings, startingBalance: cad(0), startingBalanceDate: start),
+        ]
+        let seriesID = UUID()
+        // Posted to checking, then the series was moved to savings: the posted occurrence is handled either way.
+        let moved = RecurringSeries(
+            id: seriesID, templateAmount: cad(1_000), type: .expense, rule: .weekly(interval: 1, weekday: 2),
+            timeZone: zone, startDate: start, accountID: savings)
+        let window = DateInterval(start: now, end: now.addingTimeInterval(30 * 86_400))
+        let first = try #require(RecurrenceEngine().occurrences(of: moved, in: window).first)
+        let posted = LedgerLine(
+            amount: cad(1_000), type: .expense, status: .posted, occurredAt: first, recurringSeriesID: seriesID,
+            scheduledOccurrence: first, accountID: checking)
+        let result = try BalanceCalculator().balances(
+            accounts: accounts, lines: [posted], series: [moved], now: now, calendar: calendar,
+            includePendingInProjection: false, currencyCode: "CAD")
+        let count = Int64(RecurrenceEngine().occurrences(of: moved, in: result.household.projectionWindow).count)
+        #expect(result.balance(of: checking)?.projected == cad(-1_000), "The posted occurrence stays in checking")
+        #expect(result.balance(of: savings)?.projected == cad(-1_000 * (count - 1)), "Only the rest are projected")
+    }
+
+    @Test func aLineWithoutAKnownAccountIsRefusedNotDropped() throws {
+        let account = AccountBaseline(id: UUID(), kind: .bank, startingBalance: cad(0), startingBalanceDate: weekAgo)
+        let stray = LedgerLine(amount: cad(100), type: .income, status: .posted, occurredAt: hourAgo)
+        #expect(throws: LedgerError.unreadableRecord(field: "accountID", value: "none")) {
+            try BalanceCalculator().balances(
+                accounts: [account], lines: [stray], series: [], now: now, calendar: calendar,
+                includePendingInProjection: false, currencyCode: "CAD")
+        }
+    }
+
+    @Test func aVersionOneBackupRestoresIntoOneMainAccount() async throws {
+        let fixture = try await makeFixture(mainBalance: 25_000)
+        let expense = TransactionDraft(amount: cad(500), type: .expense, occurredAt: hourAgo)
+        try await fixture.ledger.create(expense, now: now)
+        try await fixture.ledger.createSeries(
+            templateAmount: cad(9_000), type: .expense, rule: .monthlyOnDay(day: 1), timeZone: zone,
+            startDate: now.addingTimeInterval(86_400), now: now)
+        let service = BackupService.make(container: fixture.container)
+        var v1 = try await service.snapshot(now: now, appVersion: "1") { _ in nil }
+        // The same data as a v1 file: one baseline in settings, no accounts, no account on any record.
+        v1.schemaVersion = 1
+        v1.accounts = nil
+        v1.settings.defaultAccountID = nil
+        v1.settings.startingBalanceMinorUnits = 25_000
+        v1.settings.startingBalanceDate = weekAgo
+        for index in v1.transactions.indices {
+            v1.transactions[index].accountID = nil
+        }
+        for index in v1.recurringTransactions.indices {
+            v1.recurringTransactions[index].accountID = nil
+        }
+        try BackupValidator.validate(v1)
+
+        let target = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
+        let targetLedger = TransactionService.make(container: target)
+        try await targetLedger.ensureSettings(currencyCode: "CAD", now: now)
+        _ = try await BackupService.make(container: target).restore(v1, availableMedia: [], now: now)
+        let accounts = try ModelContext(target).fetch(FetchDescriptor<Account>())
+        #expect(accounts.map(\.id) == [v1.settings.id], "The target's own Main account is replaced")
+        let series = try ModelContext(target).fetch(FetchDescriptor<RecurringTransaction>())
+        #expect(series.allSatisfy { $0.accountID == v1.settings.id })
+        let restored = try await targetLedger.balances(now: now, calendar: calendar, includePendingInProjection: false)
+        #expect(restored.household.current == cad(24_500))
+
+        var missing = v1
+        missing.settings.startingBalanceMinorUnits = nil
+        #expect(throws: BackupError.missingReference(entity: "settings", field: "startingBalance")) {
+            try BackupValidator.validate(missing)
+        }
+    }
+
+    @Test func transfersCanBeEditedAndDeleted() async throws {
+        let fixture = try await makeFixture()
+        let savings = try await addAccount("Savings", .savings, 0, to: fixture)
+        let cash = try await addAccount("Cash", .cash, 0, to: fixture)
+        let ledger = fixture.ledger
+        var draft = TransactionDraft(
+            amount: cad(2_000), type: .transfer, occurredAt: hourAgo, transferAccountID: savings)
+        let id = try await ledger.create(draft, now: now)
+        draft.amount = cad(3_000)
+        draft.transferAccountID = cash
+        try await ledger.update(id, with: draft, now: now)
+        var result = try await balances(fixture)
+        #expect(result.balance(of: cash)?.current == cad(3_000))
+        #expect(result.balance(of: savings)?.current == cad(0))
+        #expect(result.household.current == cad(100_000))
+        try await ledger.deleteTransaction(id, alsoDisableSeries: false, now: now)
+        result = try await balances(fixture)
+        #expect(result.balance(of: fixture.main)?.current == cad(100_000))
+        #expect(result.balance(of: cash)?.current == cad(0))
+    }
+
+    @Test func aRecurringTransferCanBeRetargeted() async throws {
+        let fixture = try await makeFixture()
+        let savings = try await addAccount("Savings", .savings, 0, to: fixture)
+        let cash = try await addAccount("Cash", .cash, 0, to: fixture)
+        let ledger = fixture.ledger
+        let start = now.addingTimeInterval(86_400)
+        let id = try await ledger.createSeries(
+            templateAmount: cad(5_000), type: .transfer, rule: .monthlyOnDay(day: 20), timeZone: zone,
+            startDate: start, transferAccountID: savings, now: now)
+        try await ledger.updateSeries(
+            id, templateAmount: cad(5_000), type: .transfer, rule: .monthlyOnDay(day: 20), startDate: start,
+            categoryID: nil, notes: nil, accountID: fixture.main, transferAccountID: cash, now: now)
+        let stored = try #require(try fixture.context().fetch(FetchDescriptor<RecurringTransaction>()).first)
+        #expect(stored.transferAccountID == cash)
+        await #expect(throws: LedgerError.transferNeedsTwoAccounts) {
+            try await ledger.updateSeries(
+                id, templateAmount: cad(5_000), type: .transfer, rule: .monthlyOnDay(day: 20), startDate: start,
+                categoryID: nil, notes: nil, accountID: cash, transferAccountID: cash, now: now)
+        }
+    }
+
+    @Test func anOccurrenceIsNotPostedIntoAnArchivedAccount() async throws {
+        let fixture = try await makeFixture()
+        let old = try await addAccount("Old", .bank, 0, to: fixture)
+        let start = now.addingTimeInterval(86_400)
+        let id = try await fixture.ledger.createSeries(
+            templateAmount: cad(1_000), type: .expense, rule: .monthlyOnDay(day: 20), timeZone: zone,
+            startDate: start, accountID: old, now: now)
+        try await fixture.ledger.setAccountArchived(true, account: old, now: now)
+        let stored = try fixture.context().fetch(FetchDescriptor<RecurringTransaction>())
+        let next = try #require(stored.first?.nextOccurrence)
+        await #expect(throws: LedgerError.archivedAccount) {
+            try await fixture.ledger.materialize(seriesID: id, occurrence: next, now: now)
+        }
+    }
+
+    @Test func aSecondAccountLocksTheCurrency() async throws {
+        let fixture = try await makeFixture()
+        let before = try await fixture.ledger.isCurrencyLocked()
+        #expect(!before)
+        _ = try await addAccount("Savings", .savings, 50_000, to: fixture)
+        let after = try await fixture.ledger.isCurrencyLocked()
+        #expect(after)
+        let yen = Money(minorUnits: 1_000, currencyCode: "JPY")
+        await #expect(throws: LedgerError.currencyLockedByExistingRecords) {
+            try await fixture.ledger.updateHousehold(currencyCode: "JPY", startingBalance: yen, asOf: now, now: now)
+        }
+    }
+
+    @Test func transfersAreNotWeeklySpendingAndTheWidgetSaysTransfer() async throws {
+        let fixture = try await makeFixture()
+        let savings = try await addAccount("Savings", .savings, 0, to: fixture)
+        try await fixture.ledger.create(
+            TransactionDraft(amount: cad(4_000), type: .transfer, occurredAt: hourAgo, transferAccountID: savings),
+            now: now)
+        try await fixture.ledger.createSeries(
+            templateAmount: cad(2_500), type: .transfer, rule: .weekly(interval: 1, weekday: 2), timeZone: zone,
+            startDate: now.addingTimeInterval(3_600), transferAccountID: savings, now: now)
+        let summary = try await fixture.ledger.dashboardSummary(now: now, calendar: calendar)
+        #expect(summary.spentThisWeek == cad(0))
+        let widget = WidgetSnapshot.make(from: summary, showAmounts: true, now: now, calendar: calendar)
+        let item = try #require(widget.upcoming(from: now, calendar: calendar).first)
+        #expect(item.isTransfer == true)
+        #expect(try item.displayAmount(currencyCode: "CAD") == cad(2_500), "A transfer is shown unsigned")
+    }
+
+    @Test func aCSVTransferRowNamesBothAccounts() {
+        let row = TransactionCSV.Row(
+            occurredAt: Date(timeIntervalSince1970: 0), type: .transfer, status: .posted, amount: cad(10_000),
+            category: nil, merchant: nil, notes: nil, account: "Main account", toAccount: "Savings")
+        let lines = TransactionCSV.text([row], calendar: HouseholdCalendar(timeZone: TimeZone(identifier: "UTC")!))
+            .components(separatedBy: "\r\n")
+        #expect(lines[1] == "1970-01-01 00:00,transfer,posted,100.00,CAD,,,,Main account,Savings")
+    }
 }

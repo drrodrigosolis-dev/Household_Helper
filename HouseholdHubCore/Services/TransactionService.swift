@@ -89,13 +89,15 @@ public actor TransactionService {
         try commit()
     }
 
-    /// True once any transaction, recurring series, or wishlist item exists: amounts are then stored in the
-    /// household currency, so it can no longer change (§6.3).
+    /// True once any transaction, recurring series, or wishlist item exists, or a second account: amounts are then
+    /// stored in the household currency, so it can no longer change (§6.3). Settings › Household re-enters only the
+    /// default account's baseline, so another account's baseline would be relabelled, not converted.
     public func isCurrencyLocked() throws -> Bool {
         let records = try modelContext.fetchCount(FetchDescriptor<TransactionRecord>())
         let series = try modelContext.fetchCount(FetchDescriptor<RecurringTransaction>())
         let wishes = try modelContext.fetchCount(FetchDescriptor<WishlistItem>())
-        return records + series + wishes > 0
+        let accounts = try modelContext.fetchCount(FetchDescriptor<Account>())
+        return records + series + wishes > 0 || accounts > 1
     }
 
     private func applyHousehold(
@@ -417,8 +419,14 @@ public actor TransactionService {
             occurredAt: occurrence, now: now)
         record.recurringSeriesID = seriesID
         record.scheduledOccurrence = occurrence
-        // A series stored before accounts existed posts to the default account.
-        record.accountID = try series.accountID ?? requireDefaultAccount(settings, now: now).id
+        // A series stored before accounts existed posts to the default account. An occurrence is a new entry, so
+        // an account archived since is refused (Sprint 10 decision 4): the series is edited to another first.
+        let source = try series.accountID ?? requireDefaultAccount(settings, now: now).id
+        try requireUsableAccount(source)
+        if let destination = series.transferAccountID {
+            try requireUsableAccount(destination)
+        }
+        record.accountID = source
         record.transferAccountID = series.transferAccountID
         record.categoryID = series.categoryID
         record.merchantID = series.merchantID
@@ -452,7 +460,16 @@ public actor TransactionService {
             .map { try $0.baseline() }
         let earliest = accounts.map(\.startingBalanceDate).min() ?? now
         let afterStart = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.occurredAt > earliest })
-        let lines = try modelContext.fetch(afterStart).map { try $0.ledgerLine() }
+        var lines = try modelContext.fetch(afterStart).map { try $0.ledgerLine() }
+        // Occurrences already handled whose record is dated before every baseline (a date edited back) still count
+        // as handled, so they are never projected again. Their dates keep them out of every account's figures.
+        let windowStart = calendar.startOfDay(for: now)
+        let handledEarly = FetchDescriptor<TransactionRecord>(
+            predicate: #Predicate {
+                $0.occurredAt <= earliest && $0.recurringSeriesID != nil
+                    && ($0.scheduledOccurrence ?? windowStart) > windowStart
+            })
+        lines += try modelContext.fetch(handledEarly).map { try $0.ledgerLine() }
         let enabled = FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.isEnabled == true })
         let series = try modelContext.fetch(enabled).map { try $0.series() }
         return try BalanceCalculator(projectionDays: projectionDays).balances(
