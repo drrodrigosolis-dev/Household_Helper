@@ -120,11 +120,15 @@ struct BalanceCalculatorTests {
     @Test func fiveYearsOfHistoryBalancesQuickly() throws {
         let now = try date("2026-09-25T15:00:00-07:00")
         let start = try date("2021-09-25T00:00:00-07:00")
-        let lines = (0..<18_250).map { index in
-            LedgerLine(
-                amount: cad(Int64(100 + index % 5_000)), type: index % 10 == 0 ? .income : .expense,
-                status: index % 50 == 0 ? .pending : .posted,
-                occurredAt: start.addingTimeInterval(Double(index) * 8_640))
+        // Built in a plain loop with typed locals: the equivalent map closure timed out the type checker in CI.
+        var lines: [LedgerLine] = []
+        lines.reserveCapacity(18_250)
+        for index in 0..<18_250 {
+            let minor = Int64(100 + index % 5_000)
+            let type: TransactionType = index % 10 == 0 ? .income : .expense
+            let status: TransactionStatus = index % 50 == 0 ? .pending : .posted
+            let when = start.addingTimeInterval(Double(index) * 8_640)
+            lines.append(LedgerLine(amount: cad(minor), type: type, status: status, occurredAt: when))
         }
         let series = try (1...20).map { try monthly($0, 1_000, .expense, from: "2021-09-25T00:00:00-07:00") }
         let clock = ContinuousClock()

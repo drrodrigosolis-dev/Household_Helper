@@ -16,10 +16,13 @@ struct WidgetTests {
         let window = DateInterval(start: now, duration: 30 * 86_400)
         let balance = BalanceSnapshot(
             current: cad(248_050), pendingImpact: cad(-4_750), projected: cad(312_300), projectionWindow: window)
-        let upcoming = (1...3).map { index in
-            UpcomingOccurrence(
-                seriesID: UUID(), date: now.addingTimeInterval(Double(index) * 86_400),
-                amount: cad(-1_000 * Int64(index)), type: index == 2 ? .income : .expense, title: "Item \(index)")
+        var upcoming: [UpcomingOccurrence] = []
+        for index in 1...3 {
+            let date = now.addingTimeInterval(Double(index) * 86_400)
+            let amount = cad(Int64(-1_000 * index))
+            let type: TransactionType = index == 2 ? .income : .expense
+            upcoming.append(
+                UpcomingOccurrence(seriesID: UUID(), date: date, amount: amount, type: type, title: "Item \(index)"))
         }
         return DashboardSummary(balance: balance, spentThisWeek: cad(0), upcoming: upcoming)
     }

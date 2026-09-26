@@ -65,9 +65,9 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
         from summary: DashboardSummary, showAmounts: Bool, now: Date, calendar: HouseholdCalendar
     ) -> WidgetSnapshot {
         let balance = summary.balance
-        let days = calendar.calendar.dateComponents(
-            [.day], from: balance.projectionWindow.start, to: balance.projectionWindow.end
-        ).day ?? 30
+        let window = balance.projectionWindow
+        let components = calendar.calendar.dateComponents([.day], from: window.start, to: window.end)
+        let days = components.day ?? 30
         let upcoming = summary.upcoming.prefix(2).map { item in
             Upcoming(
                 title: showAmounts ? item.title : nil, date: item.date,
