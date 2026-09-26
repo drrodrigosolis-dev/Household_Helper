@@ -61,10 +61,14 @@ public struct TransactionDraft: Equatable, Sendable {
     public var merchantName: String?
     public var notes: String?
     public var source: TransactionSource
+    /// The category was picked by the on-device model and accepted by the user (spec §12.3). Only meaningful with a
+    /// category; an edit that changes the category takes this value, an edit that keeps it keeps the stored one.
+    public var isAIClassified: Bool
 
     public init(
         amount: Money, type: TransactionType, occurredAt: Date, status: TransactionStatus = .posted,
-        categoryID: UUID? = nil, merchantName: String? = nil, notes: String? = nil, source: TransactionSource = .manual
+        categoryID: UUID? = nil, merchantName: String? = nil, notes: String? = nil, source: TransactionSource = .manual,
+        isAIClassified: Bool = false
     ) {
         self.amount = amount
         self.type = type
@@ -74,6 +78,7 @@ public struct TransactionDraft: Equatable, Sendable {
         self.merchantName = merchantName
         self.notes = notes
         self.source = source
+        self.isAIClassified = isAIClassified
     }
 
     /// Checks that need no store access. Store-dependent checks (category, currency) happen in the service.

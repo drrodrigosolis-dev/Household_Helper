@@ -78,6 +78,9 @@ struct QuickAddView: View {
     /// Fields filled by a suggestion (merchant history or the on-device model), shown as such until edited.
     @State private var suggestedFields: Set<String> = []
     @State private var suggestionTask: Task<Void, Never>?
+    @State private var suggestionEntry: Entry?
+    /// The category the on-device model filled in; saved as AI-classified only while it is still the choice.
+    @State private var modelCategoryID: UUID?
     @FocusState private var quickFieldFocused: Bool
 
     private var currencyCode: String { settings.first?.currencyCode ?? "CAD" }
@@ -146,7 +149,14 @@ struct QuickAddView: View {
                 }
             }
             .onChange(of: text) { applyParse() }
+            // A suggestion computed for one segment is never applied to another.
+            .onChange(of: entry) {
+                if entry != suggestionEntry {
+                    suggestionTask?.cancel()
+                }
+            }
             .onAppear { quickFieldFocused = true }
+            .onDisappear { suggestionTask?.cancel() }
         }
     }
 
@@ -240,6 +250,7 @@ struct QuickAddView: View {
         }
         notes = parsed.description
         suggestedFields = []
+        modelCategoryID = nil
         scheduleSuggestions(for: text, parsed: parsed, currency: currency, options: options, now: now)
     }
 
@@ -256,19 +267,18 @@ struct QuickAddView: View {
         let categorize = settings.first?.aiCategorizationEnabled ?? false
         let useModel = (understand || categorize) && OnDeviceModel.isAvailable
         let type = self.type
+        suggestionEntry = entry
         suggestionTask = Task {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             if parsed.categoryID == nil, !parsed.description.isEmpty,
                 let fromHistory = try? await services.transactions.suggestedCategory(
                     forMerchantText: parsed.description, type: type),
-                text == input, categoryID == nil
+                !Task.isCancelled, text == input
             {
-                categoryID = fromHistory
-                categoryFromText = true
-                suggestedFields.insert("category")
+                apply(ValidatedQuickAdd(categoryID: fromHistory), parsed: parsed, options: options, fromModel: false)
             }
-            guard useModel else { return }
+            guard useModel, !Task.isCancelled else { return }
             let names = options.filter { $0.kind.allows(type) }.map(\.name)
             guard let raw = await OnDeviceModel.suggestQuickAdd(input, categoryNames: names), !Task.isCancelled,
                 text == input
@@ -282,34 +292,40 @@ struct QuickAddView: View {
             if !categorize {
                 checked.categoryID = nil
             }
-            apply(checked)
+            apply(checked, parsed: parsed, options: options, fromModel: true)
         }
     }
 
-    private func apply(_ suggestion: ValidatedQuickAdd) {
-        if let amount = suggestion.amount, amountText.isEmpty {
+    /// Writes only what `QuickAddSuggestionMerge` allows against the form as it is now.
+    private func apply(
+        _ suggestion: ValidatedQuickAdd, parsed: QuickAddParse, options: [QuickAddCategoryOption], fromModel: Bool
+    ) {
+        let form = QuickAddFormSnapshot(
+            type: entry == .expense || entry == .income ? type : nil,
+            amountIsEmpty: amountText.trimmingCharacters(in: .whitespaces).isEmpty, categoryID: categoryID,
+            occurredAt: occurredAt)
+        let allowed = QuickAddSuggestionMerge.fieldsToApply(
+            suggestion, form: form, parsed: parsed, categories: options)
+        if let amount = allowed.amount {
             amountText = LedgerFormat.editableAmount(amount)
             amountFromText = true
             showDetails = true
             suggestedFields.insert("amount")
         }
-        if suggestion.type == .income, entry == .expense {
+        if allowed.type == .income {
             entry = .income
             typeFromText = true
             suggestedFields.insert("type")
         }
-        if let category = suggestion.categoryID, categoryID == nil {
+        if let category = allowed.categoryID {
             categoryID = category
             categoryFromText = true
+            modelCategoryID = fromModel ? category : nil
             suggestedFields.insert("category")
         }
-        if let date = suggestion.occurredAt {
+        if let date = allowed.occurredAt {
             occurredAt = date
             suggestedFields.insert("date")
-        }
-        if let description = suggestion.description, notes.isEmpty {
-            notes = description
-            suggestedFields.insert("notes")
         }
     }
 
@@ -334,7 +350,8 @@ struct QuickAddView: View {
         }
         let draft = TransactionDraft(
             amount: amount, type: type, occurredAt: occurredAt, categoryID: categoryID,
-            notes: trimmedNotes.isEmpty ? nil : trimmedNotes)
+            notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
+            isAIClassified: modelCategoryID != nil && modelCategoryID == categoryID)
         do {
             try await services.transactions.create(draft, now: .now)
             dismiss()

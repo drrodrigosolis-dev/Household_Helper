@@ -91,12 +91,15 @@ struct AnalyticsView: View {
         let names = Dictionary(categories.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
         let top = report.byCategory.prefix(3).map { slice in
             let name = slice.categoryID.flatMap { names[$0] } ?? String(localized: "Uncategorized")
-            return "\(name) \(slice.total.formatted())"
+            return NamedFigure(name: name, amount: slice.total.formatted())
         }
+        let merchants = report.topMerchants.prefix(3).map { NamedFigure(name: $0.name, amount: $0.total.formatted()) }
+        let balance: AnalyticsFacts.Balance =
+            report.net.isZero ? .even : report.net.isNegative ? .deficit : .surplus
         return AnalyticsFacts(
             periodTitle: AnalyticsFormat.periodTitle(selectedPeriod), income: report.income.formatted(),
-            expense: report.expense.formatted(), net: report.net.formatted(), topCategories: Array(top),
-            topMerchants: report.topMerchants.prefix(3).map { "\($0.name) \($0.total.formatted())" })
+            expense: report.expense.formatted(), net: report.net.formatted(), balance: balance,
+            topCategories: Array(top), topMerchants: merchants)
     }
 
     private var periodBinding: Binding<AnalyticsPeriod> {

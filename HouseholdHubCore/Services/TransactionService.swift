@@ -148,6 +148,7 @@ public actor TransactionService {
             amount: draft.amount, type: draft.type, status: draft.status, source: draft.source,
             occurredAt: draft.occurredAt, now: now)
         record.categoryID = draft.categoryID
+        record.isAIClassified = draft.categoryID != nil && draft.isAIClassified
         record.notes = draft.notes
         if let name = draft.merchantName, !Merchant.normalize(name).isEmpty {
             let merchant = try findOrCreateMerchant(named: name, now: now)
@@ -184,6 +185,11 @@ public actor TransactionService {
         record.type = draft.type
         record.status = draft.status
         record.occurredAt = draft.occurredAt
+        if draft.categoryID == nil {
+            record.isAIClassified = false
+        } else if draft.categoryID != record.categoryID {
+            record.isAIClassified = draft.isAIClassified
+        }
         record.categoryID = draft.categoryID
         record.notes = draft.notes
         record.merchantID = merchantID

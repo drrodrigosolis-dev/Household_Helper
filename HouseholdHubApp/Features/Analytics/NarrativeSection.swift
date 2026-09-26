@@ -2,7 +2,8 @@ import HouseholdHubCore
 import SwiftUI
 
 /// Optional on-device summary (spec §24.2): collapsed, generated only when asked, written only from the report's
-/// computed figures, and rejected if it quotes a number that is not one of them (Sprint 7 default 4).
+/// computed figures. The model writes placeholders and the app fills in the figures; text that writes a number of its
+/// own is rejected (Sprint 7 default 4).
 struct NarrativeSection: View {
     let facts: AnalyticsFacts
 
@@ -16,7 +17,7 @@ struct NarrativeSection: View {
             DisclosureGroup("Summary", isExpanded: $isExpanded) {
                 if let text {
                     Text(text)
-                    Label("Written on this device from the figures above.", systemImage: "sparkles")
+                    Label("Written on this device; figures come from the report above.", systemImage: "sparkles")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } else if failed {
@@ -39,7 +40,10 @@ struct NarrativeSection: View {
         isWorking = true
         defer { isWorking = false }
         let facts = self.facts
-        if let raw = await OnDeviceModel.narrate(facts), let checked = NarrativeValidator.validate(raw, facts: facts) {
+        let raw = await OnDeviceModel.narrate(facts)
+        // The period or figures changed while the model was writing: this text describes something no longer shown.
+        guard facts == self.facts else { return }
+        if let raw, let checked = NarrativeValidator.validate(raw, facts: facts) {
             text = checked
             failed = false
         } else {

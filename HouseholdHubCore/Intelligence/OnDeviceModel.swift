@@ -23,7 +23,8 @@ public enum OnDeviceModel {
             guard isAvailable else { return nil }
             let instructions = """
                 You read one short note about a household expense or income and fill in fields. \
-                Use only information in the note. Leave a field empty when the note does not say it.
+                Use only information in the note. Leave a field empty when the note does not say it. \
+                Never guess an amount or a date the note does not state.
                 """
             let prompt = """
                 Note: \(text)
@@ -33,11 +34,10 @@ public enum OnDeviceModel {
                 let session = LanguageModelSession(instructions: instructions)
                 let guess = try await session.respond(to: prompt, generating: QuickAddGuess.self).content
                 return QuickAddSuggestion(
-                    amount: Decimal(string: guess.amount, locale: Locale(identifier: "en_US_POSIX")),
+                    amount: guess.amount.isEmpty ? nil : guess.amount,
                     type: guess.kind.isEmpty ? nil : guess.kind,
                     categoryName: guess.category.isEmpty ? nil : guess.category,
-                    dayOffset: guess.dayOffset == 0 ? nil : guess.dayOffset,
-                    description: guess.summary.isEmpty ? nil : guess.summary)
+                    dayOffset: guess.dayOffset == 0 ? nil : guess.dayOffset)
             } catch {
                 return nil
             }
@@ -46,13 +46,15 @@ public enum OnDeviceModel {
         #endif
     }
 
-    /// A short narrative written only from `facts`.
+    /// A short narrative written only from `facts`, with figures as `facts` placeholders; `NarrativeValidator`
+    /// checks it and fills them in.
     public static func narrate(_ facts: AnalyticsFacts) async -> String? {
         #if canImport(FoundationModels)
             guard isAvailable else { return nil }
             let instructions = """
                 You write two or three plain sentences summarising a household's spending for a period. \
-                Use only the figures given, exactly as written. Do not give advice or invent numbers.
+                Each figure is given as a placeholder in braces, such as {income}. Write figures only by copying \
+                those placeholders exactly; never write a digit or a number in words. Do not give advice.
                 """
             do {
                 let session = LanguageModelSession(instructions: instructions)
@@ -75,9 +77,7 @@ public enum OnDeviceModel {
         var kind: String
         @Guide(description: "Exactly one of the given category names, or empty")
         var category: String
-        @Guide(description: "Days from today the note refers to: 0 today, -1 yesterday")
+        @Guide(description: "Days from today the note refers to: 0 today or not stated, -1 yesterday")
         var dayOffset: Int
-        @Guide(description: "A few words saying what it was, or empty")
-        var summary: String
     }
 #endif

@@ -22,13 +22,20 @@ public struct QuickAddParse: Equatable, Sendable {
     public var description: String
     public var categoryID: UUID?
     public var occurredAt: Date
+    /// True when the text named the day ("today", "yesterday", a weekday). A named day is never replaced by a
+    /// suggestion, even when it is today.
+    public var dateRecognized: Bool
 
-    public init(amount: Money?, type: TransactionType, description: String, categoryID: UUID?, occurredAt: Date) {
+    public init(
+        amount: Money?, type: TransactionType, description: String, categoryID: UUID?, occurredAt: Date,
+        dateRecognized: Bool = false
+    ) {
         self.amount = amount
         self.type = type
         self.description = description
         self.categoryID = categoryID
         self.occurredAt = occurredAt
+        self.dateRecognized = dateRecognized
     }
 }
 
@@ -75,10 +82,12 @@ public struct QuickAddParser: Sendable {
         }
 
         var occurredAt = now
+        var dateRecognized = false
         if let index = tokens.firstIndex(where: { dayOffset(for: $0, now: now) != nil }),
             let offset = dayOffset(for: tokens[index], now: now)
         {
             occurredAt = calendar.calendar.date(byAdding: .day, value: -offset, to: now) ?? now
+            dateRecognized = true
             tokens.remove(at: index)
         }
 
@@ -88,7 +97,8 @@ public struct QuickAddParser: Sendable {
 
         let description = tokens.joined(separator: " ")
         return QuickAddParse(
-            amount: amount, type: type, description: description, categoryID: categoryID, occurredAt: occurredAt)
+            amount: amount, type: type, description: description, categoryID: categoryID, occurredAt: occurredAt,
+            dateRecognized: dateRecognized)
     }
 
     // MARK: Grammar pieces
@@ -98,6 +108,11 @@ public struct QuickAddParser: Sendable {
 
     /// A plain number: `47`, `47.50`, `1,200.50`, optionally prefixed with `$`. Anything else is description text.
     private func amountValue(_ token: String) -> Decimal? {
+        Self.plainAmount(token)
+    }
+
+    /// The same number grammar, shared with the suggestion validator so a model's amount is read the same way.
+    static func plainAmount(_ token: String) -> Decimal? {
         let body = token.hasPrefix("$") ? String(token.dropFirst()) : token
         guard body.wholeMatch(of: /\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/) != nil else { return nil }
         let plain = body.replacingOccurrences(of: ",", with: "")
