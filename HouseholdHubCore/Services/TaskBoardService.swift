@@ -209,6 +209,7 @@ public actor TaskBoardService {
         }
         for wish in linkedWishes {
             wish.linkedTaskID = nil
+            wish.updatedAt = .now
         }
         modelContext.delete(task)
         try commit()

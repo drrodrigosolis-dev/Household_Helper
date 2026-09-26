@@ -36,7 +36,7 @@ struct OnboardingView: View {
                 } header: {
                     Text("Starting balance")
                 } footer: {
-                    Text("What your household account held on this date. Transactions after it are added on top.")
+                    Text("What your household account held when this day began. Its transactions are added on top.")
                 }
                 if let errorMessage {
                     Section {
@@ -71,12 +71,20 @@ struct OnboardingView: View {
         defer { isSaving = false }
         let now = Date.now
         do {
+            let date = Self.baselineDate(asOf, now: now)
             try await services.transactions.completeOnboarding(
-                currencyCode: currency.code, startingBalance: balance, asOf: min(asOf, now), now: now)
+                currencyCode: currency.code, startingBalance: balance, asOf: date, now: now)
             onDone()
         } catch {
             errorMessage = String(localized: "Setup couldn't be saved. Please try again.")
         }
+    }
+
+    /// The start of the chosen day in the household calendar (CLAUDE.md §5: dates go through `HouseholdCalendar`),
+    /// so a date picked without a time never keeps the time of day it was created at: the whole day's transactions
+    /// count on top of the baseline, whatever time setup happened.
+    static func baselineDate(_ picked: Date, now: Date) -> Date {
+        min(HouseholdCalendar(timeZone: .current).startOfDay(for: picked), now)
     }
 
     static var defaultCurrencyCode: String {

@@ -99,7 +99,13 @@ public struct ImageStore: Sendable {
         try FileManager.default.createDirectory(
             at: fullURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try write(full, to: fullURL)
-        try write(thumbnail, to: thumbURL)
+        do {
+            try write(thumbnail, to: thumbURL)
+        } catch {
+            // No half-restored photo: without its thumbnail the full image would look available but never show.
+            try? FileManager.default.removeItem(at: fullURL)
+            throw error
+        }
     }
 
     /// Every full-size image reference in a folder (thumbnails excluded), for removing files nothing refers to.

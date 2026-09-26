@@ -71,6 +71,8 @@ struct LogTransactionIntent: AppIntent {
         let day = draft.occurredAt.formatted(date: .abbreviated, time: .omitted)
         try await requestConfirmation(
             actionName: .log, dialog: "Record \(draft.amount.formatted()) \(kind) on \(day)?")
+        // A restore may have started while the prompt was showing; nothing else writes during one.
+        guard !(await AppRouter.shared.isRestoring) else { throw Failure.unavailable }
         try await services.transactions.create(draft, now: now)
         await WidgetSync.refresh(services)
         return .result(dialog: "Recorded \(draft.amount.formatted()) \(kind).")

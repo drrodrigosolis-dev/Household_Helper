@@ -77,7 +77,7 @@ struct HouseholdEditorView: View {
             } header: {
                 Text("Starting balance")
             } footer: {
-                Text("What the household account held on this date. Changing it changes the current balance.")
+                Text("What the account held when this day began. Changing it changes the current balance.")
             }
             if let errorMessage {
                 ErrorText(errorMessage)
@@ -102,7 +102,12 @@ struct HouseholdEditorView: View {
             Button("Change Starting Balance") { Task { await save() } }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("The current and projected balances are recalculated from the new baseline. No transaction changes.")
+            Text(
+                """
+                The current and projected balances are recalculated from the new baseline: transactions from its \
+                date on count toward them, earlier ones don't. No transaction changes.
+                """
+            )
         }
         .task {
             currencyLocked = (try? await services?.transactions.isCurrencyLocked()) ?? true
@@ -115,8 +120,9 @@ struct HouseholdEditorView: View {
         defer { isSaving = false }
         let now = Date.now
         do {
+            let date = OnboardingView.baselineDate(asOf, now: now)
             try await services.transactions.updateHousehold(
-                currencyCode: currencyCode, startingBalance: balance, asOf: min(asOf, now), now: now)
+                currencyCode: currencyCode, startingBalance: balance, asOf: date, now: now)
             await WidgetSync.refresh(services)
             dismiss()
         } catch LedgerError.currencyLockedByExistingRecords {

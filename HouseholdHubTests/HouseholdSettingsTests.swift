@@ -58,6 +58,15 @@ struct HouseholdSettingsTests {
         let snapshot = try #require(try await ledger.settingsSnapshot())
         #expect(snapshot.startingBalance == corrected)
         #expect(snapshot.startingBalanceDate == asOf)
+        let calendar = HouseholdCalendar(timeZone: TimeZone(identifier: "America/Vancouver")!)
+        func current() async throws -> Money {
+            try await ledger.balanceSnapshot(now: now, calendar: calendar, includePendingInProjection: false).current
+        }
+        #expect(try await current() == Money(minorUnits: 100_000 - 1_200, currencyCode: "CAD"))
+        // A baseline dated after the expense already includes it, so the expense no longer counts on top.
+        let later = now.addingTimeInterval(-30)
+        try await ledger.updateHousehold(currencyCode: "CAD", startingBalance: corrected, asOf: later, now: now)
+        #expect(try await current() == corrected)
     }
 
     @Test func aFutureDateOrAMismatchedAmountIsRefused() async throws {

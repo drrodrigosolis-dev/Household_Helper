@@ -53,8 +53,9 @@ public struct BackupFlow: Sendable {
     // MARK: Restore
 
     /// Reads a backup folder: `backup.json` first, validated whole before any image is opened, then only the image
-    /// files its manifest lists, each within the size limits and matching its recorded size, and all of them within
-    /// `maxTotalMediaBytes`. Unlisted files in the folder are never read.
+    /// files its manifest lists, each within the size limits and matching its recorded size. Once `maxTotalMediaBytes`
+    /// is reached the remaining photos are left unread and count as missing, like any unreadable photo (§26.1), so a
+    /// large backup the app wrote still restores its data. Unlisted files in the folder are never read.
     public static func read(folder: URL) throws -> (backup: BackupDTO, media: [String: Data]) {
         try read(folder: folder, mediaLimit: maxTotalMediaBytes)
     }
@@ -76,8 +77,8 @@ public struct BackupFlow: Sendable {
             let url = folder.appending(path: BackupPackage.mediaFolder, directoryHint: .isDirectory)
                 .appending(path: entry.reference, directoryHint: .notDirectory)
             guard let size = fileSize(url), size == entry.sizeBytes, size <= maxImageBytes else { continue }
-            // Checked before loading, so an oversized folder is refused without being read into memory.
-            guard total + size <= mediaLimit else { throw BackupError.tooLarge(BackupPackage.mediaFolder) }
+            // Checked before loading, so an oversized folder is never read into memory.
+            guard total + size <= mediaLimit else { continue }
             guard let data = try? Data(contentsOf: url), data.count == size else { continue }
             total += size
             media[entry.reference] = data

@@ -53,3 +53,14 @@ Statuses: not started / in progress / CI green / blocked.
   show that prompt needs a device (WALK-QUEUE). If it can't, the shortcut refuses with "Household Hub is locked".
 - **Wishlist↔task link:** several tasks may link one item; the item's own back-link names the task that linked it
   last, and the item's detail lists every linking task.
+
+## Remaining uncertainty (Phase 10 data-safety review)
+- **Two writers of wishlist rows.** `TaskBoardService` sets and clears `WishlistItem.linkedTaskID` from its own
+  context while `TransactionService` owns the rest of the item. A task saved at the same instant as its linked item
+  is deleted could leave a dangling `linkedWishlistItemID` in the store; backups still export (dangling links are
+  dropped before validation) and restores validate. How SwiftData merges concurrent saves to one object across
+  contexts is unverified; a Mac-side stress test or routing link writes through one actor would close it.
+- **File protection** (`.completeFileProtection` on photos) is ignored by the Simulator, so CI can't exercise it. If
+  the phone locks during a long "Back up now", photos not yet read are left out and the user is told.
+- **A total photo cap of 500 MB per restore:** past it, remaining photos count as missing and the data still
+  restores (the review showed a hard refusal would make large legitimate backups unrestorable).
