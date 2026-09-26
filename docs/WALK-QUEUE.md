@@ -17,8 +17,10 @@ result, and why it could not be walked automatically. Emptied at the next walk o
 - **Sprint 7 (Phase 8) — on-device AI on a device with Apple Intelligence.** Settings › Intelligence: turn on all
   three switches. Quick Add: type "twelve dollars lunch" (amount and Dining should be suggested and labelled), then
   "47.50 coffee" (nothing from the model may override the parsed amount). Analytics › Summary › Write summary: the
-  text must only quote figures shown on the screen. Also run the unit tests there: the live AI fixtures run only
-  where the model is available. Why queued: the CI simulator has no Apple Intelligence model.
+  text must only quote figures shown on the screen. Also run the unit tests there with
+  `TEST_RUNNER_HH_LIVE_AI=1 Scripts/test.sh`: the live AI fixtures are opt-in and need the model ready. Why
+  queued: the CI simulator's model is unreliable (usually absent; once reported available and then failed every
+  request, run 36211058160).
 
 - **Cold-launch time (Phase 10 hardening).** In CI run 36209505191 one UI test launch showed a blank white screen
   for ~22 s before the Dashboard (others launch in 3–4 s). Time a cold launch on the Mac/device with Instruments

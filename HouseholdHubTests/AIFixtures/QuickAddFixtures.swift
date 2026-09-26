@@ -152,7 +152,13 @@ struct QuickAddFixtures {
         #expect(result.isEmpty)
     }
 
-    @Test(.enabled(if: OnDeviceModel.isAvailable), arguments: cases)
+    /// Live cases are opt-in: CI's simulator sometimes reports the model as available and then fails every request
+    /// (run 36211058160, all twelve answers nil), which says nothing about this code. On a device or Mac with Apple
+    /// Intelligence ready, run `TEST_RUNNER_HH_LIVE_AI=1 Scripts/test.sh` (xcodebuild passes `TEST_RUNNER_` variables
+    /// to the test process without the prefix).
+    static let liveAIRequested = ProcessInfo.processInfo.environment["HH_LIVE_AI"] == "1"
+
+    @Test(.enabled(if: liveAIRequested && OnDeviceModel.isAvailable), arguments: cases)
     func liveModelStaysWithinTheValidators(_ fixture: Case) async throws {
         let answer = await OnDeviceModel.suggestQuickAdd(fixture.note, categoryNames: ["Dining", "Salary"])
         let raw = try #require(answer)
