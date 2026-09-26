@@ -44,8 +44,9 @@ enum ReminderSync {
         let now = Date.now
         let calendar = HouseholdCalendar(timeZone: .current)
         let tasks = (try? await services.board.reminderSources()) ?? []
-        let bills = (try? await services.transactions.upcomingOccurrences(now: now, calendar: calendar, days: billDays))
-            ?? []
+        let upcoming = try? await services.transactions.upcomingOccurrences(
+            now: now, calendar: calendar, days: billDays)
+        let bills = upcoming ?? []
         let plan = ReminderPlanner().plan(
             tasks: tasks, bills: bills, settings: settings, wording: wording, now: now, calendar: calendar)
         for reminder in plan {
@@ -53,7 +54,8 @@ enum ReminderSync {
             content.title = reminder.title
             content.body = reminder.body
             content.sound = .default
-            let parts = calendar.calendar.dateComponents([.year, .month, .day, .hour, .minute], from: reminder.fireDate)
+            let fields: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute]
+            let parts = calendar.calendar.dateComponents(fields, from: reminder.fireDate)
             let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
             try? await center.add(UNNotificationRequest(identifier: reminder.id, content: content, trigger: trigger))
         }

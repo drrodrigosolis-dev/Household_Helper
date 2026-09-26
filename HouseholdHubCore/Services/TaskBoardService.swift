@@ -220,11 +220,16 @@ public actor TaskBoardService {
 
     /// Open tasks on the board with a due date, for due-day reminders (Sprint 14).
     public func reminderSources() throws -> [TaskReminderSource] {
-        let descriptor = FetchDescriptor<TaskItem>(
-            predicate: #Predicate { $0.completedAt == nil && $0.archivedAt == nil && $0.dueDate != nil })
-        return try modelContext.fetch(descriptor).compactMap { task in
-            task.dueDate.map { TaskReminderSource(taskID: task.id, title: task.title, dueDate: $0) }
+        // The due-date check runs in Swift: a three-part optional predicate timed out the type checker (CI run
+        // 36262716786).
+        let open = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.completedAt == nil && $0.archivedAt == nil })
+        var sources: [TaskReminderSource] = []
+        for task in try modelContext.fetch(open) {
+            if let due = task.dueDate {
+                sources.append(TaskReminderSource(taskID: task.id, title: task.title, dueDate: due))
+            }
         }
+        return sources
     }
 
     // MARK: Subtasks
