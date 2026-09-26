@@ -45,12 +45,14 @@ extension View {
 
 /// Quick Add sheet (spec §24.3): one autofocused field parsed by the §25 grammar, progressive details, and a
 /// Save button that stays disabled until the draft is valid. The Wishlist segment turns the same text into a
-/// wishlist item: the amount becomes the estimated price and the description the name.
+/// wishlist item: the amount becomes the estimated price and the description the name. The Task segment makes a
+/// task: the description becomes the title and a date word ("tomorrow") the due date.
 struct QuickAddView: View {
     enum Entry: Hashable {
         case expense
         case income
         case wishlist
+        case task
     }
 
     @Environment(\.services) private var services
@@ -63,6 +65,8 @@ struct QuickAddView: View {
     @State private var amountText = ""
     @State private var categoryID: UUID?
     @State private var occurredAt = Date.now
+    @State private var hasDueDate = false
+    @State private var dueFromText = false
     @State private var notes = ""
     @State private var showDetails = false
     @State private var errorMessage: String?
@@ -81,6 +85,9 @@ struct QuickAddView: View {
     /// A wishlist item needs a name; its price may be left empty (unknown) but not malformed.
     private var canSave: Bool {
         guard !isSaving else { return false }
+        if entry == .task {
+            return !trimmedNotes.isEmpty
+        }
         if entry == .wishlist {
             let priceIsValid = amountText.trimmingCharacters(in: .whitespaces).isEmpty || amount != nil
             return !trimmedNotes.isEmpty && priceIsValid
@@ -102,6 +109,7 @@ struct QuickAddView: View {
                         Text("Expense").tag(Entry.expense)
                         Text("Income").tag(Entry.income)
                         Text("Wishlist").tag(Entry.wishlist)
+                        Text("Task").tag(Entry.task)
                     }
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("quickadd.type")
@@ -135,19 +143,26 @@ struct QuickAddView: View {
 
     private var detailsSection: some View {
         Section("Details") {
-            LabeledContent(amountLabel) {
-                TextField(amountPrompt, text: $amountText)
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.trailing)
-                    .accessibilityIdentifier("quickadd.amount")
-            }
-            Picker("Category", selection: $categoryID) {
-                Text("None").tag(UUID?.none)
-                ForEach(usableCategories) { category in
-                    Text(category.name).tag(UUID?.some(category.id))
+            if entry == .task {
+                Toggle("Due date", isOn: $hasDueDate)
+                if hasDueDate {
+                    DatePicker("Due", selection: $occurredAt, displayedComponents: .date)
+                }
+            } else {
+                LabeledContent(amountLabel) {
+                    TextField(amountPrompt, text: $amountText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .accessibilityIdentifier("quickadd.amount")
+                }
+                Picker("Category", selection: $categoryID) {
+                    Text("None").tag(UUID?.none)
+                    ForEach(usableCategories) { category in
+                        Text(category.name).tag(UUID?.some(category.id))
+                    }
                 }
             }
-            if entry != .wishlist {
+            if entry == .expense || entry == .income {
                 DatePicker("Date", selection: $occurredAt, displayedComponents: [.date, .hourAndMinute])
             }
             LabeledContent(notesLabel) {
@@ -160,7 +175,13 @@ struct QuickAddView: View {
 
     private var amountLabel: LocalizedStringKey { entry == .wishlist ? "Estimated price" : "Amount" }
     private var amountPrompt: LocalizedStringKey { entry == .wishlist ? "Optional" : "0.00" }
-    private var notesLabel: LocalizedStringKey { entry == .wishlist ? "Name" : "Notes" }
+    private var notesLabel: LocalizedStringKey {
+        switch entry {
+        case .wishlist: "Name"
+        case .task: "Title"
+        case .expense, .income: "Notes"
+        }
+    }
 
     private var usableCategories: [CategoryRecord] {
         categories.filter { !$0.isArchived && $0.kind.allows(type) }
@@ -174,9 +195,10 @@ struct QuickAddView: View {
         }
         let parser = QuickAddParser(
             currency: currency, categories: options, calendar: HouseholdCalendar(timeZone: .current))
-        let parsed = parser.parse(text, now: .now)
-        // The Wishlist segment is an explicit choice; a leading "+" never switches away from it.
-        if parsed.type == .income, entry != .wishlist {
+        let now = Date.now
+        let parsed = parser.parse(text, now: now)
+        // Wishlist and Task are explicit choices; a leading "+" only switches between Expense and Income.
+        if parsed.type == .income, entry == .expense || entry == .income {
             entry = .income
             typeFromText = true
         } else if typeFromText, entry == .income {
@@ -199,6 +221,14 @@ struct QuickAddView: View {
             categoryFromText = false
         }
         occurredAt = parsed.occurredAt
+        // A date word moved the date away from now: for a task that is the due date.
+        if parsed.occurredAt != now {
+            hasDueDate = true
+            dueFromText = true
+        } else if dueFromText {
+            hasDueDate = false
+            dueFromText = false
+        }
         notes = parsed.description
     }
 
@@ -208,6 +238,10 @@ struct QuickAddView: View {
         defer { isSaving = false }
         if entry == .wishlist {
             await saveWishlistItem(services)
+            return
+        }
+        if entry == .task {
+            await saveTask(services)
             return
         }
         guard let amount else { return }
@@ -237,6 +271,16 @@ struct QuickAddView: View {
             dismiss()
         } catch {
             errorMessage = String(localized: "This couldn't be saved. Check the name and price.")
+        }
+    }
+
+    private func saveTask(_ services: AppServices) async {
+        let draft = TaskDraft(title: trimmedNotes, dueDate: hasDueDate ? occurredAt : nil)
+        do {
+            try await services.board.createTask(draft, now: .now)
+            dismiss()
+        } catch {
+            errorMessage = String(localized: "This couldn't be saved. Check the title.")
         }
     }
 }

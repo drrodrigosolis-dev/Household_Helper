@@ -42,6 +42,37 @@ final class WalkUITests: XCTestCase {
         }
         walkSecondaryScreens(app, variant)
         walkWishlist(app, variant)
+        walkTasks(app, variant)
+    }
+
+    /// Task editor, board, detail with a subtask, column management, and Quick Add's Task segment.
+    @MainActor
+    private func walkTasks(_ app: XCUIApplication, _ variant: WalkVariant) {
+        let prefix = variant.rawValue
+        addTask(app, title: "Fix dripping tap", capture: "\(prefix)-TaskEditor")
+        addTask(app, title: "Book dentist")
+        captureScreen(app, named: "\(prefix)-Tasks-board")
+        taskCard(app, containing: "Fix dripping tap").tap()
+        let field = app.textFields["task.newSubtask"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        focusAndType(field, "Buy washer")
+        app.buttons["task.addSubtask"].tap()
+        XCTAssertTrue(app.buttons.matching(identifier: "task.subtask").firstMatch.waitForExistence(timeout: 5))
+        captureScreen(app, named: "\(prefix)-TaskDetail")
+        app.navigationBars.buttons["Tasks"].tap()
+        app.buttons["tasks.columns"].tap()
+        XCTAssertTrue(app.navigationBars["Columns"].waitForExistence(timeout: 5))
+        captureScreen(app, named: "\(prefix)-Columns")
+        app.navigationBars["Columns"].buttons["Done"].tap()
+
+        app.buttons["quickadd.button"].tap()
+        let quick = app.textFields["quickadd.text"]
+        XCTAssertTrue(quick.waitForExistence(timeout: 5))
+        quick.tap()
+        quick.typeText("call plumber tomorrow")
+        app.segmentedControls["quickadd.type"].buttons["Task"].tap()
+        captureScreen(app, named: "\(prefix)-QuickAdd-task")
+        app.buttons["Cancel"].tap()
     }
 
     /// Wishlist editor, list, grid, detail, and the Mark Purchased sheet, plus Quick Add's Wishlist segment.

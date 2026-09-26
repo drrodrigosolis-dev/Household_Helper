@@ -12,6 +12,7 @@ struct DashboardView: View {
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
     @Query private var recent: [TransactionRecord]
     @Query private var recentWishes: [WishlistItem]
+    @Query private var recentTasks: [TaskItem]
     @State private var summary: DashboardSummary?
     @State private var loadFailed = false
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -23,16 +24,21 @@ struct DashboardView: View {
         var wishes = FetchDescriptor<WishlistItem>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
         wishes.fetchLimit = 5
         _recentWishes = Query(wishes)
+        var tasks = FetchDescriptor<TaskItem>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
+        tasks.fetchLimit = 5
+        _recentTasks = Query(tasks)
     }
 
     private enum Activity: Identifiable {
         case transaction(TransactionRecord)
         case wishlist(WishlistItem)
+        case task(TaskItem)
 
         var id: String {
             switch self {
             case .transaction(let record): return "t-\(record.id)"
             case .wishlist(let item): return "w-\(item.id)"
+            case .task(let task): return "k-\(task.id)"
             }
         }
 
@@ -40,13 +46,15 @@ struct DashboardView: View {
             switch self {
             case .transaction(let record): return record.occurredAt
             case .wishlist(let item): return item.updatedAt
+            case .task(let task): return task.updatedAt
             }
         }
     }
 
-    /// The five latest entries across transactions and wishlist changes (spec §24.2); tasks join in Phase 5.
+    /// The five latest entries across transactions, wishlist changes, and task changes (spec §24.2).
     private var activity: [Activity] {
-        let all = recent.map(Activity.transaction) + recentWishes.map(Activity.wishlist)
+        let all =
+            recent.map(Activity.transaction) + recentWishes.map(Activity.wishlist) + recentTasks.map(Activity.task)
         return Array(all.sorted { $0.date > $1.date }.prefix(5))
     }
 
@@ -162,6 +170,8 @@ struct DashboardView: View {
                             TransactionRow(record: record, category: categories.first { $0.id == record.categoryID })
                         case .wishlist(let item):
                             WishlistRow(item: item)
+                        case .task(let task):
+                            TaskActivityRow(task: task)
                         }
                     }
                 }
@@ -236,4 +246,30 @@ private struct DashboardCard<Content: View>: View {
 #Preview {
     DashboardView()
         .environment(AppRouter())
+}
+
+/// A task in recent activity: its title and whether it is done, read as one element.
+struct TaskActivityRow: View {
+    let task: TaskItem
+
+    private var kind: LocalizedStringKey { task.completedAt == nil ? "Task" : "Task · Completed" }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: task.completedAt == nil ? "circle" : "checkmark.circle.fill")
+                .font(.system(size: 20))
+                .frame(width: 32, height: 32)
+                .foregroundStyle(task.completedAt == nil ? Color.secondary : Color.green)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(task.title)
+                Text(kind)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("task.activity")
+    }
 }
