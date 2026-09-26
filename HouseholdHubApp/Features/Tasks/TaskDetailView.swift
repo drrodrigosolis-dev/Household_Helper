@@ -79,6 +79,13 @@ struct TaskDetailView: View {
                 } else {
                     Button("Reopen", systemImage: "arrow.uturn.backward.circle") { setCompleted(false, task) }
                 }
+                // A plain menu (no long press, no drag) is the dependable non-drag path to another column (§24.5).
+                Menu("Move to…", systemImage: "arrow.right.circle") {
+                    ForEach(columns.filter { $0.id != task.columnID }) { column in
+                        Button(column.name) { move(task, to: column.id) }
+                    }
+                }
+                .accessibilityIdentifier("task.moveTo")
                 Button("Archive", systemImage: "archivebox") { archive(task) }
                 Button("Delete", systemImage: "trash", role: .destructive) { isConfirmingDelete = true }
             }
@@ -139,6 +146,11 @@ struct TaskDetailView: View {
     private func setCompleted(_ completed: Bool, _ task: TaskItem) {
         let id = task.id
         run { try await $0.board.setTaskCompleted(completed, task: id, now: .now) }
+    }
+
+    private func move(_ task: TaskItem, to columnID: UUID) {
+        let id = task.id
+        run { try await $0.board.moveTask(id, to: columnID, at: Int.max, now: .now) }
     }
 
     private func archive(_ task: TaskItem) {

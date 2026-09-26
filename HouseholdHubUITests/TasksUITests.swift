@@ -15,17 +15,19 @@ final class TasksUITests: XCTestCase {
         XCTAssertTrue(waitForRow(app, identifier: "task.column", toRead: "Done"), "Completing moves it to Done")
     }
 
+    /// Spec §24.5: moving between columns never requires dragging. Uses the detail's Move to… menu; a long press on
+    /// the card races the drag and the context menu, so it is not a dependable test path (run 36205561992).
     @MainActor
     func testMoveToIsAvailableWithoutDragging() {
         let app = launchApp()
         addTask(app, title: "Book dentist")
-        let card = taskCard(app, containing: "Book dentist")
-        card.press(forDuration: 1.2)
-        let moveTo = app.buttons["Move to…"]
-        XCTAssertTrue(moveTo.waitForExistence(timeout: 5), "Spec §24.5: a non-drag Move to… action")
-        moveTo.tap()
-        app.buttons["In Progress"].firstMatch.tap()
         taskCard(app, containing: "Book dentist").tap()
+        let moveTo = app.buttons["task.moveTo"]
+        XCTAssertTrue(moveTo.waitForExistence(timeout: 5), "A non-drag Move to… action")
+        moveTo.tap()
+        let target = app.buttons["In Progress"]
+        XCTAssertTrue(target.waitForExistence(timeout: 5), "Move to… should list the other columns")
+        target.tap()
         XCTAssertTrue(waitForRow(app, identifier: "task.column", toRead: "In Progress"))
     }
 
