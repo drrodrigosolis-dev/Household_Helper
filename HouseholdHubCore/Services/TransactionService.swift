@@ -27,10 +27,16 @@ public actor TransactionService {
     /// Creates the singleton settings row on first launch; a no-op afterwards.
     public func ensureSettings(currencyCode: String, now: Date) throws {
         begin()
-        guard try settings() == nil else { return }
+        guard try insertSettingsIfMissing(currencyCode: currencyCode, now: now) else { return }
+        try commit()
+    }
+
+    /// Inserts the settings row if there is none, without saving; returns whether it inserted one.
+    private func insertSettingsIfMissing(currencyCode: String, now: Date) throws -> Bool {
+        guard try settings() == nil else { return false }
         let currency = try Currency(code: currencyCode)
         modelContext.insert(AppSettings(currencyCode: currency.code, now: now))
-        try commit()
+        return true
     }
 
     public func settingsSnapshot() throws -> SettingsSnapshot? {
@@ -50,7 +56,8 @@ public actor TransactionService {
             throw LedgerError.currencyMismatch(expected: currency.code, actual: startingBalance.currencyCode)
         }
         guard date <= now else { throw LedgerError.startingBalanceInFuture }
-        try ensureSettings(currencyCode: currency.code, now: now)
+        // Same save as the rest of onboarding: a refused currency change leaves no half-created settings row.
+        _ = try insertSettingsIfMissing(currencyCode: currency.code, now: now)
         let settings = try requireSettings()
         if settings.currencyCode != currency.code {
             let records = try modelContext.fetchCount(FetchDescriptor<TransactionRecord>())
@@ -377,9 +384,11 @@ public actor TransactionService {
             calendar: calendar, includePendingInProjection: includePendingInProjection)
     }
 
-    /// What the Home Screen widget shows: the Dashboard's figures, without amounts when the user hid them.
+    /// What the Home Screen widget shows: the Dashboard's figures, without amounts when the user hid them or turned
+    /// on the Face ID lock (a locked app must not show its balances on the Home Screen).
     public func widgetSnapshot(now: Date, calendar: HouseholdCalendar) throws -> WidgetSnapshot {
-        let showAmounts = try requireSettings().widgetShowsBalance
+        let settings = try requireSettings()
+        let showAmounts = settings.widgetShowsBalance && !settings.faceIDEnabled
         return WidgetSnapshot.make(
             from: try dashboardSummary(now: now, calendar: calendar), showAmounts: showAmounts, now: now,
             calendar: calendar)

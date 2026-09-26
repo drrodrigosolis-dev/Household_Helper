@@ -99,7 +99,12 @@ struct SettingsView: View {
                 } header: {
                     Text("Widget")
                 } footer: {
-                    Text("When off, the Home Screen widget shows “Hidden” instead of your balances.")
+                    Text(
+                        """
+                        When off, or while the lock above is on, the Home Screen widget shows “Hidden” instead of your \
+                        balances.
+                        """
+                    )
                 }
             }
             Section("About") {
@@ -128,6 +133,8 @@ struct SettingsView: View {
                         guard await BiometricGate.authenticate(reason: reason) else { return }
                     }
                     try? await services?.transactions.setFaceIDEnabled(value, now: .now)
+                    // The widget hides amounts while the lock is on.
+                    await WidgetSync.refresh(services)
                 }
             })
     }

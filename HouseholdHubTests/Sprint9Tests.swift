@@ -72,6 +72,14 @@ struct Sprint9Tests {
         #expect(!restored.faceIDEnabled, "A fresh install starts unlocked")
     }
 
+    @Test func theWidgetHidesAmountsWhileTheLockIsOn() async throws {
+        let stack = try await makeStack()
+        let calendar = HouseholdCalendar(timeZone: TimeZone(identifier: "America/Vancouver")!)
+        #expect(try await !stack.ledger.widgetSnapshot(now: now, calendar: calendar).amountsHidden)
+        try await stack.ledger.setFaceIDEnabled(true, now: now)
+        #expect(try await stack.ledger.widgetSnapshot(now: now, calendar: calendar).amountsHidden)
+    }
+
     // MARK: Merchant default categories count as references
 
     @Test func aMerchantDefaultBlocksDeletionAndFollowsAMove() async throws {
