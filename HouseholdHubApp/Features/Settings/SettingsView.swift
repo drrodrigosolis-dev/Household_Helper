@@ -101,8 +101,8 @@ struct SettingsView: View {
                 LabeledContent("Version", value: "\(AppInfo.version) (\(AppInfo.build))")
                 Text(
                     """
-                    Household Hub keeps your data on this device. Nothing is sent anywhere, and on-device Apple \
-                    Intelligence features are optional and off until you turn them on.
+                    Household Hub keeps your data on this device. Nothing is sent anywhere. Apple Intelligence \
+                    features run on this device only, and each can be turned off in Intelligence.
                     """
                 )
                 .font(.footnote)

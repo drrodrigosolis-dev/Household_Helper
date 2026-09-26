@@ -12,6 +12,12 @@ struct CategorySection: View {
     let onSelect: (UUID?) -> Void
 
     @State private var selectedAngle: Double?
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private var rowLayout: AnyLayout {
+        typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4)) : AnyLayout(HStackLayout(spacing: 12))
+    }
     @Environment(\.colorScheme) private var colorScheme
 
     private func category(_ id: UUID?) -> CategoryRecord? {
@@ -52,16 +58,23 @@ struct CategorySection: View {
                 Button {
                     onSelect(slice.categoryID)
                 } label: {
-                    HStack(spacing: 12) {
-                        let record = category(slice.categoryID)
-                        CategoryBadge(icon: record?.icon ?? "tray", color: record?.color)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(name(slice.categoryID))
-                            Text(AnalyticsFormat.share(slice.share))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                    // At accessibility sizes the amount moves under the name, so names never break mid-word
+                    // (walk run 36214979821 showed "Un-cate-go-rized").
+                    rowLayout {
+                        HStack(spacing: 12) {
+                            let record = category(slice.categoryID)
+                            CategoryBadge(icon: record?.icon ?? "tray", color: record?.color)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(name(slice.categoryID))
+                                Text(AnalyticsFormat.share(slice.share))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .layoutPriority(1)
                         }
-                        Spacer(minLength: 8)
+                        if !typeSize.isAccessibilitySize {
+                            Spacer(minLength: 8)
+                        }
                         AmountText(slice.total.formatted())
                     }
                 }

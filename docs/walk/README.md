@@ -18,3 +18,8 @@ dark, and largest-accessibility-text side by side. Produced by `Scripts/walk-scr
 | Run | Folder | What it shows | Findings |
 |---|---|---|---|
 | 36205435799 (`9635f01`, all green) | [run-36205435799](sprint-4/run-36205435799) | Full walk, all 25 UI tests passing: every screen of Phases 1–5 in light, dark, largest text, incl. Tasks board/detail/editor/columns, Quick Add Task and Wishlist, purchased wishlist item, Dashboard activity | Balances correct after purchase (1,152.50 − 450.00 = 702.50; week 497.50). Still open: gap under wishlist chips (earlier fix ineffective; chips now a ViewThatFits, no ScrollView); large-text wishlist grid broke names mid-word (one column at accessibility sizes); Columns sheet broke "In Progress" mid-word (name gets priority, count moves under it). Fixes in the next commit |
+
+## Sprints 5–9 (Phases 6–10)
+| Run | Folder | What it shows | Findings |
+|---|---|---|---|
+| 36214979821 (`e43e528`; build, 180 unit and 29 UI tests passed, lint red on one fixed line) | [run-36214979821](sprint-9/run-36214979821) | Full walk incl. Analytics (donut, table, trend), Data, Intelligence, lower Settings (Privacy/Face ID, Appearance, Quick Add, Widget, About), Tasks detail with Move to…, Quick Add segments | Balances consistent (CA$1,152.50 before the purchase walk). At largest text the Analytics category name broke mid-word ("Un-cate-go-rized"): rows now stack at accessibility sizes. About text still said AI is off until turned on (outdated by the owner's AI-on decision): reworded. "Understanding" hyphenates at AX5 on Intelligence (system hyphenation, acceptable). The CI model reported available in this run, so the Intelligence footer reads "on this device only"; UI tests now always run without the model |
