@@ -68,7 +68,8 @@ public actor BackupService {
             subtaskItems: sorted(try fetch(SubtaskItem.self).map(Self.dto), by: \.id),
             mediaManifest: manifest,
             accounts: sorted(try fetch(Account.self).map(Self.dto), by: \.id),
-            budgets: sorted(try fetch(CategoryBudget.self).map(Self.dto), by: \.id))
+            budgets: sorted(try fetch(CategoryBudget.self).map(Self.dto), by: \.id),
+            goals: sorted(try fetch(SavingsGoal.self).map(Self.dto), by: \.id))
     }
 
     /// The photo references the store uses now.
@@ -113,6 +114,7 @@ public actor BackupService {
                 return copy
             }
             try merge(wishes, id: \.id, make: Self.make, apply: Self.apply)
+            try merge(backup.goals ?? [], id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.boardColumns, id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.taskItems, id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.subtaskItems, id: \.id, make: Self.make, apply: Self.apply)
@@ -173,6 +175,7 @@ extension TaskItem: Identified { var recordID: UUID { id } }
 extension SubtaskItem: Identified { var recordID: UUID { id } }
 extension Account: Identified { var recordID: UUID { id } }
 extension CategoryBudget: Identified { var recordID: UUID { id } }
+extension SavingsGoal: Identified { var recordID: UUID { id } }
 
 /// Each type has `dto` (export), `make` (a new model), and `apply` (copy every stored field onto a model). `make`
 /// builds a minimal model and calls `apply`, so a new and an updated record end up identical.
@@ -352,6 +355,35 @@ extension BackupService {
         model.currencyCode = dto.currencyCode
         model.rollsOver = dto.rollsOver
         model.start = BudgetMonth(year: dto.startYear, month: dto.startMonth)
+        model.createdAt = dto.createdAt
+        model.updatedAt = dto.updatedAt
+    }
+
+    static func dto(_ model: SavingsGoal) -> BackupDTO.GoalDTO {
+        BackupDTO.GoalDTO(
+            id: model.id, name: model.name, targetMinorUnits: model.targetMinorUnits, currencyCode: model.currencyCode,
+            accountID: model.accountID, targetDate: model.targetDate, wishlistItemID: model.wishlistItemID,
+            isArchived: model.isArchived, sortOrder: model.sortOrder, createdAt: model.createdAt,
+            updatedAt: model.updatedAt)
+    }
+
+    static func make(_ dto: BackupDTO.GoalDTO) -> SavingsGoal {
+        let model = SavingsGoal(
+            id: dto.id, name: dto.name, target: .zero(dto.currencyCode), accountID: dto.accountID, targetDate: nil,
+            wishlistItemID: nil, sortOrder: dto.sortOrder, now: dto.createdAt)
+        apply(dto, to: model)
+        return model
+    }
+
+    static func apply(_ dto: BackupDTO.GoalDTO, to model: SavingsGoal) {
+        model.name = dto.name
+        model.targetMinorUnits = dto.targetMinorUnits
+        model.currencyCode = dto.currencyCode
+        model.accountID = dto.accountID
+        model.targetDate = dto.targetDate
+        model.wishlistItemID = dto.wishlistItemID
+        model.isArchived = dto.isArchived
+        model.sortOrder = dto.sortOrder
         model.createdAt = dto.createdAt
         model.updatedAt = dto.updatedAt
     }

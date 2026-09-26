@@ -17,6 +17,8 @@ struct DashboardView: View {
     @State private var summary: DashboardSummary?
     /// The three budgets closest to, or over, their limit this month (Sprint 11).
     @State private var budgets: [BudgetStatus] = []
+    /// Up to three active savings goals, in list order (Sprint 12 decision 5).
+    @State private var goals: [GoalStatus] = []
     @State private var loadFailed = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -79,6 +81,9 @@ struct DashboardView: View {
                         }
                         if !budgets.isEmpty {
                             budgetsCard(budgets)
+                        }
+                        if !goals.isEmpty {
+                            goalsCard(goals)
                         }
                         upcomingCard(summary.upcoming)
                     } else if loadFailed {
@@ -168,6 +173,26 @@ struct DashboardView: View {
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("dashboard.budget")
                     }
+                }
+            }
+        }
+    }
+
+    /// Up to three active goals; the card opens Wishlist › Goals.
+    private func goalsCard(_ statuses: [GoalStatus]) -> some View {
+        DashboardCard(title: "Goals", identifier: "dashboard.goals", hint: "Opens Wishlist goals") {
+            router.showGoals()
+        } content: {
+            VStack(spacing: 10) {
+                ForEach(statuses) { status in
+                    Button {
+                        router.showGoals()
+                    } label: {
+                        GoalRow(
+                            status: status, accountName: accountRecords.first { $0.id == status.rule.accountID }?.name)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("dashboard.goal")
                 }
             }
         }
@@ -307,6 +332,9 @@ struct DashboardView: View {
             // The budget card fails on its own: a budget problem must not hide the balances.
             let report = (try? await services.transactions.budgetReport(month: .now, calendar: calendar)) ?? []
             budgets = Array(report.sorted { $0.usedFraction > $1.usedFraction }.prefix(3))
+            // Goals fail on their own too.
+            let goalReport = (try? await services.transactions.goalReport(now: .now, calendar: calendar)) ?? []
+            goals = Array(goalReport.filter { !$0.rule.isArchived }.prefix(3))
             loadFailed = false
         } catch {
             loadFailed = true
@@ -320,16 +348,19 @@ private struct DashboardCard<Content: View>: View {
     let identifier: String
     /// The card's figure, read with its title on the button so VoiceOver hears "Current balance, $1,234".
     let value: String?
+    let hint: LocalizedStringKey
     let action: () -> Void
     let content: () -> Content
 
     init(
-        title: LocalizedStringKey, identifier: String, value: String? = nil, action: @escaping () -> Void,
+        title: LocalizedStringKey, identifier: String, value: String? = nil,
+        hint: LocalizedStringKey = "Opens the matching Budget view", action: @escaping () -> Void,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.title = title
         self.identifier = identifier
         self.value = value
+        self.hint = hint
         self.action = action
         self.content = content
     }
@@ -349,7 +380,7 @@ private struct DashboardCard<Content: View>: View {
             }
             .buttonStyle(.plain)
             .accessibilityValue(value.map { Text($0) } ?? Text(""))
-            .accessibilityHint("Opens the matching Budget view")
+            .accessibilityHint(hint)
             .accessibilityIdentifier(identifier)
             content()
         }

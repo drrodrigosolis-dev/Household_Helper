@@ -27,6 +27,8 @@ public struct BackupDTO: Codable, Equatable, Sendable {
     public var accounts: [AccountDTO]?
     /// Category budgets (Sprint 11). Absent in older files, which restore with none.
     public var budgets: [BudgetDTO]?
+    /// Savings goals (Sprint 12). Absent in older files, which restore with none.
+    public var goals: [GoalDTO]?
 
     /// AppSettings minus anything secret (there are no secrets in the store; tokens live in the Keychain, §7.11).
     public struct Settings: Codable, Equatable, Sendable {
@@ -130,6 +132,20 @@ public struct BackupDTO: Codable, Equatable, Sendable {
         public var rollsOver: Bool
         public var startYear: Int
         public var startMonth: Int
+        public var createdAt: Date
+        public var updatedAt: Date
+    }
+
+    public struct GoalDTO: Codable, Equatable, Sendable {
+        public var id: UUID
+        public var name: String
+        public var targetMinorUnits: Int64
+        public var currencyCode: String
+        public var accountID: UUID
+        public var targetDate: Date?
+        public var wishlistItemID: UUID?
+        public var isArchived: Bool
+        public var sortOrder: Int
         public var createdAt: Date
         public var updatedAt: Date
     }

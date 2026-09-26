@@ -188,6 +188,9 @@ struct AccountsView: View {
                 errorMessage = nil
             } catch LedgerError.accountInUse {
                 inUse = accounts.first { $0.id == id }
+            } catch GoalError.usedByGoals {
+                errorMessage = String(
+                    localized: "A savings goal uses that account. Change or delete the goal, or archive the account.")
             } catch {
                 errorMessage = String(localized: "That account couldn't be deleted.")
             }
@@ -347,6 +350,8 @@ struct AccountEditorView: View {
             }
             await WidgetSync.refresh(services)
             dismiss()
+        } catch GoalError.usedByGoals {
+            errorMessage = String(localized: "A savings goal uses this account, so it can't become a credit card.")
         } catch {
             errorMessage = String(localized: "The account couldn't be saved.")
         }

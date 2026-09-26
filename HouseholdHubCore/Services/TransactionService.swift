@@ -98,7 +98,8 @@ public actor TransactionService {
         let wishes = try modelContext.fetchCount(FetchDescriptor<WishlistItem>())
         let accounts = try modelContext.fetchCount(FetchDescriptor<Account>())
         let budgets = try modelContext.fetchCount(FetchDescriptor<CategoryBudget>())
-        return records + series + wishes + budgets > 0 || accounts > 1
+        let goals = try modelContext.fetchCount(FetchDescriptor<SavingsGoal>())
+        return records + series + wishes + budgets + goals > 0 || accounts > 1
     }
 
     private func applyHousehold(

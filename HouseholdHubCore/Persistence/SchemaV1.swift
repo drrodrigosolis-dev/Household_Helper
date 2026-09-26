@@ -9,6 +9,7 @@ public enum SchemaV1: VersionedSchema {
         [
             AppSettings.self, CategoryRecord.self, Merchant.self, TransactionRecord.self, RecurringTransaction.self,
             WishlistItem.self, BoardColumn.self, TaskItem.self, SubtaskItem.self, Account.self, CategoryBudget.self,
+            SavingsGoal.self,
         ]
     }
 }

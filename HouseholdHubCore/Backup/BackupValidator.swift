@@ -98,6 +98,31 @@ public enum BackupValidator {
                 throw BackupError.inconsistentLink(entity: "budgets", field: "categoryID")
             }
         }
+        // Savings goals (Sprint 12): a name, a bounded positive target in the household currency, an account that
+        // holds money, and at most one goal per wishlist item.
+        let goalList = backup.goals ?? []
+        _ = try ids(goalList.map(\.id), "goals")
+        let goalItems = goalList.compactMap(\.wishlistItemID)
+        guard Set(goalItems).count == goalItems.count else {
+            throw BackupError.duplicateID(entity: "goals.wishlistItemID")
+        }
+        for goal in goalList {
+            guard !goal.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw BackupError.invalidValue(entity: "goals", field: "name", value: goal.name)
+            }
+            try positive(goal.targetMinorUnits, "goals", "targetMinorUnits")
+            guard goal.targetMinorUnits <= maxBudgetMinorUnits else {
+                throw BackupError.invalidValue(
+                    entity: "goals", field: "targetMinorUnits", value: "\(goal.targetMinorUnits)")
+            }
+            try sameCurrency(goal.currencyCode, currency, "goals")
+            try required(goal.accountID, in: accounts, "goals", "accountID")
+            let account = accountList.first { $0.id == goal.accountID }
+            guard account.flatMap({ AccountKind(rawValue: $0.kind) })?.isLiability == false else {
+                throw BackupError.inconsistentLink(entity: "goals", field: "accountID")
+            }
+            try exists(goal.wishlistItemID, in: wishes, "goals", "wishlistItemID")
+        }
         for merchant in backup.merchants {
             try exists(merchant.defaultCategoryID, in: categories, "merchants", "defaultCategoryID")
         }
@@ -255,7 +280,7 @@ public enum BackupValidator {
         return unique
     }
 
-    /// Largest budget limit a backup may carry: one billion in major units of a two-decimal currency.
+    /// Largest budget limit or goal target a backup may carry: one billion in major units of a two-decimal currency.
     static let maxBudgetMinorUnits: Int64 = 100_000_000_000
 
     /// A transfer names two different accounts and no category; nothing else names a destination (Sprint 10).
@@ -321,6 +346,15 @@ extension BackupDTO {
                 taskItems[index].linkedTransactionID = nil
                 dropped += 1
             }
+        }
+        if var list = goals {
+            for index in list.indices {
+                if let id = list[index].wishlistItemID, !wishIDs.contains(id) {
+                    list[index].wishlistItemID = nil
+                    dropped += 1
+                }
+            }
+            goals = list
         }
         let backLinks = Dictionary(
             taskItems.compactMap { task in task.linkedWishlistItemID.map { (task.id, $0) } },

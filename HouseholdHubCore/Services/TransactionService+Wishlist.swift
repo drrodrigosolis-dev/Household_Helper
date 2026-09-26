@@ -61,12 +61,15 @@ extension TransactionService {
     }
 
     /// Deletes the item only (spec §8.2): a linked purchase stays in the ledger, with its link cleared. Returns the
-    /// item's media reference so the caller can remove the image file after the delete is saved.
+    /// item's media reference so the caller can remove the image file after the delete is saved. An item a savings
+    /// goal uses can't be deleted (Sprint 12 decision 6).
     @discardableResult
     public func deleteWishlistItem(_ id: UUID, now: Date) throws -> String? {
         begin()
         // Every fetch happens before the first edit, so a failed fetch leaves no pending edits behind.
         let item = try requireWishlistItem(id)
+        let goals = try goalCount(usingWishlistItem: id)
+        guard goals == 0 else { throw GoalError.usedByGoals(count: goals) }
         let media = item.mediaReference
         let record = try item.purchasedTransactionID.flatMap { try transaction($0) }
         let itemID: UUID? = id

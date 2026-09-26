@@ -39,12 +39,17 @@ extension TransactionService {
         return account.id
     }
 
-    /// Renames, re-kinds, or corrects an account's baseline (§9.1: a baseline, so no transaction changes).
+    /// Renames, re-kinds, or corrects an account's baseline (§9.1: a baseline, so no transaction changes). An account
+    /// a savings goal uses can't become a credit card.
     public func updateAccount(_ id: UUID, with draft: AccountDraft, now: Date) throws {
         begin()
         let settings = try requireSettings()
         try requireValid(draft, settings: settings, now: now)
         let account = try requireAccount(id)
+        if draft.kind.isLiability, !account.kind.isLiability {
+            let goals = try goalCount(usingAccount: id)
+            guard goals == 0 else { throw GoalError.usedByGoals(count: goals) }
+        }
         account.name = draft.trimmedName
         account.kind = draft.kind
         account.startingBalanceMinorUnits = draft.startingBalance.minorUnits
@@ -66,7 +71,7 @@ extension TransactionService {
     }
 
     /// Deletes an account nothing references (Sprint 10 decision 4); otherwise it is refused and the caller offers
-    /// archiving. The default account can't be deleted.
+    /// archiving. The default account can't be deleted, nor one a savings goal uses (Sprint 12 decision 6).
     public func deleteAccount(_ id: UUID) throws {
         begin()
         let settings = try requireSettings()
@@ -74,6 +79,8 @@ extension TransactionService {
         guard settings.defaultAccountID != id else { throw LedgerError.defaultAccountRequired }
         let references = try accountReferenceCount(id)
         guard references == 0 else { throw LedgerError.accountInUse(referenceCount: references) }
+        let goals = try goalCount(usingAccount: id)
+        guard goals == 0 else { throw GoalError.usedByGoals(count: goals) }
         modelContext.delete(account)
         try commit()
     }
