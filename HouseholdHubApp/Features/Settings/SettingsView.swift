@@ -97,9 +97,10 @@ struct SettingsView: View {
                     """
                     Household Hub keeps your data on this device. Nothing is sent anywhere, and on-device Apple \
                     Intelligence features are optional and off until you turn them on.
-                    """)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    """
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             }
         }
         .navigationTitle("Settings")
