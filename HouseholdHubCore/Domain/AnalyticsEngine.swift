@@ -114,9 +114,10 @@ public struct AnalyticsEngine: Sendable {
         currencyCode: String, includePending: Bool = false
     ) throws -> AnalyticsReport {
         let interval = period.interval(now: now, calendar: calendar)
-        let counted = entries.filter {
-            ($0.status == .posted || (includePending && $0.status == .pending)) && $0.type != .transfer && $0.occurredAt >= interval.start
-                && $0.occurredAt < interval.end && $0.occurredAt <= now
+        let counted = entries.filter { entry in
+            let countedStatus = entry.status == .posted || (includePending && entry.status == .pending)
+            return countedStatus && entry.type != .transfer && entry.occurredAt >= interval.start
+                && entry.occurredAt < interval.end && entry.occurredAt <= now
         }
         for entry in counted where entry.amount.currencyCode != currencyCode {
             throw LedgerError.currencyMismatch(expected: currencyCode, actual: entry.amount.currencyCode)
