@@ -70,8 +70,8 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
         ).day ?? 30
         let upcoming = summary.upcoming.prefix(2).map { item in
             Upcoming(
-                title: showAmounts ? item.title : nil, date: item.date, amountMinorUnits: showAmounts ? abs(item.amount.minorUnits) : nil,
-                isIncome: item.type == .income)
+                title: showAmounts ? item.title : nil, date: item.date,
+                amountMinorUnits: showAmounts ? abs(item.amount.minorUnits) : nil, isIncome: item.type == .income)
         }
         return WidgetSnapshot(
             generatedAt: now, currencyCode: balance.current.currencyCode,
@@ -79,6 +79,20 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
             pendingImpactMinorUnits: showAmounts ? balance.pendingImpact.minorUnits : nil,
             projectedMinorUnits: showAmounts ? balance.projected.minorUnits : nil, projectionDays: days,
             upcoming: Array(upcoming))
+    }
+
+    /// No amounts and no items: what a live widget shows before the app has written a snapshot, or after it failed
+    /// to compute one. Never invented figures.
+    public static func placeholder(now: Date, currencyCode: String = "CAD") -> WidgetSnapshot {
+        WidgetSnapshot(
+            generatedAt: now, currencyCode: currencyCode, currentMinorUnits: nil, pendingImpactMinorUnits: nil,
+            projectedMinorUnits: nil, projectionDays: 30, upcoming: [])
+    }
+
+    /// Items still ahead of `now`; a widget that isn't reloaded must not list past items as upcoming.
+    public func upcoming(from now: Date, calendar: HouseholdCalendar) -> [Upcoming] {
+        let today = calendar.startOfDay(for: now)
+        return upcoming.filter { $0.date >= today }
     }
 
     /// Fixture for the simulator, previews, and the free Personal Team, where no App Group exists (spec §5.2).
@@ -126,10 +140,10 @@ public struct AppGroupWidgetDataProvider: WidgetDataProvider {
         return AppGroupWidgetDataProvider(store: store)
     }
 
-    /// The saved snapshot, or the fixture until the app has written one (a missing or unreadable file never shows
-    /// an error on the Home Screen).
+    /// The saved snapshot, or an amount-free placeholder until the app has written one. A live widget never shows
+    /// the fixture's invented figures, and a missing or unreadable file never shows an error on the Home Screen.
     public func snapshot(now: Date) -> WidgetSnapshot {
-        store.read() ?? .sample(now: now)
+        store.read() ?? .placeholder(now: now)
     }
 }
 

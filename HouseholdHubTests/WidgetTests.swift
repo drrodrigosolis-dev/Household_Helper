@@ -78,11 +78,26 @@ struct WidgetTests {
     /// Simulator, which does not enforce App Group entitlements, so for it only the fallback is checked.
     @Test(arguments: [nil, "", "group.invalid.householdhub.test"])
     func withoutAnEntitledAppGroupTheFixtureIsUsed(_ identifier: String?) {
+        let shown = WidgetDataSource.provider(groupIdentifier: identifier).snapshot(now: now)
         if identifier?.isEmpty ?? true {
             #expect(WidgetSnapshotStore.appGroup(identifier) == nil)
+            #expect(shown == WidgetSnapshot.sample(now: now))
+        } else {
+            // Simulator: a container may exist without the entitlement; with no file, amounts are never invented.
+            #expect(shown == WidgetSnapshot.sample(now: now) || shown == WidgetSnapshot.placeholder(now: now))
         }
-        let provider = WidgetDataSource.provider(groupIdentifier: identifier)
-        #expect(provider.snapshot(now: now) == WidgetSnapshot.sample(now: now))
+    }
+
+    @Test func aLiveWidgetWithoutASnapshotShowsNoFigures() {
+        let provider = AppGroupWidgetDataProvider(store: WidgetSnapshotStore(directory: temporaryDirectory()))
+        let shown = provider.snapshot(now: now)
+        #expect(shown.amountsHidden && shown.upcoming.isEmpty)
+    }
+
+    @Test func pastItemsDropOutOfUpcoming() {
+        let snapshot = WidgetSnapshot.make(from: summary(), showAmounts: true, now: now, calendar: calendar)
+        let later = now.addingTimeInterval(2 * 86_400)
+        #expect(snapshot.upcoming(from: later, calendar: calendar).map(\.title) == ["Item 2"])
     }
 
     @Test func widgetSettingDefaultsOnAndRoundTripsThroughBackups() async throws {
@@ -105,5 +120,96 @@ struct WidgetTests {
         backup.settings.widgetShowsBalance = nil
         _ = try await BackupService.make(container: target).restore(backup, availableMedia: [], now: now)
         #expect(try stored(target))
+    }
+}
+
+/// The Log Transaction shortcut's parse-and-validate step (Sprint 8 review: the intent's write path needs tests).
+struct ShortcutEntryTests {
+    private let now = Date(timeIntervalSince1970: 1_790_000_000)
+    private let calendar = HouseholdCalendar(timeZone: TimeZone(identifier: "America/Vancouver")!)
+
+    private func settings(onboarded: Bool = true, currency: String = "CAD") -> SettingsSnapshot {
+        SettingsSnapshot(
+            currencyCode: currency, onboardingCompleted: onboarded,
+            startingBalance: Money(minorUnits: 0, currencyCode: currency), startingBalanceDate: now,
+            includePendingInProjection: false)
+    }
+
+    struct Case: Sendable, CustomTestStringConvertible {
+        let text: String
+        let minorUnits: Int64
+        let income: Bool
+        let daysBack: Int
+        let notes: String?
+        var testDescription: String { text }
+    }
+
+    static let cases = [
+        Case(text: "47.50 coffee", minorUnits: 4_750, income: false, daysBack: 0, notes: "coffee"),
+        Case(text: "+ 1200 paycheck", minorUnits: 120_000, income: true, daysBack: 0, notes: "paycheck"),
+        Case(text: "18 lunch yesterday", minorUnits: 1_800, income: false, daysBack: 1, notes: "lunch"),
+        // A tag is dropped, not matched: the intent has no category list.
+        Case(text: "32.10 groceries #food", minorUnits: 3_210, income: false, daysBack: 0, notes: "groceries"),
+        Case(text: "12", minorUnits: 1_200, income: false, daysBack: 0, notes: nil),
+    ]
+
+    @Test(arguments: cases)
+    func entriesBecomeWidgetSourcedDraftsInTheHouseholdCurrency(_ entry: Case) throws {
+        let draft = try ShortcutEntry.draft(text: entry.text, settings: settings(), now: now, calendar: calendar)
+        #expect(draft.amount == Money(minorUnits: entry.minorUnits, currencyCode: "CAD"))
+        #expect(draft.type == (entry.income ? .income : .expense))
+        #expect(draft.source == .widget)
+        #expect(draft.categoryID == nil)
+        #expect(draft.notes == entry.notes)
+        #expect(draft.occurredAt == calendar.calendar.date(byAdding: .day, value: -entry.daysBack, to: now))
+    }
+
+    @Test func nothingIsDraftedWithoutAnAmountOrBeforeSetup() {
+        #expect(throws: ShortcutEntryError.noAmount) {
+            try ShortcutEntry.draft(text: "coffee", settings: settings(), now: now, calendar: calendar)
+        }
+        #expect(throws: ShortcutEntryError.notSetUp) {
+            try ShortcutEntry.draft(text: "47.50 coffee", settings: nil, now: now, calendar: calendar)
+        }
+        #expect(throws: ShortcutEntryError.notSetUp) {
+            try ShortcutEntry.draft(
+                text: "47.50 coffee", settings: settings(onboarded: false), now: now, calendar: calendar)
+        }
+    }
+
+    @Test func aShortcutDraftIsStoredOnceWithItsSource() async throws {
+        let container = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
+        let ledger = TransactionService.make(container: container)
+        try await ledger.completeOnboarding(
+            currencyCode: "CAD", startingBalance: .zero("CAD"), asOf: now, now: now)
+        let draft = try ShortcutEntry.draft(
+            text: "47.50 coffee", settings: try await ledger.settingsSnapshot(), now: now, calendar: calendar)
+        try await ledger.create(draft, now: now)
+        let records = try ModelContext(container).fetch(FetchDescriptor<TransactionRecord>())
+        #expect(records.count == 1)
+        #expect(records.first?.source == .widget)
+    }
+
+    /// The widget's figures are the Dashboard's, and hiding amounts removes them (Sprint 8 review).
+    @Test func serviceSnapshotMatchesTheDashboardAndHonoursTheSwitch() async throws {
+        let container = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
+        let ledger = TransactionService.make(container: container)
+        try await ledger.completeOnboarding(
+            currencyCode: "CAD", startingBalance: Money(minorUnits: 100_000, currencyCode: "CAD"),
+            asOf: now.addingTimeInterval(-30 * 86_400), now: now)
+        let cad = { (minor: Int64) in Money(minorUnits: minor, currencyCode: "CAD") }
+        try await ledger.create(
+            TransactionDraft(amount: cad(4_750), type: .expense, occurredAt: now.addingTimeInterval(-3_600)), now: now)
+        try await ledger.create(
+            TransactionDraft(
+                amount: cad(1_000), type: .expense, occurredAt: now.addingTimeInterval(-7_200), status: .pending),
+            now: now)
+        let summary = try await ledger.dashboardSummary(now: now, calendar: calendar)
+        let shown = try await ledger.widgetSnapshot(now: now, calendar: calendar)
+        #expect(shown == WidgetSnapshot.make(from: summary, showAmounts: true, now: now, calendar: calendar))
+        #expect(shown.current == cad(95_250))
+        try await ledger.setWidgetShowsBalance(false, now: now)
+        let hidden = try await ledger.widgetSnapshot(now: now, calendar: calendar)
+        #expect(hidden.amountsHidden && hidden.pendingImpact == nil && hidden.projected == nil)
     }
 }

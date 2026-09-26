@@ -329,6 +329,19 @@ struct BackupTests {
         #expect(images.references(in: .wishlist).count == 1)
     }
 
+    /// Phase 10 review B1: the backup's copy of a photo can't be read, but the device already has the same file.
+    @Test func restoreKeepsAPhotoTheDeviceAlreadyHasWhenTheBackupCopyIsUnreadable() async throws {
+        let source = try makeServices()
+        try await populate(source)
+        let images = imageStore()
+        try images.restore(try jpeg(imageStore()), as: Self.lamp)
+        let backup = try await snapshot(source, media: [Self.lamp])
+        let flow = BackupFlow(service: try makeServices().backup, images: images)
+        let summary = try await flow.restore(backup, media: [:], now: now)
+        #expect(summary.missingMedia == 0)
+        #expect(images.fileSize(of: Self.lamp) != nil, "The intact local photo must survive the restore")
+    }
+
     @Test func failedRestoreLeavesPhotosAsTheyWere() async throws {
         let target = try makeServices()
         try await target.ledger.ensureSettings(currencyCode: "CAD", now: now)

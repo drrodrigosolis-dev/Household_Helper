@@ -7,10 +7,15 @@ import WidgetKit
 enum WidgetSync {
     @MainActor
     static func refresh(_ services: AppServices?) async {
-        guard let services, let store = WidgetSnapshotStore.appGroup(AppInfo.appGroupIdentifier),
-            let snapshot = try? await services.transactions.widgetSnapshot(
-                now: .now, calendar: HouseholdCalendar(timeZone: .current))
-        else { return }
+        // UI tests run on a throwaway in-memory store; they must never replace the real widget's file.
+        guard !ProcessInfo.processInfo.arguments.contains(LaunchArguments.uiTesting) else { return }
+        guard let services, let store = WidgetSnapshotStore.appGroup(AppInfo.appGroupIdentifier) else { return }
+        let now = Date.now
+        // If the figures can't be computed, replace the old file with an amount-free one rather than leave amounts
+        // the user may just have hidden.
+        let snapshot =
+            (try? await services.transactions.widgetSnapshot(now: now, calendar: HouseholdCalendar(timeZone: .current)))
+            ?? .placeholder(now: now)
         try? store.write(snapshot)
         WidgetCenter.shared.reloadTimelines(ofKind: WidgetSnapshot.widgetKind)
     }

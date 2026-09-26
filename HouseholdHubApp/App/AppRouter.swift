@@ -20,6 +20,8 @@ final class AppRouter {
     var budgetFilter = TransactionFilter()
     /// Quick Add opened from outside the app (widget link, Shortcuts), shown over whatever tab is active.
     var isQuickAddPresented = false
+    /// True while first-run setup is showing; outside requests to open Quick Add wait until it is done.
+    var isOnboarding = false
 
     func showBudget(_ segment: BudgetView.Segment, filter: TransactionFilter = TransactionFilter()) {
         budgetSegment = segment

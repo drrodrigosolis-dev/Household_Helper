@@ -7,7 +7,7 @@ import WidgetKit
 struct SummaryWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: WidgetSnapshot.widgetKind, provider: SummaryProvider()) { entry in
-            SummaryWidgetView(snapshot: entry.snapshot)
+            SummaryWidgetView(snapshot: entry.snapshot, now: entry.date)
                 .containerBackground(.background, for: .widget)
         }
         .configurationDisplayName("Household Hub")
@@ -38,15 +38,25 @@ struct SummaryProvider: TimelineProvider {
         completion(SummaryEntry(date: now, snapshot: snapshot))
     }
 
+    /// One entry; the app reloads after each change, and the widget also refreshes after midnight so items that
+    /// have passed drop out of "Upcoming".
     func getTimeline(in context: Context, completion: @escaping @Sendable (Timeline<SummaryEntry>) -> Void) {
         let now = Date.now
-        completion(Timeline(entries: [SummaryEntry(date: now, snapshot: source.snapshot(now: now))], policy: .never))
+        let calendar = HouseholdCalendar(timeZone: .current)
+        let tomorrow = calendar.calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now
+        let entry = SummaryEntry(date: now, snapshot: source.snapshot(now: now))
+        completion(Timeline(entries: [entry], policy: .after(tomorrow)))
     }
 }
 
 struct SummaryWidgetView: View {
     let snapshot: WidgetSnapshot
+    var now = Date.now
     @Environment(\.widgetFamily) private var family
+
+    private var upcoming: [WidgetSnapshot.Upcoming] {
+        snapshot.upcoming(from: now, calendar: HouseholdCalendar(timeZone: .current))
+    }
 
     var body: some View {
         switch family {
@@ -88,10 +98,10 @@ struct SummaryWidgetView: View {
             }
             VStack(alignment: .leading, spacing: 6) {
                 Text("Upcoming").font(.caption).foregroundStyle(.secondary).accessibilityAddTraits(.isHeader)
-                if snapshot.upcoming.isEmpty {
+                if upcoming.isEmpty {
                     Text("Nothing due soon").font(.caption)
                 }
-                ForEach(Array(snapshot.upcoming.enumerated()), id: \.offset) { _, item in
+                ForEach(Array(upcoming.enumerated()), id: \.offset) { _, item in
                     upcomingRow(item)
                 }
                 Spacer(minLength: 0)

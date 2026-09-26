@@ -93,6 +93,7 @@ struct AppRootView: View {
         .environment(router)
         .task { await bootstrap() }
         .sheet(isPresented: $router.isQuickAddPresented) { QuickAddView() }
+        .onChange(of: needsOnboarding, initial: true) { router.isOnboarding = needsOnboarding }
         .sheet(isPresented: $needsOnboarding) {
             OnboardingView { needsOnboarding = false }
                 .interactiveDismissDisabled()

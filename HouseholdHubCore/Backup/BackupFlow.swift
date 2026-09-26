@@ -86,9 +86,15 @@ public struct BackupFlow: Sendable {
                 written.insert(reference)
             }
         }
+        // A photo the backup refers to but whose copy in the folder couldn't be read (an iCloud file not downloaded,
+        // a size mismatch) is still usable if this device already has it: references are UUIDs, so it is the same
+        // image. Without this, restoring this device's own backup could delete intact photos.
+        let referenced = Set(backup.wishlistItems.compactMap(\.mediaReference))
+        let onDevice = referenced.subtracting(written).filter { images?.fileSize(of: $0) != nil }
+        let available = written.union(onDevice)
         do {
-            let summary = try await service.restore(backup, availableMedia: written, now: now)
-            let kept = Set(backup.wishlistItems.compactMap(\.mediaReference)).intersection(written)
+            let summary = try await service.restore(backup, availableMedia: available, now: now)
+            let kept = referenced.intersection(available)
             for reference in images?.references(in: .wishlist) ?? [] where !kept.contains(reference) {
                 try? images?.delete(reference)
             }
