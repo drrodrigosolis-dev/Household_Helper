@@ -63,4 +63,18 @@ struct DomainValueTests {
         #expect(try expense.balanceEffect().minorUnits == -4750)
         #expect(try transfer.balanceEffect().isZero)
     }
+
+    /// Phase 10 accessibility: every category palette color reaches 3:1 against the dark chart background after
+    /// adjustment, and colors that already pass are left alone.
+    static let palette = SystemCategory.defaults.map(\.color)
+
+    @Test(arguments: palette)
+    func paletteColorsKeepNonTextContrastInDarkMode(_ color: ColorToken) {
+        let background = ColorToken.darkSecondaryBackground
+        let adjusted = color.ensuringContrast(against: background)
+        #expect(adjusted.contrastRatio(with: background) >= 3)
+        if color.contrastRatio(with: background) >= 3 {
+            #expect(adjusted == color)
+        }
+    }
 }

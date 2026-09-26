@@ -51,4 +51,31 @@ public struct ColorToken: Codable, Hashable, Sendable {
     public func meetsAAContrast(against background: ColorToken, largeText: Bool = false) -> Bool {
         contrastRatio(with: background) >= (largeText ? 3 : 4.5)
     }
+
+    /// iOS's secondary grouped background in Dark Mode, where the Analytics chart sits.
+    public static let darkSecondaryBackground = ColorToken(red: 0x1C, green: 0x1C, blue: 0x1E)
+
+    /// This color, mixed toward white (on a dark background) or black (on a light one) in small steps only as far as
+    /// needed to reach `minimum` contrast, so a chart mark stays distinguishable from its background (WCAG 1.4.11).
+    /// Colors that already meet it come back unchanged.
+    public func ensuringContrast(against background: ColorToken, minimum: Double = 3) -> ColorToken {
+        guard contrastRatio(with: background) < minimum else { return self }
+        let target: ColorToken = background.relativeLuminance < 0.5 ? .white : .black
+        for step in 1...20 {
+            let candidate = mixed(with: target, fraction: Double(step) / 20)
+            if candidate.contrastRatio(with: background) >= minimum {
+                return candidate
+            }
+        }
+        return target
+    }
+
+    private func mixed(with other: ColorToken, fraction: Double) -> ColorToken {
+        func channel(_ from: UInt8, _ to: UInt8) -> UInt8 {
+            UInt8((Double(from) + (Double(to) - Double(from)) * fraction).rounded())
+        }
+        return ColorToken(
+            red: channel(red, other.red), green: channel(green, other.green), blue: channel(blue, other.blue),
+            alpha: alpha)
+    }
 }

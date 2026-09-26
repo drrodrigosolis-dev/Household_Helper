@@ -12,6 +12,7 @@ struct CategorySection: View {
     let onSelect: (UUID?) -> Void
 
     @State private var selectedAngle: Double?
+    @Environment(\.colorScheme) private var colorScheme
 
     private func category(_ id: UUID?) -> CategoryRecord? {
         categories.first { $0.id == id }
@@ -21,8 +22,10 @@ struct CategorySection: View {
         category(id)?.name ?? String(localized: "Uncategorized")
     }
 
+    /// In Dark Mode, category colors are lightened just enough to keep 3:1 against the chart's background.
     private func color(_ id: UUID?) -> Color {
-        category(id).map { Color($0.color) } ?? .gray
+        guard let token = category(id)?.color else { return .gray }
+        return Color(colorScheme == .dark ? token.ensuringContrast(against: .darkSecondaryBackground) : token)
     }
 
     var body: some View {

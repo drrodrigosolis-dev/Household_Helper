@@ -206,6 +206,50 @@ struct CategoryEditorView: View {
     ]
     static let palette = SystemCategory.defaults.map(\.color)
 
+    /// Spoken names for the palette and icons; VoiceOver would otherwise read hex codes and symbol names.
+    static func colorName(_ token: ColorToken) -> String {
+        switch token.hex {
+        case "#2E7D32FF": String(localized: "Green")
+        case "#C62828FF": String(localized: "Red")
+        case "#1565C0FF": String(localized: "Blue")
+        case "#EF6C00FF": String(localized: "Orange")
+        case "#6A1B9AFF": String(localized: "Purple")
+        case "#AD1457FF": String(localized: "Pink")
+        case "#00838FFF": String(localized: "Teal")
+        case "#4527A0FF": String(localized: "Indigo")
+        case "#546E7AFF": String(localized: "Slate")
+        case "#00695CFF": String(localized: "Dark teal")
+        case "#558B2FFF": String(localized: "Olive")
+        default: token.hex
+        }
+    }
+
+    static func iconName(_ symbol: String) -> String {
+        switch symbol {
+        case "cart": String(localized: "Shopping cart")
+        case "fork.knife": String(localized: "Dining")
+        case "house": String(localized: "House")
+        case "bolt": String(localized: "Electricity")
+        case "car": String(localized: "Car")
+        case "cross.case": String(localized: "First aid")
+        case "film": String(localized: "Film")
+        case "bag": String(localized: "Bag")
+        case "gift": String(localized: "Gift")
+        case "pawprint": String(localized: "Pets")
+        case "book": String(localized: "Book")
+        case "gamecontroller": String(localized: "Games")
+        case "airplane": String(localized: "Travel")
+        case "cup.and.saucer": String(localized: "Coffee")
+        case "tshirt": String(localized: "Clothing")
+        case "wrench.and.screwdriver": String(localized: "Repairs")
+        case "briefcase": String(localized: "Work")
+        case "plus.circle": String(localized: "Plus")
+        case "heart": String(localized: "Heart")
+        case "ellipsis.circle": String(localized: "Other")
+        default: symbol.replacingOccurrences(of: ".", with: " ")
+        }
+    }
+
     let mode: Mode
     @Environment(\.services) private var services
     @Environment(\.dismiss) private var dismiss
@@ -253,7 +297,7 @@ struct CategoryEditorView: View {
                                 CategoryBadge(icon: symbol, color: symbol == icon ? color : nil)
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel(symbol.replacingOccurrences(of: ".", with: " "))
+                            .accessibilityLabel(CategoryEditorView.iconName(symbol))
                             .accessibilityAddTraits(symbol == icon ? .isSelected : [])
                         }
                     }
@@ -270,7 +314,7 @@ struct CategoryEditorView: View {
                                     .overlay(Circle().stroke(.primary, lineWidth: token == color ? 3 : 0))
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel(token.hex)
+                            .accessibilityLabel(CategoryEditorView.colorName(token))
                             .accessibilityAddTraits(token == color ? .isSelected : [])
                         }
                     }
