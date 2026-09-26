@@ -48,9 +48,7 @@ final class WishlistUITests: XCTestCase {
     @MainActor
     func testQuickAddWishlistSegmentCreatesAnItem() {
         let app = launchApp()
-        app.buttons["quickadd.button"].tap()
-        let field = app.textFields["quickadd.text"]
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let field = openQuickAdd(app)
         field.tap()
         field.typeText("250 new bike")
         app.segmentedControls["quickadd.type"].buttons["Wishlist"].tap()

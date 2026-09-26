@@ -29,9 +29,7 @@ final class BudgetUITests: XCTestCase {
     @MainActor
     func testSaveStaysDisabledWithoutAnAmount() {
         let app = launchApp()
-        app.buttons["quickadd.button"].tap()
-        let field = app.textFields["quickadd.text"]
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let field = openQuickAdd(app)
         field.tap()
         field.typeText("coffee")
         XCTAssertFalse(app.buttons["quickadd.save"].isEnabled)

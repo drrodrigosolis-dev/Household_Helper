@@ -26,9 +26,7 @@ final class WalkUITests: XCTestCase {
         let app = launchApp(variant: variant)
         addViaQuickAdd(app, "47.50 coffee")
         addViaQuickAdd(app, "+ 1200 paycheck")
-        app.buttons["quickadd.button"].tap()
-        let field = app.textFields["quickadd.text"]
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let field = openQuickAdd(app)
         field.tap()
         field.typeText("32.10 groceries yesterday")
         captureScreen(app, named: "\(variant.rawValue)-QuickAdd")
@@ -77,9 +75,7 @@ final class WalkUITests: XCTestCase {
         captureScreen(app, named: "\(prefix)-Columns")
         app.navigationBars["Columns"].buttons["Done"].tap()
 
-        app.buttons["quickadd.button"].tap()
-        let quick = app.textFields["quickadd.text"]
-        XCTAssertTrue(quick.waitForExistence(timeout: 5))
+        let quick = openQuickAdd(app)
         quick.tap()
         quick.typeText("call plumber tomorrow")
         app.segmentedControls["quickadd.type"].buttons["Task"].tap()
@@ -110,9 +106,7 @@ final class WalkUITests: XCTestCase {
         app.tabBars.buttons["Dashboard"].tap()
         captureScreen(app, named: "\(prefix)-Dashboard-activity")
 
-        app.buttons["quickadd.button"].tap()
-        let field = app.textFields["quickadd.text"]
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let field = openQuickAdd(app)
         field.tap()
         field.typeText("80 plant stand")
         app.segmentedControls["quickadd.type"].buttons["Wishlist"].tap()

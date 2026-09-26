@@ -50,9 +50,7 @@ final class TasksUITests: XCTestCase {
     @MainActor
     func testQuickAddTaskSegmentCreatesATask() {
         let app = launchApp()
-        app.buttons["quickadd.button"].tap()
-        let field = app.textFields["quickadd.text"]
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let field = openQuickAdd(app)
         field.tap()
         field.typeText("call plumber tomorrow")
         app.segmentedControls["quickadd.type"].buttons["Task"].tap()

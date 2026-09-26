@@ -20,6 +20,11 @@ result, and why it could not be walked automatically. Emptied at the next walk o
   text must only quote figures shown on the screen. Also run the unit tests there: the live AI fixtures run only
   where the model is available. Why queued: the CI simulator has no Apple Intelligence model.
 
+- **Cold-launch time (Phase 10 hardening).** In CI run 36209505191 one UI test launch showed a blank white screen
+  for ~22 s before the Dashboard (others launch in 3–4 s). Time a cold launch on the Mac/device with Instruments
+  (App Launch) and check whether container creation or seeding blocks the first frame. Why queued: needs
+  Instruments; the CI simulator is shared and noisy.
+
 ## Done
 - ~~Sprint 0/1 (Phases 0–1) — visual pass of the tab shell.~~ Covered by the automated screenshot walks from Sprint 2
   on (every tab and More › Analytics / Settings in light, dark, and largest text; `docs/walk/`).

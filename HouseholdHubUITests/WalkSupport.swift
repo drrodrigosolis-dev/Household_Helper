@@ -37,12 +37,27 @@ extension XCTestCase {
         add(attachment)
     }
 
+    /// Opens the Quick Add sheet and returns its text field. Waits for the button first: a cold simulator launch can
+    /// keep the first frame blank for 20 s or more (run 36209505191). If the sheet hasn't appeared shortly after the
+    /// tap, taps once more; that is safe because a second tap only happens while no sheet is showing.
+    @MainActor
+    @discardableResult
+    func openQuickAdd(_ app: XCUIApplication) -> XCUIElement {
+        let button = app.buttons["quickadd.button"]
+        XCTAssertTrue(button.waitForExistence(timeout: 30), "Quick Add button never appeared")
+        button.tap()
+        let field = app.textFields["quickadd.text"]
+        if !field.waitForExistence(timeout: 3), button.isHittable {
+            button.tap()
+        }
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Quick Add sheet did not open")
+        return field
+    }
+
     /// Records a transaction through the real Quick Add sheet.
     @MainActor
     func addViaQuickAdd(_ app: XCUIApplication, _ text: String) {
-        app.buttons["quickadd.button"].tap()
-        let field = app.textFields["quickadd.text"]
-        XCTAssertTrue(field.waitForExistence(timeout: 5), "Quick Add sheet did not open")
+        let field = openQuickAdd(app)
         field.tap()
         field.typeText(text)
         app.buttons["quickadd.save"].tap()

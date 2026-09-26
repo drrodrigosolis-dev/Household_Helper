@@ -80,10 +80,16 @@ struct TaskDetailView: View {
                     Button("Reopen", systemImage: "arrow.uturn.backward.circle") { setCompleted(false, task) }
                 }
                 // A plain menu (no long press, no drag) is the dependable non-drag path to another column (§24.5).
-                Menu("Move to…", systemImage: "arrow.right.circle") {
+                // The label fills the row so a tap anywhere on it opens the menu, as for the buttons around it; the
+                // default label is only as wide as its text (run 36209505191).
+                Menu {
                     ForEach(columns.filter { $0.id != task.columnID }) { column in
                         Button(column.name) { move(task, to: column.id) }
                     }
+                } label: {
+                    Label("Move to…", systemImage: "arrow.right.circle")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityIdentifier("task.moveTo")
                 Button("Archive", systemImage: "archivebox") { archive(task) }
