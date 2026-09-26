@@ -21,6 +21,9 @@ result, and why it could not be walked automatically. Emptied at the next walk o
   `TEST_RUNNER_HH_LIVE_AI=1 Scripts/test.sh`: the live AI fixtures are opt-in and need the model ready. Why
   queued: the CI simulator's model is unreliable (usually absent; once reported available and then failed every
   request, run 36211058160).
+- **Launch baseline (Phase 10).** `LaunchPerformanceUITests.testLaunchPerformance` records cold-launch time in
+  CI without a threshold. On the Mac, run it in Xcode, set a baseline on the result, and commit the scheme's
+  baseline so regressions fail. Why queued: CI's shared simulator is too noisy for a fixed limit.
 
 - **Cold-launch time (Phase 10 hardening).** In CI run 36209505191 one UI test launch showed a blank white screen
   for ~22 s before the Dashboard (others launch in 3–4 s). Time a cold launch on the Mac/device with Instruments

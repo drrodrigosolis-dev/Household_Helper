@@ -32,3 +32,16 @@ final class LaunchUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
     }
 }
+
+/// Phase 10 performance: cold-launch time into the Dashboard (spec NFR). Recorded in the result bundle; CI's shared
+/// simulator is too noisy for a hard threshold, so the owner sets a baseline on the Mac (WALK-QUEUE).
+final class LaunchPerformanceUITests: XCTestCase {
+    @MainActor
+    func testLaunchPerformance() {
+        measure(metrics: [XCTApplicationLaunchMetric()]) {
+            let app = XCUIApplication()
+            app.launchArguments = ["-uiTesting", "-uiTestingSkipOnboarding"]
+            app.launch()
+        }
+    }
+}

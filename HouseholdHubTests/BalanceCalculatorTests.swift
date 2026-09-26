@@ -114,4 +114,25 @@ struct BalanceCalculatorTests {
                 series: [], now: now, calendar: calendar, includePendingInProjection: false)
         }
     }
+
+    /// Phase 10 performance: five years of history (about 18,000 lines) and twenty monthly series compute the three
+    /// balances well within a frame budget for the Dashboard.
+    @Test func fiveYearsOfHistoryBalancesQuickly() throws {
+        let now = try date("2026-09-25T15:00:00-07:00")
+        let start = try date("2021-09-25T00:00:00-07:00")
+        let lines = (0..<18_250).map { index in
+            LedgerLine(
+                amount: cad(Int64(100 + index % 5_000)), type: index % 10 == 0 ? .income : .expense,
+                status: index % 50 == 0 ? .pending : .posted,
+                occurredAt: start.addingTimeInterval(Double(index) * 8_640))
+        }
+        let series = try (1...20).map { try monthly($0, 1_000, .expense, from: "2021-09-25T00:00:00-07:00") }
+        let clock = ContinuousClock()
+        let elapsed = try clock.measure {
+            _ = try BalanceCalculator().snapshot(
+                startingBalance: cad(0), startingBalanceDate: start, lines: lines, series: series, now: now,
+                calendar: calendar, includePendingInProjection: true)
+        }
+        #expect(elapsed < .milliseconds(500), "Balances took \(elapsed)")
+    }
 }
