@@ -16,6 +16,12 @@ struct SettingsView: View {
                     Label("Categories", systemImage: "square.grid.2x2")
                 }
                 .accessibilityIdentifier("settings.categories")
+                NavigationLink {
+                    DataView()
+                } label: {
+                    Label("Backup and export", systemImage: "externaldrive")
+                }
+                .accessibilityIdentifier("settings.data")
             }
             if let current = settings.first {
                 Section("Household") {

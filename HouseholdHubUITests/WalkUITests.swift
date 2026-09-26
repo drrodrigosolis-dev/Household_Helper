@@ -145,5 +145,10 @@ final class WalkUITests: XCTestCase {
         XCTAssertTrue(app.textFields["categoryEditor.name"].waitForExistence(timeout: 5))
         captureScreen(app, named: "\(prefix)-CategoryEditor")
         app.buttons["Cancel"].tap()
+        app.navigationBars.buttons["Settings"].tap()
+        app.buttons["settings.data"].tap()
+        XCTAssertTrue(app.navigationBars["Data"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["data.backup"].exists && app.buttons["data.restore"].exists)
+        captureScreen(app, named: "\(prefix)-Data")
     }
 }

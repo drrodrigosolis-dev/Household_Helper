@@ -1,5 +1,11 @@
+import Foundation
+
 enum AppInfo {
     static let displayName = "Household Hub"
+    /// Written into backups (spec §26 `appVersion`).
+    static var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+    }
 }
 
 enum LaunchArguments {

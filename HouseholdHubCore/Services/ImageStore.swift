@@ -70,6 +70,40 @@ public struct ImageStore: Sendable {
         try url(for: thumbnailReference(for: reference))
     }
 
+    /// Size in bytes of a stored image, or nil when its file is missing (backup manifest, spec §26).
+    public func fileSize(of reference: String) -> Int? {
+        guard let fileURL = try? url(for: reference),
+            let values = try? fileURL.resourceValues(forKeys: [.fileSizeKey])
+        else { return nil }
+        return values.fileSize
+    }
+
+    public func data(for reference: String) throws -> Data {
+        try Data(contentsOf: try url(for: reference))
+    }
+
+    /// Writes an image under the reference it had in a backup and rebuilds its thumbnail (restore, spec §26.1).
+    public func restore(_ data: Data, as reference: String) throws {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+            throw ImageStoreError.unreadableImage
+        }
+        let thumbnail = try downscaled(source, to: thumbnailPixelSize)
+        let fullURL = try url(for: reference)
+        let thumbURL = try thumbnailURL(for: reference)
+        try FileManager.default.createDirectory(
+            at: fullURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: fullURL, options: .atomic)
+        try write(thumbnail, to: thumbURL)
+    }
+
+    /// Every full-size image reference in a folder (thumbnails excluded), for removing files nothing refers to.
+    public func references(in folder: Folder) -> [String] {
+        let directory = root.appending(path: folder.rawValue, directoryHint: .isDirectory)
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path(percentEncoded: false))) ?? []
+        return names.filter { !$0.hasSuffix("-thumb.jpg") && !$0.hasPrefix(".") }.map { "\(folder.rawValue)/\($0)" }
+            .sorted()
+    }
+
     /// Removes the image and its thumbnail; a missing file is not an error.
     public func delete(_ reference: String) throws {
         let files = [try url(for: reference), try thumbnailURL(for: reference)]
