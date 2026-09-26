@@ -27,7 +27,13 @@ extension XCTestCase {
     @MainActor
     func openAnalytics(_ app: XCUIApplication) {
         app.tabBars.buttons["More"].tap()
-        app.buttons["Analytics"].tap()
+        // The More tab keeps its navigation stack (the walk leaves it in Settings); step back to its root first.
+        let analytics = app.buttons["Analytics"]
+        let back = app.navigationBars.buttons["BackButton"]
+        for _ in 0..<5 where !analytics.exists && back.exists {
+            back.tap()
+        }
+        analytics.tap()
         XCTAssertTrue(app.navigationBars["Analytics"].waitForExistence(timeout: 5), "Analytics did not open")
     }
 }
