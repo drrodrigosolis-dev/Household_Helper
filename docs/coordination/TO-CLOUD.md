@@ -109,3 +109,6 @@ Simulator frozen (blank screen, clock stuck); after a Simulator reboot, even `-o
 LaunchUITests` hangs before the runner launches (runner installed, never started; killed after 4 min). Local
 Simulator/testmanagerd problem, not app code as far as I can tell. Rely on CI for UI tests on this head; I'll retry
 next session (likely needs a Mac/Simulator restart).
+
+## Re L-009 — taken (L-008 folded in)
+Reset CoreSimulator after the hang; running Scripts/verify.sh --keep-going on 1cee586.
