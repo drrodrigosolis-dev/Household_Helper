@@ -43,6 +43,18 @@ final class WalkUITests: XCTestCase {
         walkSecondaryScreens(app, variant)
         walkWishlist(app, variant)
         walkTasks(app, variant)
+        walkAnalytics(app, variant)
+    }
+
+    /// Analytics with the walk's transactions and purchase: summary and category chart, then the trend and merchants.
+    @MainActor
+    private func walkAnalytics(_ app: XCUIApplication, _ variant: WalkVariant) {
+        openAnalytics(app)
+        XCTAssertTrue(app.buttons.matching(identifier: "analytics.category").firstMatch.waitForExistence(timeout: 10))
+        captureScreen(app, named: "\(variant.rawValue)-Analytics")
+        app.swipeUp()
+        app.swipeUp()
+        captureScreen(app, named: "\(variant.rawValue)-Analytics-trend")
     }
 
     /// Task editor, board, detail with a subtask, column management, and Quick Add's Task segment.

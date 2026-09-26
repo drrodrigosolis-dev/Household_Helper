@@ -7,6 +7,7 @@ struct AppServices: Sendable {
     let transactions: TransactionService
     let categories: CategoryService
     let board: TaskBoardService
+    let analytics: AnalyticsService
     /// Media files outside the store (spec §5.5); nil only if Application Support is unavailable.
     let images: ImageStore?
 
@@ -14,6 +15,7 @@ struct AppServices: Sendable {
         transactions = .make(container: container)
         categories = .make(container: container)
         board = .make(container: container)
+        analytics = .make(container: container)
         images = try? ImageStore.standard()
     }
 }

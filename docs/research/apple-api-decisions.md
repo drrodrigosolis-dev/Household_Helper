@@ -37,3 +37,14 @@ availability conditions, deprecations, fallback. Verified against official Apple
   `TaskBoardService`. Recorded for the Phase 10 verification pass.
 - **Subtasks link by `taskID`, not a relationship** (Sprint 4 default 4): there is no store-level cascade, so every
   bulk delete path (task delete today; restore-replace or reset later) must delete subtasks explicitly.
+
+## Swift Charts and audio graphs — Sprint 5, 2026-09-26
+- **Swift Charts** (system framework, iOS 16+; `SectorMark` and `chartAngleSelection` iOS 17+, below our iOS 26
+  floor): no dependency record needed. Values are plotted as `Double` for positioning only; every figure shown as
+  text comes from the exact `Money`.
+- **Chart accessibility (spec §24.5):** each chart sets `accessibilityChartDescriptor` (`AXChartDescriptor` from the
+  Accessibility framework, iOS 15+) and repeats its numbers in a visible table, so nothing exists only as an image.
+- **Slice selection:** `chartAngleSelection` reports the selected value on the angle scale (cumulative amount), which
+  the view maps back to a slice; the table rows are the non-gesture path to the same action.
+- Not yet verified against Apple documentation in this session (no network docs access here); CI compiling and
+  the walk rendering are the check. Revisit in the Phase 10 verification pass.

@@ -71,6 +71,14 @@ public actor TransactionService {
         try commit()
     }
 
+    public func setDefaultAnalyticsPeriod(_ period: AnalyticsPeriod, now: Date) throws {
+        let settings = try requireSettings()
+        guard settings.defaultAnalyticsPeriod != period else { return }
+        settings.defaultAnalyticsPeriod = period
+        settings.updatedAt = now
+        try commit()
+    }
+
     public func setStartingBalance(_ balance: Money, asOf date: Date, now: Date) throws {
         let settings = try requireSettings()
         try requireCurrency(balance, settings)

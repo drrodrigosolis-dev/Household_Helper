@@ -13,6 +13,8 @@ extension SchemaV1 {
         public var startingBalanceDate: Date
         /// Whether the projected balance adds pending transactions (spec §9.3). Off by default.
         public var includePendingInProjection: Bool = false
+        /// The Analytics period last chosen (spec §7.11 `defaultAnalyticsPeriod`), stored as its raw value.
+        public var defaultAnalyticsPeriodRawValue: String = AnalyticsPeriod.thisMonth.rawValue
         public var createdAt: Date
         public var updatedAt: Date
 
@@ -25,6 +27,11 @@ extension SchemaV1 {
             self.includePendingInProjection = false
             self.createdAt = now
             self.updatedAt = now
+        }
+
+        public var defaultAnalyticsPeriod: AnalyticsPeriod {
+            get { AnalyticsPeriod(rawValue: defaultAnalyticsPeriodRawValue) ?? .thisMonth }
+            set { defaultAnalyticsPeriodRawValue = newValue.rawValue }
         }
     }
 }
