@@ -31,21 +31,25 @@ public actor TransactionService {
         try commit()
     }
 
-    /// Inserts the settings row if there is none, without saving; returns whether it inserted one.
+    /// Inserts the settings row if there is none, with the first account ("Main account", Sprint 10 decision 2) as
+    /// the default, without saving; returns whether it inserted one.
     private func insertSettingsIfMissing(currencyCode: String, now: Date) throws -> Bool {
         guard try settings() == nil else { return false }
         let currency = try Currency(code: currencyCode)
-        modelContext.insert(AppSettings(currencyCode: currency.code, now: now))
+        let settings = AppSettings(currencyCode: currency.code, now: now)
+        modelContext.insert(settings)
+        settings.defaultAccountID = try insertMainAccount(currencyCode: currency.code, now: now).id
         return true
     }
 
     public func settingsSnapshot() throws -> SettingsSnapshot? {
         guard let settings = try settings() else { return nil }
-        let balance = Money(minorUnits: settings.startingBalanceMinorUnits, currencyCode: settings.currencyCode)
+        let main = try defaultAccount(settings)
         return SettingsSnapshot(
             currencyCode: settings.currencyCode, onboardingCompleted: settings.onboardingCompleted,
-            startingBalance: balance, startingBalanceDate: settings.startingBalanceDate,
-            includePendingInProjection: settings.includePendingInProjection)
+            startingBalance: main?.startingBalance ?? .zero(settings.currencyCode),
+            startingBalanceDate: main?.startingBalanceDate ?? settings.createdAt,
+            includePendingInProjection: settings.includePendingInProjection, defaultAccountID: main?.id)
     }
 
     /// Whether the optional Face ID lock is on; entry points outside the app (Shortcuts) must honor it too.
@@ -69,7 +73,8 @@ public actor TransactionService {
         try commit()
     }
 
-    /// Settings › Household: corrects the starting balance and date (§9.1, a baseline, so no transaction changes),
+    /// Settings › Household: corrects the default account's starting balance and date (§9.1, a baseline, so no
+    /// transaction changes),
     /// and the currency only while nothing has been recorded (§6.3: never reinterpret historic values; v1 has one
     /// currency, so with records the answer is a new data set, not a conversion).
     public func updateHousehold(currencyCode: String, startingBalance: Money, asOf date: Date, now: Date) throws {
@@ -99,9 +104,17 @@ public actor TransactionService {
         if settings.currencyCode != currency.code {
             guard try !isCurrencyLocked() else { throw LedgerError.currencyLockedByExistingRecords }
             settings.currencyCode = currency.code
+            // Every account uses the household currency (Sprint 10 decision 3); with nothing recorded, their
+            // baselines are the only amounts, and they follow.
+            for account in try modelContext.fetch(FetchDescriptor<Account>()) {
+                account.currencyCode = currency.code
+                account.updatedAt = now
+            }
         }
-        settings.startingBalanceMinorUnits = startingBalance.minorUnits
-        settings.startingBalanceDate = date
+        let main = try requireDefaultAccount(settings, now: now)
+        main.startingBalanceMinorUnits = startingBalance.minorUnits
+        main.startingBalanceDate = date
+        main.updatedAt = now
         settings.updatedAt = now
     }
 
@@ -215,9 +228,10 @@ public actor TransactionService {
         let settings = try requireSettings()
         try requireCurrency(balance, settings)
         guard date <= now else { throw LedgerError.startingBalanceInFuture }
-        settings.startingBalanceMinorUnits = balance.minorUnits
-        settings.startingBalanceDate = date
-        settings.updatedAt = now
+        let main = try requireDefaultAccount(settings, now: now)
+        main.startingBalanceMinorUnits = balance.minorUnits
+        main.startingBalanceDate = date
+        main.updatedAt = now
         try commit()
     }
 
@@ -232,9 +246,12 @@ public actor TransactionService {
         if let categoryID = draft.categoryID {
             try requireUsableCategory(categoryID, for: draft.type)
         }
+        let accounts = try resolveAccounts(draft, settings: settings, current: nil, now: now)
         let record = TransactionRecord(
             amount: draft.amount, type: draft.type, status: draft.status, source: draft.source,
             occurredAt: draft.occurredAt, now: now)
+        record.accountID = accounts.source
+        record.transferAccountID = accounts.destination
         record.categoryID = draft.categoryID
         record.isAIClassified = draft.categoryID != nil && draft.isAIClassified
         record.notes = draft.notes
@@ -262,6 +279,8 @@ public actor TransactionService {
             // A category archived after this record was filed stays valid for the record; new use is refused.
             try requireUsableCategory(categoryID, for: draft.type, allowArchived: categoryID == record.categoryID)
         }
+        let accounts = try resolveAccounts(
+            draft, settings: settings, current: (record.accountID, record.transferAccountID), now: now)
         // Fetched before the first edit (the merchant insert below), so a failed fetch leaves nothing pending.
         let linkedItem = try record.wishlistItemID.flatMap { try wishlistItem($0) }
         var merchantID: UUID?
@@ -274,6 +293,8 @@ public actor TransactionService {
         record.type = draft.type
         record.status = draft.status
         record.occurredAt = draft.occurredAt
+        record.accountID = accounts.source
+        record.transferAccountID = accounts.destination
         if draft.categoryID == nil {
             record.isAIClassified = false
         } else if draft.categoryID != record.categoryID {
@@ -334,23 +355,30 @@ public actor TransactionService {
     // MARK: Recurring
 
     /// Creates a validated recurring series (positive template, household currency, usable category of the right
-    /// kind). Series are definitions only; no transactions are generated (spec §9.4).
+    /// kind, usable accounts; a recurring transfer names two accounts). Series are definitions only; no transactions
+    /// are generated (spec §9.4).
     @discardableResult
     public func createSeries(
         templateAmount: Money, type: TransactionType, rule: RecurrenceRule, timeZone: TimeZone, startDate: Date,
-        endDate: Date? = nil, categoryID: UUID? = nil, notes: String? = nil, now: Date
+        endDate: Date? = nil, categoryID: UUID? = nil, notes: String? = nil, accountID: UUID? = nil,
+        transferAccountID: UUID? = nil, now: Date
     ) throws -> UUID {
         begin()
-        guard templateAmount.minorUnits > 0 else { throw LedgerError.nonPositiveAmount }
-        guard type != .transfer else { throw LedgerError.transfersUnavailable }
+        let template = TransactionDraft(
+            amount: templateAmount, type: type, occurredAt: startDate, categoryID: categoryID, accountID: accountID,
+            transferAccountID: transferAccountID)
+        try template.validate()
         let settings = try requireSettings()
         try requireCurrency(templateAmount, settings)
         if let categoryID {
             try requireUsableCategory(categoryID, for: type)
         }
+        let accounts = try resolveAccounts(template, settings: settings, current: nil, now: now)
         let series = try RecurringTransaction(
             templateAmount: templateAmount, type: type, rule: rule, timeZone: timeZone, startDate: startDate,
             endDate: endDate, now: now)
+        series.accountID = accounts.source
+        series.transferAccountID = accounts.destination
         series.categoryID = categoryID
         series.notes = notes
         let snapshot = try series.series()
@@ -389,6 +417,9 @@ public actor TransactionService {
             occurredAt: occurrence, now: now)
         record.recurringSeriesID = seriesID
         record.scheduledOccurrence = occurrence
+        // A series stored before accounts existed posts to the default account.
+        record.accountID = try series.accountID ?? requireDefaultAccount(settings, now: now).id
+        record.transferAccountID = series.transferAccountID
         record.categoryID = series.categoryID
         record.merchantID = series.merchantID
         record.notes = series.notes
@@ -401,19 +432,32 @@ public actor TransactionService {
 
     // MARK: Balances
 
+    /// The household's figures: the sums over every account (Sprint 10), archived ones included since their money
+    /// still exists.
     public func balanceSnapshot(
         now: Date, calendar: HouseholdCalendar, includePendingInProjection: Bool, projectionDays: Int = 30
     ) throws -> BalanceSnapshot {
+        try balances(
+            now: now, calendar: calendar, includePendingInProjection: includePendingInProjection,
+            projectionDays: projectionDays
+        ).household
+    }
+
+    /// Every account's figures and the household's (Sprint 10 decision 1).
+    public func balances(
+        now: Date, calendar: HouseholdCalendar, includePendingInProjection: Bool, projectionDays: Int = 30
+    ) throws -> HouseholdBalances {
         let settings = try requireSettings()
-        let startDate = settings.startingBalanceDate
-        let afterStart = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.occurredAt > startDate })
+        let accounts = try modelContext.fetch(FetchDescriptor<Account>(sortBy: [SortDescriptor(\.sortOrder)]))
+            .map { try $0.baseline() }
+        let earliest = accounts.map(\.startingBalanceDate).min() ?? now
+        let afterStart = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.occurredAt > earliest })
         let lines = try modelContext.fetch(afterStart).map { try $0.ledgerLine() }
         let enabled = FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.isEnabled == true })
         let series = try modelContext.fetch(enabled).map { try $0.series() }
-        let starting = Money(minorUnits: settings.startingBalanceMinorUnits, currencyCode: settings.currencyCode)
-        return try BalanceCalculator(projectionDays: projectionDays).snapshot(
-            startingBalance: starting, startingBalanceDate: startDate, lines: lines, series: series, now: now,
-            calendar: calendar, includePendingInProjection: includePendingInProjection)
+        return try BalanceCalculator(projectionDays: projectionDays).balances(
+            accounts: accounts, lines: lines, series: series, now: now, calendar: calendar,
+            includePendingInProjection: includePendingInProjection, currencyCode: settings.currencyCode)
     }
 
     /// What the Home Screen widget shows: the Dashboard's figures, without amounts when the user hid them or turned
@@ -489,17 +533,25 @@ public actor TransactionService {
     /// occurrence is recomputed after the latest one posted, so nothing is offered twice.
     public func updateSeries(
         _ id: UUID, templateAmount: Money, type: TransactionType, rule: RecurrenceRule, startDate: Date,
-        endDate: Date? = nil, categoryID: UUID?, notes: String?, now: Date
+        endDate: Date? = nil, categoryID: UUID?, notes: String?, accountID: UUID? = nil,
+        transferAccountID: UUID? = nil, now: Date
     ) throws {
         begin()
         guard let series = try recurringSeries(id) else { throw LedgerError.unknownSeries }
-        guard templateAmount.minorUnits > 0 else { throw LedgerError.nonPositiveAmount }
-        guard type != .transfer else { throw LedgerError.transfersUnavailable }
-        try requireCurrency(templateAmount, try requireSettings())
+        let template = TransactionDraft(
+            amount: templateAmount, type: type, occurredAt: startDate, categoryID: categoryID, accountID: accountID,
+            transferAccountID: transferAccountID)
+        try template.validate()
+        let settings = try requireSettings()
+        try requireCurrency(templateAmount, settings)
         if let categoryID {
             // An unchanged category that was archived since may stay; a newly picked one must be active.
             try requireUsableCategory(categoryID, for: type, allowArchived: categoryID == series.categoryID)
         }
+        let accounts = try resolveAccounts(
+            template, settings: settings, current: (series.accountID, series.transferAccountID), now: now)
+        series.accountID = accounts.source
+        series.transferAccountID = accounts.destination
         try series.setRule(rule)
         series.templateAmountMinorUnits = templateAmount.minorUnits
         series.currencyCode = templateAmount.currencyCode

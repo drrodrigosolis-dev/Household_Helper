@@ -9,6 +9,7 @@ struct DataView: View {
     @Environment(\.services) private var services
     @Query(sort: \TransactionRecord.occurredAt) private var transactions: [TransactionRecord]
     @Query private var categories: [CategoryRecord]
+    @Query(sort: \Account.sortOrder) private var accounts: [Account]
 
     @State private var backupDocument: BackupFolderDocument?
     @State private var csvDocument: CSVDocument?
@@ -167,11 +168,13 @@ struct DataView: View {
 
     private func prepareCSV() {
         let names = Dictionary(categories.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+        let accountNames = Dictionary(accounts.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
         let rows = transactions.map { record in
             TransactionCSV.Row(
                 occurredAt: record.occurredAt, type: record.type, status: record.status, amount: record.amount,
                 category: record.categoryID.flatMap { names[$0] }, merchant: record.merchantNameSnapshot,
-                notes: record.notes)
+                notes: record.notes, account: record.accountID.flatMap { accountNames[$0] },
+                toAccount: record.transferAccountID.flatMap { accountNames[$0] })
         }
         csvDocument = CSVDocument(text: TransactionCSV.text(rows, calendar: calendar))
     }

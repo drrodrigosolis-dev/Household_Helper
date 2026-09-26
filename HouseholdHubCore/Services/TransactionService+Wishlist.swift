@@ -105,7 +105,7 @@ extension TransactionService {
     /// marked purchased, in one save. Every check runs before anything is inserted, so a refusal leaves no trace.
     @discardableResult
     public func purchaseWishlistItem(
-        _ id: UUID, actualPrice: Money, occurredAt: Date, categoryID: UUID?, now: Date
+        _ id: UUID, actualPrice: Money, occurredAt: Date, categoryID: UUID?, accountID: UUID? = nil, now: Date
     ) throws -> UUID {
         begin()
         let item = try requireWishlistItem(id)
@@ -118,9 +118,12 @@ extension TransactionService {
         if let categoryID {
             try requireUsableCategory(categoryID, for: .expense, allowArchived: categoryID == item.categoryID)
         }
+        // Paid from the default account unless the purchase sheet picked another (Sprint 10 decision 9).
+        let account = try resolveAccount(accountID, settings: try requireSettings(), now: now)
         let record = TransactionRecord(
             amount: actualPrice, type: .expense, status: .posted, source: .wishlistPurchase, occurredAt: occurredAt,
             now: now)
+        record.accountID = account
         record.categoryID = categoryID
         record.notes = item.name
         record.wishlistItemID = item.id

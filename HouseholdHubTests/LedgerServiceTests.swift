@@ -44,7 +44,7 @@ struct LedgerServiceTests {
         let zero = TransactionDraft(amount: cad(0), type: .expense, occurredAt: now)
         await #expect(throws: LedgerError.nonPositiveAmount) { try await service.create(zero, now: now) }
         let transfer = TransactionDraft(amount: cad(100), type: .transfer, occurredAt: now)
-        await #expect(throws: LedgerError.transfersUnavailable) { try await service.create(transfer, now: now) }
+        await #expect(throws: LedgerError.transferNeedsTwoAccounts) { try await service.create(transfer, now: now) }
         let usd = TransactionDraft(amount: Money(minorUnits: 100, currencyCode: "USD"), type: .expense, occurredAt: now)
         await #expect(throws: LedgerError.currencyMismatch(expected: "CAD", actual: "USD")) {
             try await service.create(usd, now: now)
@@ -183,7 +183,7 @@ struct LedgerServiceTests {
             try await service.createSeries(
                 templateAmount: cad(0), type: .expense, rule: rule, timeZone: zone, startDate: now, now: now)
         }
-        await #expect(throws: LedgerError.transfersUnavailable) {
+        await #expect(throws: LedgerError.transferNeedsTwoAccounts) {
             try await service.createSeries(
                 templateAmount: cad(100), type: .transfer, rule: rule, timeZone: zone, startDate: now, now: now)
         }

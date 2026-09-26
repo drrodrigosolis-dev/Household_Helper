@@ -1,10 +1,14 @@
 import Foundation
 
-/// The portable backup format, v1 (spec §26). Plain Codable values with every stored field of every model; money in
-/// integer minor units, dates ISO 8601, enums as their raw strings, recurrence rules as JSON objects. Image bytes are
-/// never inline: `mediaManifest` lists the files that travel next to `backup.json` (§26.1).
+/// The portable backup format, v2 (spec §26; v2 adds accounts and transfers, Sprint 10). v1 files still read:
+/// `upgradedToCurrent()` turns one into v2 before anything validates or restores it. Plain Codable values with every
+/// stored field of every model; money in integer minor units, dates ISO 8601, enums as their raw strings, recurrence
+/// rules as JSON objects. Image bytes are never inline: `mediaManifest` lists the files that travel next to
+/// `backup.json` (§26.1).
 public struct BackupDTO: Codable, Equatable, Sendable {
-    public static let currentSchemaVersion = 1
+    public static let currentSchemaVersion = 2
+    /// Versions this app reads; older ones are upgraded on the way in.
+    public static let readableSchemaVersions: ClosedRange<Int> = 1...2
 
     public var schemaVersion: Int
     public var exportedAt: Date
@@ -19,14 +23,19 @@ public struct BackupDTO: Codable, Equatable, Sendable {
     public var taskItems: [TaskDTO]
     public var subtaskItems: [Subtask]
     public var mediaManifest: [MediaEntry]
+    /// v2. Absent in v1 files, where the one household baseline lived in `settings`.
+    public var accounts: [AccountDTO]?
 
     /// AppSettings minus anything secret (there are no secrets in the store; tokens live in the Keychain, §7.11).
     public struct Settings: Codable, Equatable, Sendable {
         public var id: UUID
         public var currencyCode: String
         public var onboardingCompleted: Bool
-        public var startingBalanceMinorUnits: Int64
-        public var startingBalanceDate: Date
+        /// v1 only: the single household baseline, which v2 keeps on the accounts.
+        public var startingBalanceMinorUnits: Int64?
+        public var startingBalanceDate: Date?
+        /// v2: where new entries go.
+        public var defaultAccountID: UUID?
         public var includePendingInProjection: Bool
         public var defaultAnalyticsPeriod: String
         /// Optional in the file so v1 backups written before these switches existed still read (absent = the default,
@@ -83,6 +92,9 @@ public struct BackupDTO: Codable, Equatable, Sendable {
         public var scheduledOccurrence: Date?
         public var wishlistItemID: UUID?
         public var isAIClassified: Bool
+        /// v2; required once upgraded.
+        public var accountID: UUID?
+        public var transferAccountID: UUID?
         public var createdAt: Date
         public var updatedAt: Date
     }
@@ -101,6 +113,22 @@ public struct BackupDTO: Codable, Equatable, Sendable {
         public var endDate: Date?
         public var nextOccurrence: Date?
         public var isEnabled: Bool
+        /// v2; required once upgraded.
+        public var accountID: UUID?
+        public var transferAccountID: UUID?
+        public var createdAt: Date
+        public var updatedAt: Date
+    }
+
+    public struct AccountDTO: Codable, Equatable, Sendable {
+        public var id: UUID
+        public var name: String
+        public var kind: String
+        public var currencyCode: String
+        public var startingBalanceMinorUnits: Int64
+        public var startingBalanceDate: Date
+        public var sortOrder: Int
+        public var isArchived: Bool
         public var createdAt: Date
         public var updatedAt: Date
     }
@@ -192,4 +220,36 @@ public struct BackupDTO: Codable, Equatable, Sendable {
     /// ISO 8601 in UTC with milliseconds. A round trip keeps timestamps to the millisecond; recurrence occurrences
     /// and calendar days are whole seconds, so comparisons that matter survive exactly.
     private static let dateStyle = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+}
+
+extension BackupDTO {
+    /// The same backup in the current format. A v1 file had one household baseline in its settings; it becomes the
+    /// first account, "Main account", which gets the settings row's id (so every read of the same file produces the
+    /// same account) and holds every transaction and recurring item. A v2 file is returned as it is.
+    public func upgradedToCurrent() -> BackupDTO {
+        guard schemaVersion == 1 else { return self }
+        var upgraded = self
+        let main = AccountDTO(
+            id: settings.id, name: TransactionService.mainAccountName, kind: AccountKind.bank.rawValue,
+            currencyCode: settings.currencyCode,
+            startingBalanceMinorUnits: settings.startingBalanceMinorUnits ?? 0,
+            startingBalanceDate: settings.startingBalanceDate ?? settings.createdAt, sortOrder: 0, isArchived: false,
+            createdAt: settings.createdAt, updatedAt: settings.updatedAt)
+        upgraded.schemaVersion = 2
+        upgraded.accounts = [main]
+        upgraded.settings.defaultAccountID = main.id
+        upgraded.settings.startingBalanceMinorUnits = nil
+        upgraded.settings.startingBalanceDate = nil
+        upgraded.transactions = transactions.map { record in
+            var copy = record
+            copy.accountID = copy.accountID ?? main.id
+            return copy
+        }
+        upgraded.recurringTransactions = recurringTransactions.map { item in
+            var copy = item
+            copy.accountID = copy.accountID ?? main.id
+            return copy
+        }
+        return upgraded
+    }
 }

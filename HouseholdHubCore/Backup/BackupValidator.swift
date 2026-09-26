@@ -17,7 +17,12 @@ public enum BackupError: Error, Equatable, Sendable {
 /// anything"). References must exist, and the invariants the services keep (purchase links both ways, category kinds,
 /// task completion, one file per photo) must hold, so a restored store is one the app could have produced itself.
 public enum BackupValidator {
-    public static func validate(_ backup: BackupDTO) throws {
+    /// Accepts a v1 file by checking its v2 form (`upgradedToCurrent()`), the form a restore writes.
+    public static func validate(_ original: BackupDTO) throws {
+        guard BackupDTO.readableSchemaVersions.contains(original.schemaVersion) else {
+            throw BackupError.unsupportedSchemaVersion(original.schemaVersion)
+        }
+        let backup = original.upgradedToCurrent()
         guard backup.schemaVersion == BackupDTO.currentSchemaVersion else {
             throw BackupError.unsupportedSchemaVersion(backup.schemaVersion)
         }
@@ -27,6 +32,19 @@ public enum BackupValidator {
         }
         try readable(AnalyticsPeriod.self, backup.settings.defaultAnalyticsPeriod, "settings", "defaultAnalyticsPeriod")
 
+        let accountList = backup.accounts ?? []
+        let accounts = try ids(accountList.map(\.id), "accounts")
+        for account in accountList {
+            try readable(AccountKind.self, account.kind, "accounts", "kind")
+            try sameCurrency(account.currencyCode, currency, "accounts")
+            guard !account.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw BackupError.invalidValue(entity: "accounts", field: "name", value: account.name)
+            }
+        }
+        // Every entry needs somewhere to go (Sprint 10): a default account that exists and is active.
+        guard let defaultAccount = backup.settings.defaultAccountID,
+            let main = accountList.first(where: { $0.id == defaultAccount }), !main.isArchived
+        else { throw BackupError.missingReference(entity: "settings", field: "defaultAccountID") }
         let categories = try ids(backup.categories.map(\.id), "categories")
         let merchants = try ids(backup.merchants.map(\.id), "merchants")
         let transactions = try ids(backup.transactions.map(\.id), "transactions")
@@ -53,6 +71,8 @@ public enum BackupValidator {
             try exists(record.merchantID, in: merchants, "transactions", "merchantID")
             try exists(record.recurringSeriesID, in: series, "transactions", "recurringSeriesID")
             try exists(record.wishlistItemID, in: wishes, "transactions", "wishlistItemID")
+            try required(record.accountID, in: accounts, "transactions", "accountID")
+            try exists(record.transferAccountID, in: accounts, "transactions", "transferAccountID")
             if let seriesID = record.recurringSeriesID, let occurrence = record.scheduledOccurrence {
                 // One record per occurrence (spec §9.4): a duplicate would post the same occurrence twice.
                 let key = "\(seriesID.uuidString)-\(occurrence.timeIntervalSinceReferenceDate)"
@@ -65,6 +85,8 @@ public enum BackupValidator {
             try sameCurrency(item.currencyCode, currency, "recurringTransactions")
             try exists(item.categoryID, in: categories, "recurringTransactions", "categoryID")
             try exists(item.merchantID, in: merchants, "recurringTransactions", "merchantID")
+            try required(item.accountID, in: accounts, "recurringTransactions", "accountID")
+            try exists(item.transferAccountID, in: accounts, "recurringTransactions", "transferAccountID")
             guard TimeZone(identifier: item.timeZoneIdentifier) != nil else {
                 throw BackupError.invalidValue(
                     entity: "recurringTransactions", field: "timeZoneIdentifier", value: item.timeZoneIdentifier)
@@ -123,6 +145,8 @@ public enum BackupValidator {
         let wishes = Dictionary(backup.wishlistItems.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         for record in backup.transactions {
             try allows(record.categoryID, record.type, "transactions")
+            try transferShape(
+                record.type, record.accountID, record.transferAccountID, record.categoryID, "transactions")
             if record.source == TransactionSource.recurring.rawValue {
                 guard record.recurringSeriesID != nil, record.scheduledOccurrence != nil else {
                     throw BackupError.inconsistentLink(entity: "transactions", field: "recurringSeriesID")
@@ -135,6 +159,8 @@ public enum BackupValidator {
         }
         for item in backup.recurringTransactions {
             try allows(item.categoryID, item.type, "recurringTransactions")
+            try transferShape(
+                item.type, item.accountID, item.transferAccountID, item.categoryID, "recurringTransactions")
         }
         var media = Set<String>()
         for wish in backup.wishlistItems {
@@ -183,6 +209,23 @@ public enum BackupValidator {
         let unique = Set(values)
         guard unique.count == values.count else { throw BackupError.duplicateID(entity: entity) }
         return unique
+    }
+
+    /// A transfer names two different accounts and no category; nothing else names a destination (Sprint 10).
+    private static func transferShape(
+        _ type: String, _ source: UUID?, _ destination: UUID?, _ category: UUID?, _ entity: String
+    ) throws {
+        if type == TransactionType.transfer.rawValue {
+            guard destination != nil, destination != source, category == nil else {
+                throw BackupError.inconsistentLink(entity: entity, field: "transferAccountID")
+            }
+        } else if destination != nil {
+            throw BackupError.inconsistentLink(entity: entity, field: "transferAccountID")
+        }
+    }
+
+    private static func required(_ id: UUID?, in known: Set<UUID>, _ entity: String, _ field: String) throws {
+        guard let id, known.contains(id) else { throw BackupError.missingReference(entity: entity, field: field) }
     }
 
     private static func exists(_ id: UUID?, in known: Set<UUID>, _ entity: String, _ field: String) throws {

@@ -10,10 +10,17 @@ struct SettingsView: View {
     /// The pending custom-accent save: dragging in the color picker sends many values, and only the last is kept.
     @State private var accentWrite: Task<Void, Never>?
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
+    @Query(sort: \Account.sortOrder) private var accounts: [Account]
 
     var body: some View {
         List {
             Section {
+                NavigationLink {
+                    AccountsView()
+                } label: {
+                    Label("Accounts", systemImage: "building.columns")
+                }
+                .accessibilityIdentifier("settings.accounts")
                 NavigationLink {
                     CategoriesView()
                 } label: {
@@ -34,18 +41,27 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings.intelligence")
             }
             if let current = settings.first {
-                Section("Household") {
+                let main = accounts.first { $0.id == current.defaultAccountID }
+                Section {
                     LabeledContent("Currency", value: current.currencyCode)
-                    LabeledContent("Starting balance") {
-                        Text(startingBalance(current).formatted())
-                    }
-                    LabeledContent("As of") {
-                        Text(current.startingBalanceDate.formatted(date: .abbreviated, time: .omitted))
+                    if let main {
+                        LabeledContent("Starting balance") {
+                            Text(main.startingBalance.formatted())
+                        }
+                        LabeledContent("As of") {
+                            Text(main.startingBalanceDate.formatted(date: .abbreviated, time: .omitted))
+                        }
                     }
                     NavigationLink("Edit Household") {
-                        HouseholdEditorView(settings: current)
+                        HouseholdEditorView(settings: current, account: main)
                     }
                     .accessibilityIdentifier("settings.household")
+                } header: {
+                    Text("Household")
+                } footer: {
+                    if let main {
+                        Text("The starting balance of \(main.name), the default account. Each account has its own.")
+                    }
                 }
                 Section {
                     Toggle("Require \(BiometricGate.methodName)", isOn: faceIDBinding)
@@ -201,10 +217,6 @@ struct SettingsView: View {
                     await WidgetSync.refresh(services)
                 }
             })
-    }
-
-    private func startingBalance(_ settings: AppSettings) -> Money {
-        Money(minorUnits: settings.startingBalanceMinorUnits, currencyCode: settings.currencyCode)
     }
 }
 

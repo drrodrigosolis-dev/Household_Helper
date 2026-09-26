@@ -16,7 +16,6 @@ struct PersistenceTests {
         let fetched = try context.fetch(FetchDescriptor<AppSettings>())
         #expect(fetched.count == 1)
         #expect(fetched.first?.currencyCode == "CAD")
-        #expect(fetched.first?.startingBalanceMinorUnits == 0)
         #expect(fetched.first?.onboardingCompleted == false)
     }
 

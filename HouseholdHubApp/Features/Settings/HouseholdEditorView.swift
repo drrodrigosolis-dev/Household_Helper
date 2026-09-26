@@ -1,11 +1,13 @@
 import HouseholdHubCore
 import SwiftUI
 
-/// Settings › Household (spec §24.2 "Currency", §6.3, §9.1): corrects the starting balance and its date, and changes
-/// the currency only while nothing has been recorded. A new baseline changes the current balance, so saving asks
-/// first; no transaction is touched.
+/// Settings › Household (spec §24.2 "Currency", §6.3, §9.1): corrects the default account's starting balance and its
+/// date, and changes the currency only while nothing has been recorded. A new baseline changes the current balance,
+/// so saving asks first; no transaction is touched.
 struct HouseholdEditorView: View {
     let settings: AppSettings
+    /// The default account, whose baseline this screen edits (Sprint 10 decision 2).
+    let account: Account?
 
     @Environment(\.services) private var services
     @Environment(\.dismiss) private var dismiss
@@ -17,12 +19,13 @@ struct HouseholdEditorView: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
 
-    init(settings: AppSettings) {
+    init(settings: AppSettings, account: Account?) {
         self.settings = settings
-        let balance = Money(minorUnits: settings.startingBalanceMinorUnits, currencyCode: settings.currencyCode)
+        self.account = account
+        let balance = account?.startingBalance ?? .zero(settings.currencyCode)
         _currencyCode = State(initialValue: settings.currencyCode)
         _balanceText = State(initialValue: LedgerFormat.editableAmount(balance))
-        _asOf = State(initialValue: settings.startingBalanceDate)
+        _asOf = State(initialValue: account?.startingBalanceDate ?? .now)
     }
 
     private var choices: [String] {
@@ -39,7 +42,7 @@ struct HouseholdEditorView: View {
     }
 
     private var baselineChanged: Bool {
-        balance?.minorUnits != settings.startingBalanceMinorUnits || asOf != settings.startingBalanceDate
+        balance?.minorUnits != account?.startingBalanceMinorUnits || asOf != account?.startingBalanceDate
     }
 
     var body: some View {
