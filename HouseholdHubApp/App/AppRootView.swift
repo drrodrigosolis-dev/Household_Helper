@@ -150,7 +150,7 @@ struct AppRootView: View {
             ? SeedLanguage.english : SeedLanguage.preferred(Locale.preferredLanguages)
         await services.transactions.setSeedLanguage(language)
         try? await services.categories.seedSystemCategoriesIfNeeded(now: now, language: language)
-        try? await services.board.seedDefaultColumnsIfNeeded(now: now)
+        try? await services.board.seedDefaultColumnsIfNeeded(now: now, language: language)
         if ProcessInfo.processInfo.arguments.contains(LaunchArguments.skipOnboarding) {
             try? await services.transactions.completeOnboarding(
                 currencyCode: "CAD", startingBalance: .zero("CAD"), asOf: now, now: now)

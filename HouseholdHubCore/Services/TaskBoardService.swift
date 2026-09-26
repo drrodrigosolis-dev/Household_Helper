@@ -24,14 +24,16 @@ public actor TaskBoardService {
     }
 
     public static let defaultColumnNames = ["To Do", "In Progress", "Done"]
+    public static let spanishColumnNames = ["Por hacer", "En curso", "Hecho"]
 
     // MARK: Columns
 
-    /// Inserts the default system columns once. Names are stored data and can be renamed.
-    public func seedDefaultColumnsIfNeeded(now: Date) throws {
+    /// Inserts the default system columns once, named in `language`. Names are stored data and can be renamed.
+    public func seedDefaultColumnsIfNeeded(now: Date, language: SeedLanguage = .english) throws {
         begin()
         guard try modelContext.fetchCount(FetchDescriptor<BoardColumn>()) == 0 else { return }
-        for (index, name) in Self.defaultColumnNames.enumerated() {
+        let names = language == .spanish ? Self.spanishColumnNames : Self.defaultColumnNames
+        for (index, name) in names.enumerated() {
             modelContext.insert(BoardColumn(name: name, sortOrder: index, isSystem: true, now: now))
         }
         try commit()

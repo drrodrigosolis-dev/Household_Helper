@@ -50,6 +50,9 @@ struct SpanishTests {
         #expect(names.contains("Supermercado") && names.contains("Salario") && names.contains("Otros ingresos"))
         #expect(!names.contains("Groceries"))
         #expect(try context.fetch(FetchDescriptor<Account>()).map(\.name) == ["Cuenta principal"])
+        try await TaskBoardService.make(container: container).seedDefaultColumnsIfNeeded(now: now, language: .spanish)
+        let columns = try context.fetch(FetchDescriptor<BoardColumn>(sortBy: [SortDescriptor(\.sortOrder)]))
+        #expect(columns.map(\.name) == ["Por hacer", "En curso", "Hecho"])
         let untranslated = SystemCategory.defaults.filter { $0.name(in: .spanish) == $0.name }
         #expect(untranslated.isEmpty, "Every seed has a Spanish name")
     }
