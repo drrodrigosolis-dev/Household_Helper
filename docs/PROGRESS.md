@@ -52,6 +52,7 @@ Statuses: not started / in progress / CI green / blocked.
     "automatic merchant transaction import from banks": no bank connection, no background import.
 15. **SchemaV1 stays editable through the v1.1 data features** (accounts, budgets, goals, recurring tasks); it freezes
     at the first install on the owner's device as before, so installing before those are green would force migrations.
+16. **Sprint 10 defaults accepted ("run")**: the 11 account and transfer decisions in `docs/sprints/SPRINT-10.md`.
 
 ## Defaults awaiting the owner's review (Phase 10)
 - **Currency after records exist (§6.3):** Settings › Household refuses the change and says why, rather than §6.3's
@@ -80,7 +81,7 @@ where money sits. Each is one sprint (`docs/sprints/SPRINT-10…`), closed only 
 
 | Sprint | Feature | Status |
 |---|---|---|
-| 10 | Multiple accounts + transfers (household balance = sum of accounts; §9 terms per account) | not started |
+| 10 | Multiple accounts + transfers (household balance = sum of accounts; §9 terms per account) | in progress |
 | 11 | Category budgets (monthly limits, progress on Dashboard and Analytics) | not started |
 | 12 | Savings goals (target and date, monthly amount needed; can point at a wishlist item) | not started |
 | 13 | Recurring tasks (reuse the recurrence rules) | not started |
