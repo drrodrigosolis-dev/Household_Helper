@@ -106,6 +106,13 @@ struct DashboardView: View {
 
     // MARK: Cards
 
+    private var quickAddButton: some View {
+        Button("Add", systemImage: "plus") { router.isQuickAddPresented = true }
+            .buttonStyle(.bordered)
+            .accessibilityLabel("Quick Add")
+            .accessibilityIdentifier("dashboard.quickAdd")
+    }
+
     @ViewBuilder
     private func balanceCards(_ summary: DashboardSummary) -> some View {
         let posted = TransactionFilter(status: .posted)
@@ -115,13 +122,18 @@ struct DashboardView: View {
             router.showBudget(.transactions, filter: posted)
         } content: {
             // Quick Add from the primary card as well as the floating button (spec §24.3).
-            HStack(alignment: .firstTextBaseline) {
-                AmountText(summary.balance.current.formatted(), font: .largeTitle.bold())
-                Spacer(minLength: 8)
-                Button("Add", systemImage: "plus") { router.isQuickAddPresented = true }
-                    .buttonStyle(.bordered)
-                    .accessibilityLabel("Quick Add")
-                    .accessibilityIdentifier("dashboard.quickAdd")
+            // Stacked at accessibility sizes so "Add" never breaks mid-word (local Sprint 10 walk).
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 8) {
+                    AmountText(summary.balance.current.formatted(), font: .largeTitle.bold())
+                    quickAddButton
+                }
+            } else {
+                HStack(alignment: .firstTextBaseline) {
+                    AmountText(summary.balance.current.formatted(), font: .largeTitle.bold())
+                    Spacer(minLength: 8)
+                    quickAddButton
+                }
             }
         }
         pairLayout {
@@ -161,7 +173,7 @@ struct DashboardView: View {
         DashboardCard(title: "Budgets", identifier: "dashboard.budgets") {
             router.showBudget(.budgets)
         } content: {
-            VStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 10) {
                 ForEach(statuses, id: \.categoryID) { status in
                     if let category = categories.first(where: { $0.id == status.categoryID }) {
                         Button {
@@ -183,7 +195,7 @@ struct DashboardView: View {
         DashboardCard(title: "Goals", identifier: "dashboard.goals", hint: "Opens Wishlist goals") {
             router.showGoals()
         } content: {
-            VStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 10) {
                 ForEach(statuses) { status in
                     Button {
                         router.showGoals()
@@ -203,7 +215,7 @@ struct DashboardView: View {
         DashboardCard(title: "Accounts", identifier: "dashboard.accounts") {
             router.showBudget(.transactions)
         } content: {
-            VStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 8) {
                 ForEach(balances, id: \.accountID) { balance in
                     if let account = accountRecords.first(where: { $0.id == balance.accountID }) {
                         Button {
@@ -217,6 +229,7 @@ struct DashboardView: View {
                                 Text(AccountFormat.balanceText(balance.snapshot.current, kind: account.kind))
                                     .monospacedDigit()
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .accessibilityElement(children: .combine)
                         }
                         .buttonStyle(.plain)

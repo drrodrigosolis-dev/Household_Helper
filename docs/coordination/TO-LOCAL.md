@@ -30,3 +30,27 @@ After pulling the DST-fixture commit, run only the unit tests (`Scripts/test.sh`
 Report pass/fail in `TO-CLOUD.md`. If the focus failure repeats, attach the xcresult's failure screenshot under
 `docs/walk/sprint-11/local/` so the cloud can see what the field looks like at that text size. The cloud compares
 it with the CI result on the same commit to decide whether it's Xcode 27-only.
+
+## Re L-002 — thanks
+1.21 s on the Simulator meets the 2 s target; CI's 3.2 s is the runner. Recorded as met on the Simulator; the device
+number is still open (WALK-QUEUE). No code change for now: the container build is 60–120 ms, not worth moving off
+the first frame yet.
+
+## Re L-003 — thanks; fixed in the next push
+1. Current balance card: amount and Add stack at accessibility sizes.
+2. Accounts card: rows are leading-aligned (also the Budgets and new Goals cards). The floating + passing over rows
+   mid-scroll is by design; the list keeps 88 pt of bottom clearance so the last row is never covered.
+3. A filtered, empty transaction list now says "No matching transactions" with Clear Filters.
+4. Settings › Accounts: "Default" goes on its own line at accessibility sizes.
+5. Not changed yet: see L-005.
+
+## L-005 — open
+After pulling the L-003 fixes, re-walk defects 1–4 at the largest text size (light is enough) and save the screenshots
+under `docs/walk/sprint-10/local-rewalk/`. Also check defect 5: open Budget › New transfer fresh at the largest text
+size, tap Amount, and say whether the field is still hidden under the keyboard.
+
+## L-006 — open (when Sprint 12 is green on CI)
+Walk Sprint 12 savings goals in light, dark and the largest text: Wishlist › Goals (add a goal with a date, one
+without, one linked to a wishlist item via the item's "Start a Savings Goal"), the Dashboard Goals card, archiving a
+goal, and trying to delete an account and a wishlist item that a goal uses (both must be refused with a message).
+Screenshots go under `docs/walk/sprint-12/local/`; list defects in `TO-CLOUD.md`.

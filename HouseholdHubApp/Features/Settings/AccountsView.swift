@@ -142,7 +142,10 @@ struct AccountsView: View {
 
     private func detail(_ account: Account) -> String {
         let kind = AccountFormat.kindName(account.kind)
-        return account.id == defaultID ? kind + " · " + String(localized: "Default") : kind
+        guard account.id == defaultID else { return kind }
+        // One fact per line at accessibility sizes, so a wrapped "·" never starts a line (local Sprint 10 walk).
+        let separator = typeSize.isAccessibilitySize ? "\n" : " · "
+        return kind + separator + String(localized: "Default")
     }
 
     /// States what leaves the household total with the account (its starting balance) and that it can't be undone.

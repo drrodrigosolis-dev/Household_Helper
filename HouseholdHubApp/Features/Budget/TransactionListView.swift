@@ -17,11 +17,14 @@ struct TransactionListView: View {
 
 private struct FilteredTransactions: View {
     @Environment(\.services) private var services
+    @Environment(AppRouter.self) private var router
     @Query private var records: [TransactionRecord]
     @Query private var categories: [CategoryRecord]
     @Query(sort: \Account.sortOrder) private var accounts: [Account]
     let limit: Int
     let loadMore: () -> Void
+    /// Whether a filter narrows the list, so the empty state can offer to clear it.
+    let isFiltered: Bool
 
     @State private var pendingDelete: TransactionRecord?
     @State private var editing: TransactionRecord?
@@ -48,11 +51,22 @@ private struct FilteredTransactions: View {
         _records = Query(descriptor)
         self.limit = limit
         self.loadMore = loadMore
+        self.isFiltered = filter.isActive
     }
 
     var body: some View {
         Group {
-            if records.isEmpty {
+            if records.isEmpty, isFiltered {
+                // Found in the local Sprint 10 walk: an empty filtered list must say the filter hides everything.
+                ContentUnavailableView {
+                    Label("No matching transactions", systemImage: "line.3.horizontal.decrease.circle")
+                } description: {
+                    Text("Nothing matches these filters.")
+                } actions: {
+                    Button("Clear Filters") { router.budgetFilter = TransactionFilter() }
+                        .accessibilityIdentifier("budget.clearFilters")
+                }
+            } else if records.isEmpty {
                 ContentUnavailableView(
                     "No transactions", systemImage: "list.bullet.rectangle",
                     description: Text("Use Quick Add to record an expense or income."))
