@@ -31,4 +31,8 @@ missing are added. `SpanishTests` checks each catalog is valid, complete and kee
 | 4 | Spanish walk UI test; export check on the Mac (L-010) | ☐ | ☐ |
 
 ## Close-out
-☐ CI green · ☐ Spanish walk reviewed (`docs/walk/sprint-16/`) · ☐ export check · ☐ PROGRESS + PR
+☑ CI green (run 36268510203, `25afbec`) · ☑ Spanish walk reviewed (`docs/walk/sprint-16/`) · ☑ export check (L-010, `69d9801`, run 36270046170 green) · ☑ PROGRESS + PR
+
+Walk finding (run 36268510203): the default task columns were seeded in English for Spanish users. They are now
+seeded as "Por hacer / En curso / Hecho" (`TaskBoardService.spanishColumnNames`, tested in `SpanishTests`); existing
+boards keep their names (stored data, renameable). Open, minor: "Sin movimientos" truncates at the largest text size.

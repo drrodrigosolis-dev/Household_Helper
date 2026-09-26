@@ -42,4 +42,4 @@ Nothing that could be misread is guessed; it is skipped with its reason, or the 
 | 5 | Data-safety review | ☐ | — |
 
 ## Close-out
-☐ CI green · ☐ walk (`docs/walk/sprint-15/`) · ☐ data-safety review · ☐ PROGRESS + PR
+☑ CI green (run 36268510203, `25afbec`) · ☑ walk (`docs/walk/sprint-15/`) · ☑ data-safety review · ☑ PROGRESS + PR

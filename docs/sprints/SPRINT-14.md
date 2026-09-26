@@ -24,4 +24,4 @@ this device's preferences (`@AppStorage`), like the wishlist layout, and are not
 | 4 | Reviews: UI (search placement), privacy (notification text) | ☐ | — |
 
 ## Close-out
-☐ CI green · ☐ walk (`docs/walk/sprint-14/`) · ☐ a real notification seen on the Simulator (local session) · ☐ PROGRESS + PR
+☑ CI green (run 36268510203, `25afbec`) · ☑ walk (`docs/walk/sprint-14/`) · ☐ a real notification seen on the Simulator (local session) · ☑ PROGRESS + PR

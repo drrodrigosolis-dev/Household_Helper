@@ -92,9 +92,9 @@ where money sits. Each is one sprint (`docs/sprints/SPRINT-10…`), closed only 
 | Sprint | Feature | Status |
 |---|---|---|
 | 10 | Multiple accounts + transfers (household balance = sum of accounts; §9 terms per account) | CI green (run 36251732218 on `e5ddfb7`); large-text re-walk pending |
-| 11 | Category budgets (monthly limits, rollover on by default, progress on Dashboard and Analytics) | built, review fixes pushed; awaiting CI |
-| 12 | Savings goals (target and date, monthly amount needed; can point at a wishlist item) | built, data-safety review fixed; awaiting CI |
-| 13 | Recurring tasks (reuse the recurrence rules) | built, data-safety review fixed; awaiting CI |
-| 14 | Search (deterministic) + local reminders (task due dates, upcoming bills) | built; awaiting CI and review |
-| 15 | CSV import (user-picked file, column mapping, preview, duplicate check, one atomic save) | built, data-safety review fixed; awaiting CI |
-| 16 | Spanish translation (String Catalog; walked in Spanish) | built; awaiting CI and the Mac's export check |
+| 11 | Category budgets (monthly limits, rollover on by default, progress on Dashboard and Analytics) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
+| 12 | Savings goals (target and date, monthly amount needed; can point at a wishlist item) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
+| 13 | Recurring tasks (reuse the recurrence rules) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
+| 14 | Search (deterministic) + local reminders (task due dates, upcoming bills) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`); real reminder on device pending (L-009) |
+| 15 | CSV import (user-picked file, column mapping, preview, duplicate check, one atomic save) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
+| 16 | Spanish translation (String Catalog; walked in Spanish) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`); Xcode export gaps fixed (L-010); default task columns now seeded in Spanish (next run) |

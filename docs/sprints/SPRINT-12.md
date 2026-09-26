@@ -40,4 +40,4 @@ decision 15), so the goal model goes into it.
 | 6 | Data-safety review + migration audit | ☐ | — |
 
 ## Close-out
-☐ CI green · ☐ walk (`docs/walk/sprint-12/`) · ☐ data-safety review · ☐ migration audit · ☐ PROGRESS + PR
+☑ CI green (run 36268510203, `25afbec`) · ☑ walk (`docs/walk/sprint-12/`) · ☑ data-safety review · ☐ migration audit · ☑ PROGRESS + PR

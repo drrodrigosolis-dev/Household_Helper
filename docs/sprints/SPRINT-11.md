@@ -36,4 +36,4 @@ roll over by default, with a per-budget toggle**. SchemaV1 is still editable, so
 | 6 | Data-safety review + migration audit | ☐ | — |
 
 ## Close-out
-☐ CI green · ☐ walk (`docs/walk/sprint-11/`) · ☐ data-safety review · ☐ migration audit · ☐ PROGRESS + PR
+☑ CI green (run 36268510203, `25afbec`) · ☐ walk (`docs/walk/sprint-11/`) · ☐ data-safety review · ☐ migration audit · ☑ PROGRESS + PR

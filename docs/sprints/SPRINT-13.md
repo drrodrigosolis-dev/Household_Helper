@@ -44,4 +44,4 @@ rule, a known zone and a due date, and both fields together.
 | 5 | Data-safety review | ☐ | — |
 
 ## Close-out
-☐ CI green · ☐ walk (`docs/walk/sprint-13/`) · ☐ data-safety review · ☐ PROGRESS + PR
+☑ CI green (run 36268510203, `25afbec`) · ☐ walk (`docs/walk/sprint-13/`) · ☑ data-safety review · ☑ PROGRESS + PR
