@@ -52,9 +52,11 @@ struct TaskBoardServiceTests {
 
     // MARK: Sort keys
 
-    @Test(arguments: [
+    static let sortKeyCases: [(Double?, Double?, Double)] = [
         (nil, nil, 1.0), (3.0, nil, 4.0), (nil, 2.0, 1.0), (1.0, 2.0, 1.5),
-    ] as [(Double?, Double?, Double)])
+    ]
+
+    @Test(arguments: sortKeyCases)
     func sortKeysSplitNeighbours(before: Double?, after: Double?, expected: Double) {
         #expect(SortKey.between(before, after) == expected)
     }

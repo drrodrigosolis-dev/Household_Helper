@@ -165,6 +165,8 @@ struct TasksView: View {
         Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } })
     }
 
+    /// Returns whether the drop was handled; the current `dropDestination` action ignores it, so it is discardable.
+    @discardableResult
     private func drop(_ items: [String], into columnID: UUID, at index: Int) -> Bool {
         guard let id = items.first.flatMap(UUID.init(uuidString:)), let task = tasks.first(where: { $0.id == id })
         else { return false }
