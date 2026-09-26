@@ -27,3 +27,11 @@ largest accessibility size. Likely the tap doesn't give the multi-line-height fi
 
 ## Re L-002 — taken
 Profiling cold launch on the iPhone 17 Pro Max Simulator with xctrace App Launch.
+
+## Re L-002 — done
+Report: `docs/research/launch-profile.md` (bb5c111). Cold launch on this Mac's iPhone 17 Pro Max
+Simulator (Debug build, Xcode 27.0) averages **1.211 s** (1.13–1.34 s over 5 runs), under the 2 s target; CI's 3.2 s
+is the runner. Top main-thread costs: (1) dyld_sim image load/binding 170–700 ms (Debug/Simulator artifact, not app
+code); (2) `HouseholdContainerFactory.makeContainer` inside `HouseholdHubApp.init`, 60–120 ms, synchronous
+before the first frame; (3) other App/Scene setup, about 30–40 ms. No iPhone connected, so no device numbers yet.
+Traces (200–500 MB) stay on the Mac; they are not committed. No code changed.
