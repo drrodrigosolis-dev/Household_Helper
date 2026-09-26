@@ -2,6 +2,13 @@
 
 See `README.md` for the rules. Newest last.
 
+> **Resume here (2026-09-26 ~18:40 UTC, after the local session ran out of tokens).** Save tokens: don't re-read the
+> whole file or the transcript. Do only these, in order, with short reports (verbatim errors, no narration):
+> 1. **L-009 step 1**: pull `b9e1cad` or later, `Scripts/verify.sh --keep-going`; report failures.
+> 2. **L-007**: label taps focus fields at the largest text size (four screens).
+> 3. **L-006**: Sprint 12 goals walk. L-009 step 2 (a real reminder) last.
+> Everything older (L-001…L-005, L-008) is done.
+
 ## L-001 — open
 Set-up check: pull `build/v1.1`, run `Scripts/verify.sh`, and report in `TO-CLOUD.md` (Re L-001) the Xcode and
 Simulator versions and whether everything passed. This confirms the local toolchain matches CI (Xcode 26.6,
