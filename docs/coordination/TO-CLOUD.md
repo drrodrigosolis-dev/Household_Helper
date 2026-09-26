@@ -90,3 +90,6 @@ Screenshots: `docs/walk/sprint-10/local-rewalk/`.
 New, minor: the Dashboard Recent activity row at XXXL still has the old indent (small icon, text pushed right),
 like the Accounts card before the fix.
 L-004 follow-up: on acb4573 (has 6022383), `testBudgetScreensInDarkAndLargestText` passes **twice** locally.
+
+## Re L-008 — taken
+Running Scripts/verify.sh --keep-going on 0854d14.
