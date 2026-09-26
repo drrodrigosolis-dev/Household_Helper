@@ -54,6 +54,16 @@ extension XCTestCase {
         return field
     }
 
+    /// Scrolls up until `element` exists. Lists create rows lazily, so at the largest text sizes a section below the
+    /// first screen isn't in the accessibility tree until scrolled to (run 36211055316).
+    @MainActor
+    func scrollUntilExists(_ app: XCUIApplication, _ element: XCUIElement, maxSwipes: Int = 6) -> Bool {
+        for _ in 0..<maxSwipes where !element.waitForExistence(timeout: 2) {
+            app.swipeUp()
+        }
+        return element.waitForExistence(timeout: 5)
+    }
+
     /// Records a transaction through the real Quick Add sheet.
     @MainActor
     func addViaQuickAdd(_ app: XCUIApplication, _ text: String) {

@@ -48,7 +48,9 @@ final class WalkUITests: XCTestCase {
     @MainActor
     private func walkAnalytics(_ app: XCUIApplication, _ variant: WalkVariant) {
         openAnalytics(app)
-        XCTAssertTrue(app.buttons.matching(identifier: "analytics.category").firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(waitForRow(app, identifier: "analytics.net", toRead: "Net"), "Analytics report didn't load")
+        let category = app.buttons.matching(identifier: "analytics.category").firstMatch
+        XCTAssertTrue(scrollUntilExists(app, category), "Spending by category missing")
         captureScreen(app, named: "\(variant.rawValue)-Analytics")
         app.swipeUp()
         app.swipeUp()
