@@ -23,8 +23,13 @@ final class CategoriesUITests: XCTestCase {
         let row = app.descendants(matching: .any).matching(identifier: "category.row")
             .matching(NSPredicate(format: "label CONTAINS %@", "Coffee")).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10), "New category missing")
+        // The new row is last, right above the floating tab bar; scroll it clear before swiping so the swipe
+        // lands on the row and the revealed actions are tappable.
+        app.swipeUp()
         row.swipeLeft()
-        app.buttons["Archive"].tap()
+        let archive = app.buttons["Archive"]
+        XCTAssertTrue(archive.waitForExistence(timeout: 5), "Swipe should reveal Archive")
+        archive.tap()
         XCTAssertTrue(app.staticTexts["Archived"].waitForExistence(timeout: 5), "Archived section should appear")
     }
 }
