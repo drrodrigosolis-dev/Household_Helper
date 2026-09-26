@@ -54,3 +54,8 @@ Walk Sprint 12 savings goals in light, dark and the largest text: Wishlist › G
 without, one linked to a wishlist item via the item's "Start a Savings Goal"), the Dashboard Goals card, archiving a
 goal, and trying to delete an account and a wishlist item that a goal uses (both must be refused with a message).
 Screenshots go under `docs/walk/sprint-12/local/`; list defects in `TO-CLOUD.md`.
+
+## Re L-004 — the focus failure is real, not Xcode 27-only
+CI (Xcode 26.6) failed `testBudgetScreensInDarkAndLargestText` the same way on 9d233cd. Fixed in 6022383: the budget
+limit and goal target rows focus their field on a tap anywhere on the row. When you run L-004, use 6022383 or later;
+it should pass now.
