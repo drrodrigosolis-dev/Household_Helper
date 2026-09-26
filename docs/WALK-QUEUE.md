@@ -32,7 +32,10 @@ result, and why it could not be walked automatically. Emptied at the next walk o
   an older build may not open with the new model ("store unavailable" screen). CI always starts fresh.
 - **Face ID gate (Phase 10).** Settings › Privacy › Require Face ID: turning it on asks for Face ID first; leave
   the app and come back — it must lock, the app switcher must show only the lock, and the passcode must work as a
-  fallback. Why queued: the CI simulator has no passcode, so the switch is unavailable there.
+  fallback. With the lock on, run the Log Transaction shortcut: it must ask for Face ID first (whether a background
+  shortcut can show that prompt is the open question; if it can't, it refuses with "Household Hub is locked").
+  Remove the device passcode: the app opens with an alert and the switch stays on. Why queued: the CI simulator has
+  no passcode, so the switch is unavailable there.
 
 ## Done
 - ~~Cold-launch 22 s blank screen (run 36209505191).~~ Not reproduced: the launch metric in run 36216543703 measured 2.8–3.6 s; the slow UI-test starts were simulator warm-up and automation setup. The 2 s target itself is tracked under Launch baseline.

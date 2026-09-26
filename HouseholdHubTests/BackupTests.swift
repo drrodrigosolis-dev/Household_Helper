@@ -1,6 +1,8 @@
 import Foundation
+import ImageIO
 import SwiftData
 import Testing
+import UniformTypeIdentifiers
 
 @testable import HouseholdHubCore
 
@@ -414,6 +416,40 @@ struct BackupTests {
         let empty = FileManager.default.temporaryDirectory.appending(path: "Empty-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: empty, withIntermediateDirectories: true)
         #expect(throws: BackupError.notABackup) { try BackupFlow.read(folder: empty) }
+    }
+
+    /// Security review: a folder is validated before any image is read, and all images together stay under a cap.
+    @Test func readingAFolderValidatesFirstAndCapsTotalImageBytes() async throws {
+        let source = try makeServices()
+        try await populate(source)
+        let photo = try jpeg(imageStore())
+        var backup = try await snapshot(source, media: [Self.lamp])
+        backup.mediaManifest = [BackupDTO.MediaEntry(reference: Self.lamp, sizeBytes: photo.count)]
+        let folder = FileManager.default.temporaryDirectory.appending(path: "BackupFolder-\(UUID().uuidString)")
+        try BackupPackage.fileWrapper(for: backup) { $0 == Self.lamp ? photo : nil }
+            .write(to: folder, options: .atomic, originalContentsURL: nil)
+        #expect(throws: BackupError.tooLarge(BackupPackage.mediaFolder)) {
+            try BackupFlow.read(folder: folder, mediaLimit: photo.count - 1)
+        }
+        #expect(try BackupFlow.read(folder: folder, mediaLimit: photo.count).media == [Self.lamp: photo])
+
+        let unlisted = "Wishlist/0E6F1B7A-2C3D-4E5F-8A9B-0C1D2E3F4A5B.jpg"
+        backup.mediaManifest.append(BackupDTO.MediaEntry(reference: unlisted, sizeBytes: photo.count))
+        let invalid = FileManager.default.temporaryDirectory.appending(path: "BackupFolder-\(UUID().uuidString)")
+        try BackupPackage.fileWrapper(for: backup) { _ in photo }
+            .write(to: invalid, options: .atomic, originalContentsURL: nil)
+        #expect(throws: BackupError.inconsistentLink(entity: "mediaManifest", field: "reference")) {
+            try BackupFlow.read(folder: invalid)
+        }
+    }
+
+    /// Security review: a restored photo is re-encoded like a new one rather than written byte for byte.
+    @Test func restoredPhotosAreReencodedAsJPEG() throws {
+        let images = imageStore()
+        try images.restore(try #require(Data(base64Encoded: Self.tinyPNG)), as: Self.lamp)
+        let stored = try images.data(for: Self.lamp)
+        let source = try #require(CGImageSourceCreateWithData(stored as CFData, nil))
+        #expect(CGImageSourceGetType(source) as String? == UTType.jpeg.identifier)
     }
 
     // MARK: Format v1 fixture

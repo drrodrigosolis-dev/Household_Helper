@@ -48,6 +48,11 @@ public actor TransactionService {
             includePendingInProjection: settings.includePendingInProjection)
     }
 
+    /// Whether the optional Face ID lock is on; entry points outside the app (Shortcuts) must honor it too.
+    public func isLockEnabled() throws -> Bool {
+        try settings()?.faceIDEnabled == true
+    }
+
     /// First-launch setup. The currency may change only while no transactions or series exist (spec §6.3).
     public func completeOnboarding(currencyCode: String, startingBalance: Money, asOf date: Date, now: Date) throws {
         begin()

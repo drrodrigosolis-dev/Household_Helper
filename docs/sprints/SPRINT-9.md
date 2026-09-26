@@ -7,7 +7,9 @@ scope and the §24.2 Settings row that earlier sprints did not build. Defaults t
 1. **Face ID gate** (§2.1, §7.11, §24.2): off by default; turning it on authenticates first; passcode is the
    fallback (`.deviceOwnerAuthentication`), so the owner can't be locked out; while locked nothing of the app is
    in the view hierarchy and the app switcher shows a plain cover. Device configuration: never in a backup (§26.1),
-   and a restore keeps this device's value. The Log Transaction shortcut requires an unlocked device.
+   and a restore keeps this device's value. The Log Transaction shortcut requires an unlocked device and, while the lock
+   is on, the same Face ID/passcode check. With no device passcode the app opens for the session with an alert; the
+   setting never switches itself off.
 2. **Task ↔ transaction link** (§2.1 "links between tasks, wishlist items, and transactions", §7.8
    `linkedTransactionID`): the task editor gets a transaction picker (the 50 most recent, newest first); the task
    detail shows the linked transaction. A link to a transaction that no longer exists is dropped on save, and

@@ -86,17 +86,19 @@ public struct ImageStore: Sendable {
         try Data(contentsOf: try url(for: reference))
     }
 
-    /// Writes an image under the reference it had in a backup and rebuilds its thumbnail (restore, spec §26.1).
+    /// Writes an image under the reference it had in a backup and rebuilds its thumbnail (restore, spec §26.1). The
+    /// image is re-encoded like a new photo, so metadata or an odd payload in someone else's backup isn't kept.
     public func restore(_ data: Data, as reference: String) throws {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
             throw ImageStoreError.unreadableImage
         }
+        let full = try downscaled(source, to: maxPixelSize)
         let thumbnail = try downscaled(source, to: thumbnailPixelSize)
         let fullURL = try url(for: reference)
         let thumbURL = try thumbnailURL(for: reference)
         try FileManager.default.createDirectory(
             at: fullURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try data.write(to: fullURL, options: .atomic)
+        try write(full, to: fullURL)
         try write(thumbnail, to: thumbURL)
     }
 
@@ -133,13 +135,21 @@ public struct ImageStore: Sendable {
         return image
     }
 
+    /// Encodes to JPEG in memory, then writes atomically with complete file protection: photos are readable only
+    /// while the device is unlocked (nothing reads them in the background).
     private func write(_ image: CGImage, to url: URL) throws {
         let type = UTType.jpeg.identifier as CFString
-        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, type, 1, nil) else {
+        let encoded = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(encoded as CFMutableData, type, 1, nil) else {
             throw ImageStoreError.writeFailed
         }
         let options: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: 0.8]
         CGImageDestinationAddImage(destination, image, options as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { throw ImageStoreError.writeFailed }
+        do {
+            try (encoded as Data).write(to: url, options: [.atomic, .completeFileProtection])
+        } catch {
+            throw ImageStoreError.writeFailed
+        }
     }
 }

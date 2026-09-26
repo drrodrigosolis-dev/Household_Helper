@@ -93,7 +93,9 @@ availability conditions, deprecations, fallback. Verified against official Apple
   `INFOPLIST_KEY_NSFaceIDUsageDescription`). Free Personal Team compatible.
 - **Why `.deviceOwnerAuthentication`, not `...WithBiometrics`:** the passcode is the fallback, so a failed or
   unenrolled Face ID never locks the owner out. If the passcode is later removed the policy can't be evaluated; the
-  gate then turns itself off (the device is unprotected anyway) rather than lock the data away.
+  app then opens for that session with an alert saying why, and the setting stays on so the lock returns as soon as
+  a passcode is set (security review: it used to switch itself off for good). The Log Transaction shortcut asks
+  for the same authentication when the lock is on, so it is not a way around the gate.
 - **Verification:** shapes from memory of the SDK, consistent with long-standing documentation; CI compiles it, and
   behaviour needs a device (WALK-QUEUE). The CI simulator has no passcode, so the Settings switch is disabled there.
 

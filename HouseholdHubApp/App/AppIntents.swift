@@ -34,12 +34,14 @@ struct LogTransactionIntent: AppIntent {
         case unavailable
         case notSetUp
         case noAmount
+        case locked
 
         var localizedStringResource: LocalizedStringResource {
             switch self {
             case .unavailable: "Household Hub couldn't open its data."
             case .notSetUp: "Open Household Hub and finish setting it up first."
             case .noAmount: "There was no amount in that entry. Try something like “47.50 coffee”."
+            case .locked: "Household Hub is locked. Unlock it to record a transaction."
             }
         }
     }
@@ -47,6 +49,12 @@ struct LogTransactionIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard let services = await SharedServices.current, !(await AppRouter.shared.isRestoring) else {
             throw Failure.unavailable
+        }
+        // The app's own lock applies here too; otherwise the shortcut would be a way around it.
+        // With no device passcode nothing can authenticate, and the app itself opens then too (see AppRootView).
+        if try await services.transactions.isLockEnabled(), BiometricGate.isAvailable {
+            let reason = String(localized: "Unlock Household Hub to record a transaction.")
+            guard await BiometricGate.authenticate(reason: reason) else { throw Failure.locked }
         }
         let now = Date.now
         let calendar = HouseholdCalendar(timeZone: .current)

@@ -14,6 +14,8 @@ struct AppRootView: View {
     @State private var isAuthenticating = false
     @State private var unlockFailed = false
     @State private var pendingQuickAdd = false
+    /// Set when the lock is on but the device has no passcode, so nothing can authenticate.
+    @State private var passcodeOff = false
 
     private var lockEnabled: Bool { settings.first?.faceIDEnabled == true }
 
@@ -56,6 +58,16 @@ struct AppRootView: View {
                 router.isQuickAddPresented = true
             }
         }
+        .alert("The lock can't protect Household Hub", isPresented: $passcodeOff) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(
+                """
+                This device has no passcode, so Face ID and the passcode can't be asked for. Set a passcode in the \
+                Settings app, or turn off the lock in More › Settings › Privacy.
+                """
+            )
+        }
         .preferredColorScheme(colorScheme)
         .tint(accent)
         // App switcher: cover the screen whenever the gated app isn't frontmost.
@@ -77,16 +89,17 @@ struct AppRootView: View {
     private func unlock() async {
         guard isLocked, !isAuthenticating else { return }
         // The device passcode was removed after the lock was turned on: nothing can authenticate, and the device
-        // itself is unprotected, so the gate turns itself off rather than lock the owner out of their data.
-        guard BiometricGate.isAvailable else {
-            try? await services?.transactions.setFaceIDEnabled(false, now: .now)
-            isUnlocked = true
-            return
+        // itself is unprotected. The app opens for this session only and says why; the setting stays on, so the
+        // lock works again as soon as a passcode is set (it never switches itself off for good).
+        let success: Bool
+        if BiometricGate.isAvailable {
+            isAuthenticating = true
+            success = await BiometricGate.authenticate(reason: String(localized: "Unlock Household Hub"))
+            isAuthenticating = false
+        } else {
+            success = true
+            passcodeOff = true
         }
-        isAuthenticating = true
-        let reason = String(localized: "Unlock Household Hub")
-        let success = await BiometricGate.authenticate(reason: reason)
-        isAuthenticating = false
         unlockFailed = !success
         isUnlocked = success
         if success, pendingQuickAdd {

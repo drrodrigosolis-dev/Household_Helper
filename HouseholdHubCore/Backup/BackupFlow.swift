@@ -8,8 +8,10 @@ public struct BackupFlow: Sendable {
     public let images: ImageStore?
 
     /// Largest `backup.json` and image file a restore will read; anything bigger is refused, not loaded.
-    public static let maxJSONBytes = 200 * 1_024 * 1_024
+    public static let maxJSONBytes = 50 * 1_024 * 1_024
     public static let maxImageBytes = 40 * 1_024 * 1_024
+    /// Total image bytes a restore will load; a crafted folder can't exhaust memory before anything is checked.
+    public static let maxTotalMediaBytes = 500 * 1_024 * 1_024
 
     public init(service: BackupService, images: ImageStore?) {
         self.service = service
@@ -50,9 +52,14 @@ public struct BackupFlow: Sendable {
 
     // MARK: Restore
 
-    /// Reads a backup folder: `backup.json` first, then only the image files its manifest lists, each within the
-    /// size limits and matching its recorded size. Unlisted files in the folder are never read.
+    /// Reads a backup folder: `backup.json` first, validated whole before any image is opened, then only the image
+    /// files its manifest lists, each within the size limits and matching its recorded size, and all of them within
+    /// `maxTotalMediaBytes`. Unlisted files in the folder are never read.
     public static func read(folder: URL) throws -> (backup: BackupDTO, media: [String: Data]) {
+        try read(folder: folder, mediaLimit: maxTotalMediaBytes)
+    }
+
+    static func read(folder: URL, mediaLimit: Int) throws -> (backup: BackupDTO, media: [String: Data]) {
         let jsonURL = folder.appending(path: BackupPackage.jsonName, directoryHint: .notDirectory)
         guard let jsonSize = fileSize(jsonURL) else { throw BackupError.notABackup }
         guard jsonSize <= maxJSONBytes else { throw BackupError.tooLarge(BackupPackage.jsonName) }
@@ -62,13 +69,17 @@ public struct BackupFlow: Sendable {
         } catch {
             throw BackupError.notABackup
         }
+        try BackupValidator.validate(backup)
         var media: [String: Data] = [:]
-        for entry in backup.mediaManifest where ImageStore.isValidReference(entry.reference) {
+        var total = 0
+        for entry in backup.mediaManifest {
             let url = folder.appending(path: BackupPackage.mediaFolder, directoryHint: .isDirectory)
                 .appending(path: entry.reference, directoryHint: .notDirectory)
-            guard let size = fileSize(url), size == entry.sizeBytes, size <= maxImageBytes,
-                let data = try? Data(contentsOf: url)
-            else { continue }
+            guard let size = fileSize(url), size == entry.sizeBytes, size <= maxImageBytes else { continue }
+            // Checked before loading, so an oversized folder is refused without being read into memory.
+            guard total + size <= mediaLimit else { throw BackupError.tooLarge(BackupPackage.mediaFolder) }
+            guard let data = try? Data(contentsOf: url), data.count == size else { continue }
+            total += size
             media[entry.reference] = data
         }
         return (backup, media)
