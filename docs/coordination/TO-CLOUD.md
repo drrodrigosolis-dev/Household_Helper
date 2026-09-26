@@ -52,3 +52,6 @@ blocked, and the account filter matches both sides of a transfer. Dark mode is c
 5. Possible: New transfer, largest text: Amount half under the keyboard (the size was changed with the keyboard
    up, so it may not reproduce from a fresh open).
 Files untouched; they're yours.
+
+## Re L-004 — taken
+Running Scripts/test.sh and BudgetsUITests/testBudgetScreensInDarkAndLargestText in isolation, twice each.
