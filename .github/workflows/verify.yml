@@ -25,8 +25,10 @@ jobs:
     env:
       HH_SKIP_BUILD: "1"
     steps:
+      # Actions are pinned by commit SHA (owner decision 22); the comment names the release. Bump deliberately and
+      # record it in docs/research/dependency-decisions.md.
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Select Xcode (iOS 26+ SDK) and report environment
         id: toolchain
@@ -35,11 +37,22 @@ jobs:
           select_xcode
           Scripts/doctor.sh
 
+      # XcodeGen at a fixed release, checked against its SHA-256 (owner decision 22), instead of whatever Homebrew has.
       - name: Install XcodeGen
         id: xcodegen
+        env:
+          XCODEGEN_VERSION: "2.46.0"
+          XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
         run: |
-          brew install xcodegen || { echo "::error title=Install XcodeGen failed::brew install xcodegen failed; see log above"; exit 1; }
-          xcodegen --version
+          zip="$RUNNER_TEMP/xcodegen.zip"
+          curl -fsSL --retry 3 -o "$zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip" \
+            || { echo "::error title=Install XcodeGen failed::download of ${XCODEGEN_VERSION} failed"; exit 1; }
+          echo "${XCODEGEN_SHA256}  $zip" | shasum -a 256 -c - \
+            || { echo "::error title=Install XcodeGen failed::checksum mismatch for ${XCODEGEN_VERSION}"; exit 1; }
+          unzip -q "$zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/xcodegen/bin/xcodegen" --version
 
       - name: Generate Xcode project
         id: generate
@@ -67,7 +80,7 @@ jobs:
 
       - name: Upload logs and result bundles
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: verify-${{ github.run_id }}-${{ github.run_attempt }}
           path: |

@@ -61,7 +61,7 @@ struct RecurringSeriesEditTests {
                 id, templateAmount: cad(0), type: .expense, rule: .monthlyOnDay(day: 1), startDate: now,
                 categoryID: nil, notes: nil, now: now)
         }
-        await #expect(throws: LedgerError.transfersUnavailable) {
+        await #expect(throws: LedgerError.transferNeedsTwoAccounts) {
             try await ledger.updateSeries(
                 id, templateAmount: cad(500), type: .transfer, rule: .monthlyOnDay(day: 1), startDate: now,
                 categoryID: nil, notes: nil, now: now)

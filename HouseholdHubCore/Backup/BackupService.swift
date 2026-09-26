@@ -48,8 +48,7 @@ public actor BackupService {
             schemaVersion: BackupDTO.currentSchemaVersion, exportedAt: now, appVersion: appVersion,
             settings: BackupDTO.Settings(
                 id: settings.id, currencyCode: settings.currencyCode, onboardingCompleted: settings.onboardingCompleted,
-                startingBalanceMinorUnits: settings.startingBalanceMinorUnits,
-                startingBalanceDate: settings.startingBalanceDate,
+                startingBalanceMinorUnits: nil, startingBalanceDate: nil, defaultAccountID: settings.defaultAccountID,
                 includePendingInProjection: settings.includePendingInProjection,
                 defaultAnalyticsPeriod: settings.defaultAnalyticsPeriodRawValue,
                 aiCategorizationEnabled: settings.aiCategorizationEnabled,
@@ -67,7 +66,10 @@ public actor BackupService {
             boardColumns: sorted(try fetch(BoardColumn.self).map(Self.dto), by: \.id),
             taskItems: sorted(try fetch(TaskItem.self).map(Self.dto), by: \.id),
             subtaskItems: sorted(try fetch(SubtaskItem.self).map(Self.dto), by: \.id),
-            mediaManifest: manifest)
+            mediaManifest: manifest,
+            accounts: sorted(try fetch(Account.self).map(Self.dto), by: \.id),
+            budgets: sorted(try fetch(CategoryBudget.self).map(Self.dto), by: \.id),
+            goals: sorted(try fetch(SavingsGoal.self).map(Self.dto), by: \.id))
     }
 
     /// The photo references the store uses now.
@@ -85,6 +87,7 @@ public actor BackupService {
     /// own backup (same ids) therefore never relies on how SwiftData resolves a unique-id clash within one save, and
     /// a screen still showing a record keeps a live object.
     public func restore(_ backup: BackupDTO, availableMedia: Set<String>, now: Date) throws -> RestoreSummary {
+        let backup = backup.upgradedToCurrent()
         try BackupValidator.validate(backup)
         if modelContext.hasChanges {
             modelContext.rollback()
@@ -97,7 +100,9 @@ public actor BackupService {
             for settings in try modelContext.fetch(FetchDescriptor<AppSettings>()) {
                 settings.faceIDEnabled = deviceLock
             }
+            try merge(backup.accounts ?? [], id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.categories, id: \.id, make: Self.make, apply: Self.apply)
+            try merge(backup.budgets ?? [], id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.merchants, id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.transactions, id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.recurringTransactions, id: \.id, make: Self.make, apply: Self.apply)
@@ -109,6 +114,7 @@ public actor BackupService {
                 return copy
             }
             try merge(wishes, id: \.id, make: Self.make, apply: Self.apply)
+            try merge(backup.goals ?? [], id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.boardColumns, id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.taskItems, id: \.id, make: Self.make, apply: Self.apply)
             try merge(backup.subtaskItems, id: \.id, make: Self.make, apply: Self.apply)
@@ -167,6 +173,9 @@ extension WishlistItem: Identified { var recordID: UUID { id } }
 extension BoardColumn: Identified { var recordID: UUID { id } }
 extension TaskItem: Identified { var recordID: UUID { id } }
 extension SubtaskItem: Identified { var recordID: UUID { id } }
+extension Account: Identified { var recordID: UUID { id } }
+extension CategoryBudget: Identified { var recordID: UUID { id } }
+extension SavingsGoal: Identified { var recordID: UUID { id } }
 
 /// Each type has `dto` (export), `make` (a new model), and `apply` (copy every stored field onto a model). `make`
 /// builds a minimal model and calls `apply`, so a new and an updated record end up identical.
@@ -180,8 +189,7 @@ extension BackupService {
     static func apply(_ dto: BackupDTO.Settings, to model: AppSettings) {
         model.currencyCode = dto.currencyCode
         model.onboardingCompleted = dto.onboardingCompleted
-        model.startingBalanceMinorUnits = dto.startingBalanceMinorUnits
-        model.startingBalanceDate = dto.startingBalanceDate
+        model.defaultAccountID = dto.defaultAccountID
         model.includePendingInProjection = dto.includePendingInProjection
         model.defaultAnalyticsPeriodRawValue = dto.defaultAnalyticsPeriod
         model.aiCategorizationEnabled = dto.aiCategorizationEnabled ?? true
@@ -253,8 +261,8 @@ extension BackupService {
             occurredAt: model.occurredAt, merchantID: model.merchantID,
             merchantNameSnapshot: model.merchantNameSnapshot, categoryID: model.categoryID, notes: model.notes,
             recurringSeriesID: model.recurringSeriesID, scheduledOccurrence: model.scheduledOccurrence,
-            wishlistItemID: model.wishlistItemID, isAIClassified: model.isAIClassified, createdAt: model.createdAt,
-            updatedAt: model.updatedAt)
+            wishlistItemID: model.wishlistItemID, isAIClassified: model.isAIClassified, accountID: model.accountID,
+            transferAccountID: model.transferAccountID, createdAt: model.createdAt, updatedAt: model.updatedAt)
     }
 
     static func make(_ dto: BackupDTO.Transaction) -> TransactionRecord {
@@ -282,6 +290,8 @@ extension BackupService {
         model.scheduledOccurrence = dto.scheduledOccurrence
         model.wishlistItemID = dto.wishlistItemID
         model.isAIClassified = dto.isAIClassified
+        model.accountID = dto.accountID
+        model.transferAccountID = dto.transferAccountID
         model.createdAt = dto.createdAt
         model.updatedAt = dto.updatedAt
     }
@@ -292,7 +302,8 @@ extension BackupService {
             type: model.typeRawValue, categoryID: model.categoryID, merchantID: model.merchantID, notes: model.notes,
             rule: try model.rule(), timeZoneIdentifier: model.timeZoneIdentifier, startDate: model.startDate,
             endDate: model.endDate, nextOccurrence: model.nextOccurrence, isEnabled: model.isEnabled,
-            createdAt: model.createdAt, updatedAt: model.updatedAt)
+            accountID: model.accountID, transferAccountID: model.transferAccountID, createdAt: model.createdAt,
+            updatedAt: model.updatedAt)
     }
 
     static func make(_ dto: BackupDTO.Recurring) throws -> RecurringTransaction {
@@ -317,6 +328,90 @@ extension BackupService {
         model.endDate = dto.endDate
         model.nextOccurrence = dto.nextOccurrence
         model.isEnabled = dto.isEnabled
+        model.accountID = dto.accountID
+        model.transferAccountID = dto.transferAccountID
+        model.createdAt = dto.createdAt
+        model.updatedAt = dto.updatedAt
+    }
+
+    static func dto(_ model: CategoryBudget) -> BackupDTO.BudgetDTO {
+        BackupDTO.BudgetDTO(
+            id: model.id, categoryID: model.categoryID, limitMinorUnits: model.limitMinorUnits,
+            currencyCode: model.currencyCode, rollsOver: model.rollsOver, startYear: model.startYear,
+            startMonth: model.startMonthOfYear, createdAt: model.createdAt, updatedAt: model.updatedAt)
+    }
+
+    static func make(_ dto: BackupDTO.BudgetDTO) -> CategoryBudget {
+        let model = CategoryBudget(
+            id: dto.id, categoryID: dto.categoryID, limit: .zero(dto.currencyCode), rollsOver: dto.rollsOver,
+            start: BudgetMonth(year: dto.startYear, month: dto.startMonth), now: dto.createdAt)
+        apply(dto, to: model)
+        return model
+    }
+
+    static func apply(_ dto: BackupDTO.BudgetDTO, to model: CategoryBudget) {
+        model.categoryID = dto.categoryID
+        model.limitMinorUnits = dto.limitMinorUnits
+        model.currencyCode = dto.currencyCode
+        model.rollsOver = dto.rollsOver
+        model.start = BudgetMonth(year: dto.startYear, month: dto.startMonth)
+        model.createdAt = dto.createdAt
+        model.updatedAt = dto.updatedAt
+    }
+
+    static func dto(_ model: SavingsGoal) -> BackupDTO.GoalDTO {
+        BackupDTO.GoalDTO(
+            id: model.id, name: model.name, targetMinorUnits: model.targetMinorUnits, currencyCode: model.currencyCode,
+            accountID: model.accountID, targetDate: model.targetDate, wishlistItemID: model.wishlistItemID,
+            isArchived: model.isArchived, sortOrder: model.sortOrder, createdAt: model.createdAt,
+            updatedAt: model.updatedAt)
+    }
+
+    static func make(_ dto: BackupDTO.GoalDTO) -> SavingsGoal {
+        let model = SavingsGoal(
+            id: dto.id, name: dto.name, target: .zero(dto.currencyCode), accountID: dto.accountID, targetDate: nil,
+            wishlistItemID: nil, sortOrder: dto.sortOrder, now: dto.createdAt)
+        apply(dto, to: model)
+        return model
+    }
+
+    static func apply(_ dto: BackupDTO.GoalDTO, to model: SavingsGoal) {
+        model.name = dto.name
+        model.targetMinorUnits = dto.targetMinorUnits
+        model.currencyCode = dto.currencyCode
+        model.accountID = dto.accountID
+        model.targetDate = dto.targetDate
+        model.wishlistItemID = dto.wishlistItemID
+        model.isArchived = dto.isArchived
+        model.sortOrder = dto.sortOrder
+        model.createdAt = dto.createdAt
+        model.updatedAt = dto.updatedAt
+    }
+
+    static func dto(_ model: Account) -> BackupDTO.AccountDTO {
+        BackupDTO.AccountDTO(
+            id: model.id, name: model.name, kind: model.kindRawValue, currencyCode: model.currencyCode,
+            startingBalanceMinorUnits: model.startingBalanceMinorUnits, startingBalanceDate: model.startingBalanceDate,
+            sortOrder: model.sortOrder, isArchived: model.isArchived, createdAt: model.createdAt,
+            updatedAt: model.updatedAt)
+    }
+
+    static func make(_ dto: BackupDTO.AccountDTO) -> Account {
+        let model = Account(
+            id: dto.id, name: dto.name, kind: .bank, startingBalance: .zero(dto.currencyCode),
+            startingBalanceDate: dto.startingBalanceDate, sortOrder: dto.sortOrder, now: dto.createdAt)
+        apply(dto, to: model)
+        return model
+    }
+
+    static func apply(_ dto: BackupDTO.AccountDTO, to model: Account) {
+        model.name = dto.name
+        model.kindRawValue = dto.kind
+        model.currencyCode = dto.currencyCode
+        model.startingBalanceMinorUnits = dto.startingBalanceMinorUnits
+        model.startingBalanceDate = dto.startingBalanceDate
+        model.sortOrder = dto.sortOrder
+        model.isArchived = dto.isArchived
         model.createdAt = dto.createdAt
         model.updatedAt = dto.updatedAt
     }
@@ -382,7 +477,9 @@ extension BackupService {
             priority: model.priorityRawValue, dueDate: model.dueDate, completedAt: model.completedAt,
             sortOrder: model.sortOrder, linkedWishlistItemID: model.linkedWishlistItemID,
             linkedTransactionID: model.linkedTransactionID, archivedAt: model.archivedAt, createdAt: model.createdAt,
-            updatedAt: model.updatedAt)
+            updatedAt: model.updatedAt, recurrenceRule: model.recurrence,
+            // An unreadable rule exports as no repeat, without its zone, so the file stays valid.
+            recurrenceTimeZoneIdentifier: model.recurrence == nil ? nil : model.recurrenceTimeZoneIdentifier)
     }
 
     static func make(_ dto: BackupDTO.TaskDTO) -> TaskItem {
@@ -406,6 +503,8 @@ extension BackupService {
         model.archivedAt = dto.archivedAt
         model.createdAt = dto.createdAt
         model.updatedAt = dto.updatedAt
+        model.recurrenceRuleData = try? dto.recurrenceRule?.encoded()
+        model.recurrenceTimeZoneIdentifier = dto.recurrenceTimeZoneIdentifier
     }
 
     static func dto(_ model: SubtaskItem) -> BackupDTO.Subtask {

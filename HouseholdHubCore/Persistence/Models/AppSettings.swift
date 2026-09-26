@@ -9,8 +9,6 @@ extension SchemaV1 {
         @Attribute(.unique) public var id: UUID
         public var currencyCode: String
         public var onboardingCompleted: Bool
-        public var startingBalanceMinorUnits: Int64
-        public var startingBalanceDate: Date
         /// Whether the projected balance adds pending transactions (spec §9.3). Off by default.
         public var includePendingInProjection: Bool = false
         /// The Analytics period last chosen (spec §7.11 `defaultAnalyticsPeriod`), stored as its raw value.
@@ -32,6 +30,8 @@ extension SchemaV1 {
         public var selectedThemeRawValue: String = ThemePreference.system.rawValue
         public var accentColorHex: String = ""
         public var defaultQuickAddTypeRawValue: String = QuickAddType.expense.rawValue
+        /// The account new entries go to unless another is picked (Sprint 10 decision 8); onboarding creates it.
+        public var defaultAccountID: UUID?
         public var createdAt: Date
         public var updatedAt: Date
 
@@ -43,8 +43,6 @@ extension SchemaV1 {
             self.id = id
             self.currencyCode = currencyCode
             self.onboardingCompleted = false
-            self.startingBalanceMinorUnits = 0
-            self.startingBalanceDate = now
             self.includePendingInProjection = false
             self.createdAt = now
             self.updatedAt = now

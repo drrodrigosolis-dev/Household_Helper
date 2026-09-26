@@ -148,9 +148,17 @@ struct RecurringListView: View {
 private struct RecurringRow: View {
     let item: RecurringTransaction
 
+    static func icon(_ type: TransactionType) -> String {
+        switch type {
+        case .income: return "arrow.down.circle"
+        case .expense: return "arrow.up.circle"
+        case .transfer: return "arrow.left.arrow.right.circle"
+        }
+    }
+
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: item.type == .income ? "arrow.down.circle" : "arrow.up.circle")
+            Image(systemName: RecurringRow.icon(item.type))
                 .font(.title2)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
@@ -184,6 +192,8 @@ enum RecurrenceFormat {
     static func describe(_ rule: RecurrenceRule) -> String {
         let calendar = Calendar.current
         switch rule {
+        case .daily(let interval):
+            return interval == 1 ? String(localized: "Daily") : String(localized: "Every \(interval) days")
         case .weekly(let interval, let weekday):
             let day = calendar.weekdaySymbols[weekday - 1]
             if interval == 1 {

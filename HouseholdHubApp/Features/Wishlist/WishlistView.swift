@@ -4,7 +4,16 @@ import SwiftUI
 
 /// Wishlist tab (spec §24.2): priority and status filter chips, a list/grid toggle remembered on this device, and
 /// cards with thumbnail, name, priority, and estimated price. Tapping a card opens the detail with Mark Purchased.
+/// A Goals segment holds the savings goals (Sprint 12 decision 5).
 struct WishlistView: View {
+    enum Segment: String, CaseIterable, Identifiable {
+        case items
+        /// Savings goals (Sprint 12).
+        case goals
+
+        var id: String { rawValue }
+    }
+
     enum Layout: String {
         case list
         case grid
@@ -37,6 +46,7 @@ struct WishlistView: View {
         }
     }
 
+    @Environment(AppRouter.self) private var router
     @Query(sort: \WishlistItem.createdAt, order: .reverse) private var items: [WishlistItem]
     /// A per-device display preference, deliberately outside the store and backups (spec §7.11).
     @AppStorage("wishlist.layout") private var layout = Layout.list
@@ -44,32 +54,56 @@ struct WishlistView: View {
     @State private var priority: Priority?
     @State private var status = StatusFilter.active
     @State private var isAdding = false
+    /// Sprint 14: name, notes and price.
+    @State private var searchText = ""
 
     private var visible: [WishlistItem] {
+        let query = SearchQuery(searchText)
         // Highest priority first; `items` is newest first and the sort is stable, so ties stay newest first.
-        items.filter { status.includes($0.status) && (priority == nil || $0.priority == priority) }
-            .sorted { $0.priority > $1.priority }
+        return items.filter {
+            status.includes($0.status) && (priority == nil || $0.priority == priority)
+                && query.matches([$0.name, $0.notes], amount: $0.actualPrice ?? $0.estimatedPrice)
+        }
+        .sorted { $0.priority > $1.priority }
     }
 
     var body: some View {
+        @Bindable var router = router
         NavigationStack {
-            content
-                .safeAreaInset(edge: .top) { chips }
-                .quickAddAccess()
-                .navigationTitle("Wishlist")
-                .navigationDestination(for: UUID.self) { id in
-                    WishlistDetailView(itemID: id)
+            Group {
+                switch router.wishlistSegment {
+                case .items:
+                    content
+                        .searchable(text: $searchText, prompt: "Search wishlist")
+                        .safeAreaInset(edge: .top) { chips }
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) { layoutToggle }
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("Add item", systemImage: "plus") { isAdding = true }
+                                    .accessibilityIdentifier("wishlist.add")
+                            }
+                        }
+                case .goals:
+                    GoalsListView()
                 }
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) { layoutToggle }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Add item", systemImage: "plus") { isAdding = true }
-                            .accessibilityIdentifier("wishlist.add")
-                    }
+            }
+            .safeAreaInset(edge: .top) {
+                Picker("View", selection: $router.wishlistSegment) {
+                    Text("Items").tag(Segment.items)
+                    Text("Goals").tag(Segment.goals)
                 }
-                .sheet(isPresented: $isAdding) {
-                    NavigationStack { WishlistEditorView(item: nil) }
-                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .accessibilityIdentifier("wishlist.segment")
+            }
+            .quickAddAccess()
+            .navigationTitle("Wishlist")
+            .navigationDestination(for: UUID.self) { id in
+                WishlistDetailView(itemID: id)
+            }
+            .sheet(isPresented: $isAdding) {
+                NavigationStack { WishlistEditorView(item: nil) }
+            }
         }
     }
 
@@ -248,4 +282,5 @@ enum WishlistItemSummary {
 
 #Preview {
     WishlistView()
+        .environment(AppRouter.shared)
 }

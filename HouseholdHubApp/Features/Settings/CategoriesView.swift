@@ -6,6 +6,7 @@ import SwiftUI
 struct CategoriesView: View {
     @Environment(\.services) private var services
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
+    @Query private var budgets: [CategoryBudget]
     @State private var editing: CategoryEditorView.Mode?
     @State private var inUse: InUse?
     @State private var pendingDelete: CategoryRecord?
@@ -53,8 +54,8 @@ struct CategoriesView: View {
         ) { category in
             Button("Delete \(category.name)", role: .destructive) { delete(category) }
             Button("Cancel", role: .cancel) {}
-        } message: { _ in
-            Text("If anything uses it you'll be offered archive or move instead. Deleting can't be undone.")
+        } message: { category in
+            Text(deleteMessage(category))
         }
         .confirmationDialog(
             "Category in use", isPresented: inUseShown, titleVisibility: .visible, presenting: inUse
@@ -65,7 +66,7 @@ struct CategoriesView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: { info in
-            Text("\(info.count) items use this category. Archive it to keep history, or move them first.")
+            Text(inUseMessage(info))
         }
     }
 
@@ -99,6 +100,33 @@ struct CategoriesView: View {
                 Button("Delete", systemImage: "trash", role: .destructive) { pendingDelete = category }
             }
         }
+    }
+
+    private func hasBudget(_ id: UUID) -> Bool {
+        budgets.contains { $0.categoryID == id }
+    }
+
+    /// Deleting also removes the category's budget (Sprint 11), and says so.
+    private func deleteMessage(_ category: CategoryRecord) -> String {
+        let base = String(localized: "If anything uses it you'll be offered archive or move instead.")
+        let budget = hasBudget(category.id) ? " " + String(localized: "Its monthly budget is removed too.") : ""
+        return base + budget + " " + String(localized: "Deleting can't be undone.")
+    }
+
+    /// Moving spending into a category with a budget changes that budget's past months and rollover; say so.
+    private func inUseMessage(_ info: InUse) -> String {
+        var parts = [
+            String(localized: "\(info.count) items use this category. Archive it to keep history, or move them first.")
+        ]
+        if hasBudget(info.category.id) {
+            parts.append(String(localized: "Moving and deleting removes its monthly budget."))
+        }
+        if reassignTargets(for: info.category).contains(where: { hasBudget($0.id) }) {
+            parts.append(
+                String(
+                    localized: "Moved spending counts in the new category's budget, including months already past."))
+        }
+        return parts.joined(separator: " ")
     }
 
     private func archiveTitle(_ category: CategoryRecord) -> LocalizedStringKey {

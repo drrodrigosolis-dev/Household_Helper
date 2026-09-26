@@ -10,7 +10,8 @@ enum WalkVariant: String, CaseIterable {
 extension XCTestCase {
     /// Launches against an empty in-memory store; `onboarded` skips the first-launch sheet.
     @MainActor
-    func launchApp(onboarded: Bool = true, variant: WalkVariant = .light) -> XCUIApplication {
+    /// - Parameter language: an app language such as "es" (Sprint 16 walk); formats still follow the region.
+    func launchApp(onboarded: Bool = true, variant: WalkVariant = .light, language: String? = nil) -> XCUIApplication {
         let app = XCUIApplication()
         var arguments = ["-uiTesting"]
         if onboarded {
@@ -21,6 +22,9 @@ extension XCTestCase {
         }
         if variant == .largeText {
             arguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        }
+        if let language {
+            arguments += ["-AppleLanguages", "(\(language))"]
         }
         app.launchArguments = arguments
         XCUIDevice.shared.appearance = variant == .dark ? .dark : .light

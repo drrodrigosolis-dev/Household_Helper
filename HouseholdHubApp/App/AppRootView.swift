@@ -81,7 +81,11 @@ struct AppRootView: View {
                 isUnlocked = false
                 unlockFailed = false
                 // Leaving the app is when the Home Screen becomes visible; refresh the widget's figures then.
-                Task { await WidgetSync.refresh(services) }
+                Task {
+                    await WidgetSync.refresh(services)
+                    // Reminders follow the latest tasks and bills (Sprint 14).
+                    await ReminderSync.refresh(services)
+                }
             }
         }
     }
@@ -140,8 +144,13 @@ struct AppRootView: View {
     private func bootstrap() async {
         guard let services else { return }
         let now = Date.now
-        try? await services.categories.seedSystemCategoriesIfNeeded(now: now)
-        try? await services.board.seedDefaultColumnsIfNeeded(now: now)
+        // New data is named in the device's language (Sprint 16); UI tests keep English names.
+        let language =
+            ProcessInfo.processInfo.arguments.contains(LaunchArguments.uiTesting)
+            ? SeedLanguage.english : SeedLanguage.preferred(Locale.preferredLanguages)
+        await services.transactions.setSeedLanguage(language)
+        try? await services.categories.seedSystemCategoriesIfNeeded(now: now, language: language)
+        try? await services.board.seedDefaultColumnsIfNeeded(now: now, language: language)
         if ProcessInfo.processInfo.arguments.contains(LaunchArguments.skipOnboarding) {
             try? await services.transactions.completeOnboarding(
                 currencyCode: "CAD", startingBalance: .zero("CAD"), asOf: now, now: now)

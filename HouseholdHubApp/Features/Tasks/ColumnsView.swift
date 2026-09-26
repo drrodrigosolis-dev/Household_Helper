@@ -68,7 +68,12 @@ struct ColumnsView: View {
             Button("Make \(reorder.newDone) the done column") { perform(reorder) }
             Button("Cancel", role: .cancel) {}
         } message: { reorder in
-            Text("Tasks in \(reorder.newDone) will be marked complete and tasks in \(reorder.oldDone) reopened.")
+            Text(
+                """
+                Tasks in \(reorder.newDone) will be marked complete and tasks in \(reorder.oldDone) reopened. \
+                Repeating tasks don't add their next one this way; complete them one at a time for that.
+                """
+            )
         }
         .confirmationDialog(
             "Delete this column?", isPresented: deleteShown, titleVisibility: .visible, presenting: pendingDelete

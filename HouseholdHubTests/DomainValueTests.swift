@@ -39,6 +39,7 @@ struct DomainValueTests {
     /// Stored-format fixtures: a renamed case or field must fail here before it can strand saved data.
     @Test(arguments: [
         (#"{"weekly":{"interval":2,"weekday":6}}"#, RecurrenceRule.weekly(interval: 2, weekday: 6)),
+        (#"{"daily":{"interval":1}}"#, .daily(interval: 1)),
         (#"{"monthlyOnDay":{"day":31}}"#, .monthlyOnDay(day: 31)),
         (#"{"monthlyOnWeekday":{"ordinal":-1,"weekday":6}}"#, .monthlyOnWeekday(ordinal: -1, weekday: 6)),
         (#"{"yearly":{"month":2,"day":29}}"#, .yearly(month: 2, day: 29)),

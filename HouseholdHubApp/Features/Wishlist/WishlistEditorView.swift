@@ -66,12 +66,12 @@ struct WishlistEditorView: View {
     var body: some View {
         Form {
             Section {
-                LabeledContent("Name") {
+                FocusingRow("Name") {
                     TextField("Required", text: $name)
                         .multilineTextAlignment(.trailing)
                         .accessibilityIdentifier("wishlist.editor.name")
                 }
-                LabeledContent("Estimated price") {
+                FocusingRow("Estimated price") {
                     TextField("Optional", text: $estimateText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
@@ -100,7 +100,7 @@ struct WishlistEditorView: View {
                 if hasTargetDate {
                     DatePicker("Date", selection: $targetDate, displayedComponents: .date)
                 }
-                LabeledContent("Notes") {
+                FocusingRow("Notes") {
                     TextField("Optional", text: $notes, axis: .vertical)
                         .multilineTextAlignment(.trailing)
                 }

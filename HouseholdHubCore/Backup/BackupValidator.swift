@@ -17,7 +17,19 @@ public enum BackupError: Error, Equatable, Sendable {
 /// anything"). References must exist, and the invariants the services keep (purchase links both ways, category kinds,
 /// task completion, one file per photo) must hold, so a restored store is one the app could have produced itself.
 public enum BackupValidator {
-    public static func validate(_ backup: BackupDTO) throws {
+    /// Accepts a v1 file by checking its v2 form (`upgradedToCurrent()`), the form a restore writes.
+    public static func validate(_ original: BackupDTO) throws {
+        guard BackupDTO.readableSchemaVersions.contains(original.schemaVersion) else {
+            throw BackupError.unsupportedSchemaVersion(original.schemaVersion)
+        }
+        // The v1 format required the household baseline; a file without it is not one this app wrote, and upgrading
+        // it would invent a zero balance.
+        if original.schemaVersion == 1,
+            original.settings.startingBalanceMinorUnits == nil || original.settings.startingBalanceDate == nil
+        {
+            throw BackupError.missingReference(entity: "settings", field: "startingBalance")
+        }
+        let backup = original.upgradedToCurrent()
         guard backup.schemaVersion == BackupDTO.currentSchemaVersion else {
             throw BackupError.unsupportedSchemaVersion(backup.schemaVersion)
         }
@@ -27,6 +39,19 @@ public enum BackupValidator {
         }
         try readable(AnalyticsPeriod.self, backup.settings.defaultAnalyticsPeriod, "settings", "defaultAnalyticsPeriod")
 
+        let accountList = backup.accounts ?? []
+        let accounts = try ids(accountList.map(\.id), "accounts")
+        for account in accountList {
+            try readable(AccountKind.self, account.kind, "accounts", "kind")
+            try sameCurrency(account.currencyCode, currency, "accounts")
+            guard !account.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw BackupError.invalidValue(entity: "accounts", field: "name", value: account.name)
+            }
+        }
+        // Every entry needs somewhere to go (Sprint 10): a default account that exists and is active.
+        guard let defaultAccount = backup.settings.defaultAccountID,
+            let main = accountList.first(where: { $0.id == defaultAccount }), !main.isArchived
+        else { throw BackupError.missingReference(entity: "settings", field: "defaultAccountID") }
         let categories = try ids(backup.categories.map(\.id), "categories")
         let merchants = try ids(backup.merchants.map(\.id), "merchants")
         let transactions = try ids(backup.transactions.map(\.id), "transactions")
@@ -38,6 +63,65 @@ public enum BackupValidator {
 
         for category in backup.categories {
             try readable(CategoryKind.self, category.kind, "categories", "kind")
+        }
+        // Budgets (Sprint 11): one per existing category that allows expenses, a positive limit in the household
+        // currency.
+        let budgetList = backup.budgets ?? []
+        _ = try ids(budgetList.map(\.id), "budgets")
+        let budgetedCategories = budgetList.map(\.categoryID)
+        guard Set(budgetedCategories).count == budgetedCategories.count else {
+            throw BackupError.duplicateID(entity: "budgets.categoryID")
+        }
+        for budget in budgetList {
+            try required(budget.categoryID, in: categories, "budgets", "categoryID")
+            try positive(budget.limitMinorUnits, "budgets", "limitMinorUnits")
+            // Bounded, so a hand-edited file can't overflow the rollover sums or make them loop over centuries: a
+            // limit up to one billion in major units, a start month between 2000 and the backup's own month.
+            guard budget.limitMinorUnits <= maxBudgetMinorUnits else {
+                throw BackupError.invalidValue(
+                    entity: "budgets", field: "limitMinorUnits", value: "\(budget.limitMinorUnits)")
+            }
+            let exported = Calendar(identifier: .gregorian).dateComponents(
+                in: TimeZone(identifier: "UTC")!, from: backup.exportedAt)
+            let start = BudgetMonth(year: budget.startYear, month: budget.startMonth)
+            // One month of slack: the export instant is read in UTC, the start month in the household's zone.
+            let exportMonth = exported.month ?? 1
+            let latest = BudgetMonth(
+                year: (exported.year ?? 2000) + (exportMonth == 12 ? 1 : 0), month: exportMonth % 12 + 1)
+            guard (1...12).contains(budget.startMonth), start >= BudgetMonth(year: 2000, month: 1), start <= latest
+            else {
+                throw BackupError.invalidValue(entity: "budgets", field: "start", value: "\(start.year)-\(start.month)")
+            }
+            try sameCurrency(budget.currencyCode, currency, "budgets")
+            let category = backup.categories.first { $0.id == budget.categoryID }
+            guard category.flatMap({ CategoryKind(rawValue: $0.kind) })?.allows(.expense) == true else {
+                throw BackupError.inconsistentLink(entity: "budgets", field: "categoryID")
+            }
+        }
+        // Savings goals (Sprint 12): a name, a bounded positive target in the household currency, an account that
+        // holds money, and at most one goal per wishlist item.
+        let goalList = backup.goals ?? []
+        _ = try ids(goalList.map(\.id), "goals")
+        let goalItems = goalList.compactMap(\.wishlistItemID)
+        guard Set(goalItems).count == goalItems.count else {
+            throw BackupError.duplicateID(entity: "goals.wishlistItemID")
+        }
+        for goal in goalList {
+            guard !goal.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw BackupError.invalidValue(entity: "goals", field: "name", value: goal.name)
+            }
+            try positive(goal.targetMinorUnits, "goals", "targetMinorUnits")
+            guard goal.targetMinorUnits <= maxBudgetMinorUnits else {
+                throw BackupError.invalidValue(
+                    entity: "goals", field: "targetMinorUnits", value: "\(goal.targetMinorUnits)")
+            }
+            try sameCurrency(goal.currencyCode, currency, "goals")
+            try required(goal.accountID, in: accounts, "goals", "accountID")
+            let account = accountList.first { $0.id == goal.accountID }
+            guard account.flatMap({ AccountKind(rawValue: $0.kind) })?.isLiability == false else {
+                throw BackupError.inconsistentLink(entity: "goals", field: "accountID")
+            }
+            try exists(goal.wishlistItemID, in: wishes, "goals", "wishlistItemID")
         }
         for merchant in backup.merchants {
             try exists(merchant.defaultCategoryID, in: categories, "merchants", "defaultCategoryID")
@@ -53,6 +137,8 @@ public enum BackupValidator {
             try exists(record.merchantID, in: merchants, "transactions", "merchantID")
             try exists(record.recurringSeriesID, in: series, "transactions", "recurringSeriesID")
             try exists(record.wishlistItemID, in: wishes, "transactions", "wishlistItemID")
+            try required(record.accountID, in: accounts, "transactions", "accountID")
+            try exists(record.transferAccountID, in: accounts, "transactions", "transferAccountID")
             if let seriesID = record.recurringSeriesID, let occurrence = record.scheduledOccurrence {
                 // One record per occurrence (spec §9.4): a duplicate would post the same occurrence twice.
                 let key = "\(seriesID.uuidString)-\(occurrence.timeIntervalSinceReferenceDate)"
@@ -65,6 +151,8 @@ public enum BackupValidator {
             try sameCurrency(item.currencyCode, currency, "recurringTransactions")
             try exists(item.categoryID, in: categories, "recurringTransactions", "categoryID")
             try exists(item.merchantID, in: merchants, "recurringTransactions", "merchantID")
+            try required(item.accountID, in: accounts, "recurringTransactions", "accountID")
+            try exists(item.transferAccountID, in: accounts, "recurringTransactions", "transferAccountID")
             guard TimeZone(identifier: item.timeZoneIdentifier) != nil else {
                 throw BackupError.invalidValue(
                     entity: "recurringTransactions", field: "timeZoneIdentifier", value: item.timeZoneIdentifier)
@@ -98,6 +186,24 @@ public enum BackupValidator {
             try exists(task.columnID, in: columns, "taskItems", "columnID")
             try exists(task.linkedWishlistItemID, in: wishes, "taskItems", "linkedWishlistItemID")
             try exists(task.linkedTransactionID, in: transactions, "taskItems", "linkedTransactionID")
+            // A repeat (Sprint 13): a valid rule in a known zone, on a task with a due date; rule and zone go together.
+            switch (task.recurrenceRule, task.recurrenceTimeZoneIdentifier) {
+            case (nil, nil):
+                break
+            case (let rule?, let zone?):
+                guard (try? rule.validate()) != nil else {
+                    throw BackupError.invalidValue(entity: "taskItems", field: "recurrenceRule", value: "\(rule)")
+                }
+                guard TimeZone(identifier: zone) != nil else {
+                    throw BackupError.invalidValue(
+                        entity: "taskItems", field: "recurrenceTimeZoneIdentifier", value: zone)
+                }
+                guard task.dueDate != nil else {
+                    throw BackupError.inconsistentLink(entity: "taskItems", field: "recurrenceRule")
+                }
+            default:
+                throw BackupError.inconsistentLink(entity: "taskItems", field: "recurrenceTimeZoneIdentifier")
+            }
         }
         for subtask in backup.subtaskItems {
             try exists(subtask.taskID, in: tasks, "subtaskItems", "taskID")
@@ -123,6 +229,11 @@ public enum BackupValidator {
         let wishes = Dictionary(backup.wishlistItems.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         for record in backup.transactions {
             try allows(record.categoryID, record.type, "transactions")
+            try transferShape(
+                record.type, record.accountID, record.transferAccountID, record.categoryID, "transactions")
+            if record.type == TransactionType.transfer.rawValue, record.merchantID != nil {
+                throw BackupError.inconsistentLink(entity: "transactions", field: "merchantID")
+            }
             if record.source == TransactionSource.recurring.rawValue {
                 guard record.recurringSeriesID != nil, record.scheduledOccurrence != nil else {
                     throw BackupError.inconsistentLink(entity: "transactions", field: "recurringSeriesID")
@@ -135,6 +246,8 @@ public enum BackupValidator {
         }
         for item in backup.recurringTransactions {
             try allows(item.categoryID, item.type, "recurringTransactions")
+            try transferShape(
+                item.type, item.accountID, item.transferAccountID, item.categoryID, "recurringTransactions")
         }
         var media = Set<String>()
         for wish in backup.wishlistItems {
@@ -185,6 +298,26 @@ public enum BackupValidator {
         return unique
     }
 
+    /// Largest budget limit or goal target a backup may carry; the same bound the services enforce.
+    static let maxBudgetMinorUnits = Money.maxPlanMinorUnits
+
+    /// A transfer names two different accounts and no category; nothing else names a destination (Sprint 10).
+    private static func transferShape(
+        _ type: String, _ source: UUID?, _ destination: UUID?, _ category: UUID?, _ entity: String
+    ) throws {
+        if type == TransactionType.transfer.rawValue {
+            guard destination != nil, destination != source, category == nil else {
+                throw BackupError.inconsistentLink(entity: entity, field: "transferAccountID")
+            }
+        } else if destination != nil {
+            throw BackupError.inconsistentLink(entity: entity, field: "transferAccountID")
+        }
+    }
+
+    private static func required(_ id: UUID?, in known: Set<UUID>, _ entity: String, _ field: String) throws {
+        guard let id, known.contains(id) else { throw BackupError.missingReference(entity: entity, field: field) }
+    }
+
     private static func exists(_ id: UUID?, in known: Set<UUID>, _ entity: String, _ field: String) throws {
         guard let id else { return }
         guard known.contains(id) else { throw BackupError.missingReference(entity: entity, field: field) }
@@ -231,6 +364,15 @@ extension BackupDTO {
                 taskItems[index].linkedTransactionID = nil
                 dropped += 1
             }
+        }
+        if var list = goals {
+            for index in list.indices {
+                if let id = list[index].wishlistItemID, !wishIDs.contains(id) {
+                    list[index].wishlistItemID = nil
+                    dropped += 1
+                }
+            }
+            goals = list
         }
         let backLinks = Dictionary(
             taskItems.compactMap { task in task.linkedWishlistItemID.map { (task.id, $0) } },

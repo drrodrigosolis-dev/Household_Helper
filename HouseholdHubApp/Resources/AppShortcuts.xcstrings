@@ -1,0 +1,26 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Log a transaction in ${applicationName}": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registrar un movimiento en ${applicationName}"
+          }
+        }
+      }
+    },
+    "Quick Add in ${applicationName}": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registro rápido en ${applicationName}"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -37,6 +37,11 @@ extension SchemaV1 {
         public var linkedWishlistItemID: UUID?
         public var linkedTransactionID: UUID?
         public var archivedAt: Date?
+        /// A repeating task's rule (Sprint 13), JSON-encoded like `RecurringTransaction.ruleData`; nil = no repeat.
+        /// Only the open task of a series carries it: completing it hands the rule to the next task.
+        public var recurrenceRuleData: Data?
+        /// Calendar context for the rule, e.g. "America/Vancouver"; set exactly when `recurrenceRuleData` is.
+        public var recurrenceTimeZoneIdentifier: String?
         public var createdAt: Date
         public var updatedAt: Date
 
@@ -55,6 +60,11 @@ extension SchemaV1 {
         public var priority: Priority {
             get { Priority(rawValue: priorityRawValue) ?? .medium }
             set { priorityRawValue = newValue.rawValue }
+        }
+
+        /// The repeat rule, or nil when the task doesn't repeat or the stored rule can't be read.
+        public var recurrence: RecurrenceRule? {
+            recurrenceRuleData.flatMap { try? RecurrenceRule.decoded(from: $0) }
         }
     }
 

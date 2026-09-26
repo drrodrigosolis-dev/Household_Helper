@@ -61,6 +61,9 @@ struct QuickAddView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
+    @Query(sort: \Account.sortOrder) private var accounts: [Account]
+    /// nil = the default account (Sprint 10 decision 8).
+    @State private var accountID: UUID?
 
     @State private var text = ""
     @State private var entry = Entry.expense
@@ -184,7 +187,7 @@ struct QuickAddView: View {
                     DatePicker("Due", selection: $occurredAt, displayedComponents: .date)
                 }
             } else {
-                LabeledContent(amountLabel) {
+                FocusingRow(amountLabel) {
                     TextField(amountPrompt, text: $amountText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
@@ -197,10 +200,20 @@ struct QuickAddView: View {
                     }
                 }
             }
+            let active = accounts.filter { !$0.isArchived }
+            if entry == .expense || entry == .income, active.count > 1 {
+                Picker("Account", selection: $accountID) {
+                    Text("Default account").tag(UUID?.none)
+                    ForEach(active) { account in
+                        Text(account.name).tag(UUID?.some(account.id))
+                    }
+                }
+                .accessibilityIdentifier("quickadd.account")
+            }
             if entry == .expense || entry == .income {
                 DatePicker("Date", selection: $occurredAt, displayedComponents: [.date, .hourAndMinute])
             }
-            LabeledContent(notesLabel) {
+            FocusingRow(notesLabel) {
                 TextField("Optional", text: $notes)
                     .multilineTextAlignment(.trailing)
                     .accessibilityIdentifier("quickadd.notes")
@@ -376,7 +389,7 @@ struct QuickAddView: View {
         let draft = TransactionDraft(
             amount: amount, type: type, occurredAt: occurredAt, categoryID: categoryID,
             notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
-            isAIClassified: modelCategoryID != nil && modelCategoryID == categoryID)
+            isAIClassified: modelCategoryID != nil && modelCategoryID == categoryID, accountID: accountID)
         do {
             try await services.transactions.create(draft, now: .now)
             dismiss()

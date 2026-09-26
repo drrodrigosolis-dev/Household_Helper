@@ -1,7 +1,8 @@
 # Household Hub v1 — progress
 
-Gate: a phase is **CI green** only when `.github/workflows/verify.yml` concluded `success` on the `build/v1` commit
-that completes it (CLAUDE.md, "Autonomous CI-driven operation"; spec §28). Mirrored in the `build/v1 → main` PR description.
+Gate: a phase is **CI green** only when `.github/workflows/verify.yml` concluded `success` on the commit that
+completes it (CLAUDE.md, "Autonomous CI-driven operation"; spec §28). v1 (Phases 0-10) was merged into `main` as
+`e5b5c40` on the owner's go-ahead; v1.1 is built on `build/v1.1` and mirrored in the `build/v1.1 → main` PR description.
 
 | Phase (§21) | Status | Note |
 |---|---|---|
@@ -43,6 +44,25 @@ Statuses: not started / in progress / CI green / blocked.
 11. **Accent color: any color** via a color picker (overrides Sprint 9 default 3), with a warning when it would be
     hard to see in Light or Dark Mode; the palette stays as quick choices.
 
+12. **v1 merged into `main`** (`e5b5c40`), with device-only checks still queued; post-v1 work goes on `build/v1.1`.
+13. **v1.1 features** (all owner-chosen; beyond spec §2.1, so recorded here rather than assumed): multiple accounts
+    with transfers, category budgets, savings goals, recurring tasks, search, local reminders, CSV import, and a Spanish
+    translation (neutral Latin-American).
+14. **CSV import is a manual, user-picked file with a preview before anything is saved.** It is not the §2.2 non-goal
+    "automatic merchant transaction import from banks": no bank connection, no background import.
+15. **SchemaV1 stays editable through the v1.1 data features** (accounts, budgets, goals, recurring tasks); it freezes
+    at the first install on the owner's device as before, so installing before those are green would force migrations.
+16. **Sprint 10 defaults accepted ("run")**: the 11 account and transfer decisions in `docs/sprints/SPRINT-10.md`.
+17. **Budgets roll over by default, with a toggle on each budget** (Sprint 11); the other Sprint 11 defaults accepted.
+18. **Cloud ↔ local sessions** coordinate through `docs/coordination/` (two one-way files in the repo).
+19. **Sprint 12 defaults accepted ("run")**: the 6 savings-goal decisions in `docs/sprints/SPRINT-12.md`.
+20. **Sprint 13 defaults accepted**: the 5 recurring-task decisions in `docs/sprints/SPRINT-13.md`.
+21. **Column changes don't repeat tasks**: reordering or deleting columns completes tasks without adding their next
+    copies; only a task completed on its own does (Sprint 13).
+22. **CI workflow pinned** (owner go-ahead 2026-09-26): actions by commit SHA and XcodeGen at a fixed version.
+23. **Sprint 14 defaults accepted ("run")**: search and local reminders, `docs/sprints/SPRINT-14.md`.
+24. **Sprint 15 defaults accepted ("run")**: CSV import, `docs/sprints/SPRINT-15.md`.
+25. **Sprint 16 defaults accepted ("run Spanish")**: neutral Latin-American Spanish, `docs/sprints/SPRINT-16.md`.
 
 ## Defaults awaiting the owner's review (Phase 10)
 - **Currency after records exist (§6.3):** Settings › Household refuses the change and says why, rather than §6.3's
@@ -64,3 +84,17 @@ Statuses: not started / in progress / CI green / blocked.
   the phone locks during a long "Back up now", photos not yet read are left out and the user is told.
 - **A total photo cap of 500 MB per restore:** past it, remaining photos count as missing and the data still
   restores (the review showed a hard refusal would make large legitimate backups unrestorable).
+
+## v1.1 plan (owner decisions 13-15)
+Order: data-model features first, while SchemaV1 is still editable, and accounts before anything that needs to know
+where money sits. Each is one sprint (`docs/sprints/SPRINT-10…`), closed only on its own green CI run.
+
+| Sprint | Feature | Status |
+|---|---|---|
+| 10 | Multiple accounts + transfers (household balance = sum of accounts; §9 terms per account) | CI green (run 36251732218 on `e5ddfb7`); large-text re-walk pending |
+| 11 | Category budgets (monthly limits, rollover on by default, progress on Dashboard and Analytics) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
+| 12 | Savings goals (target and date, monthly amount needed; can point at a wishlist item) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
+| 13 | Recurring tasks (reuse the recurrence rules) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
+| 14 | Search (deterministic) + local reminders (task due dates, upcoming bills) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`); real reminder on device pending (L-009) |
+| 15 | CSV import (user-picked file, column mapping, preview, duplicate check, one atomic save) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
+| 16 | Spanish translation (String Catalog; walked in Spanish) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`); Xcode export gaps fixed (L-010); default task columns now seeded in Spanish (next run) |

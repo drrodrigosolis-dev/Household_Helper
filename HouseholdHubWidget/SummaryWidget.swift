@@ -121,12 +121,12 @@ struct SummaryWidgetView: View {
 
     private func upcomingRow(_ item: WidgetSnapshot.Upcoming) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(item.title ?? (item.isIncome ? String(localized: "Income") : String(localized: "Expense")))
+            Text(item.title ?? kindLabel(item))
                 .font(.caption.weight(.medium)).lineLimit(1)
             HStack(spacing: 4) {
                 Text(item.date, format: .dateTime.month(.abbreviated).day())
-                if let minor = item.amountMinorUnits {
-                    Text(signed(minor, isIncome: item.isIncome))
+                if let money = try? item.displayAmount(currencyCode: snapshot.currencyCode) {
+                    Text((item.isIncome ? "+" : "") + money.formatted())
                 }
             }
             .font(.caption2).foregroundStyle(.secondary)
@@ -147,9 +147,9 @@ struct SummaryWidgetView: View {
         return String(localized: "Pending \(pending.formatted())")
     }
 
-    private func signed(_ minor: Int64, isIncome: Bool) -> String {
-        let money = Money(minorUnits: isIncome ? minor : -minor, currencyCode: snapshot.currencyCode)
-        return (isIncome ? "+" : "") + money.formatted()
+    private func kindLabel(_ item: WidgetSnapshot.Upcoming) -> String {
+        if item.isTransfer == true { return String(localized: "Transfer") }
+        return item.isIncome ? String(localized: "Income") : String(localized: "Expense")
     }
 }
 

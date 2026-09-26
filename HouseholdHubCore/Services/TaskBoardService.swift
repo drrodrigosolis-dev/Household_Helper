@@ -24,14 +24,16 @@ public actor TaskBoardService {
     }
 
     public static let defaultColumnNames = ["To Do", "In Progress", "Done"]
+    public static let spanishColumnNames = ["Por hacer", "En curso", "Hecho"]
 
     // MARK: Columns
 
-    /// Inserts the default system columns once. Names are stored data and can be renamed.
-    public func seedDefaultColumnsIfNeeded(now: Date) throws {
+    /// Inserts the default system columns once, named in `language`. Names are stored data and can be renamed.
+    public func seedDefaultColumnsIfNeeded(now: Date, language: SeedLanguage = .english) throws {
         begin()
         guard try modelContext.fetchCount(FetchDescriptor<BoardColumn>()) == 0 else { return }
-        for (index, name) in Self.defaultColumnNames.enumerated() {
+        let names = language == .spanish ? Self.spanishColumnNames : Self.defaultColumnNames
+        for (index, name) in names.enumerated() {
             modelContext.insert(BoardColumn(name: name, sortOrder: index, isSystem: true, now: now))
         }
         try commit()
@@ -70,7 +72,7 @@ public actor TaskBoardService {
         let column = ordered.remove(at: from)
         ordered.insert(column, at: min(max(index, 0), ordered.count))
         renumber(ordered, now: now)
-        try applyCompletionRule(doneColumnID: ordered.last?.id, now: now)
+        try applyCompletionRule(ordered, now: now)
         try commit()
     }
 
@@ -91,7 +93,7 @@ public actor TaskBoardService {
         modelContext.delete(column)
         let remaining = try columns().filter { $0.id != id }
         renumber(remaining, now: now)
-        try applyCompletionRule(doneColumnID: remaining.last?.id, now: now)
+        try applyCompletionRule(remaining, now: now)
         try commit()
     }
 
@@ -112,9 +114,9 @@ public actor TaskBoardService {
         let key = SortKey.between(try tasks(in: column.id, includingArchived: true).last?.sortOrder, nil) ?? 1
         let task = TaskItem(
             title: draft.trimmedTitle, columnID: column.id, priority: draft.priority, sortOrder: key, now: now)
-        apply(draft, to: task)
-        task.completedAt = column.id == ordered.last?.id ? now : nil
+        try apply(draft, to: task)
         modelContext.insert(task)
+        try settleCompletion(of: task, columns: ordered, returnTo: nil, now: now)
         try linkBack(draft.linkedWishlistItemID, to: task.id, now: now)
         try commit()
         return task.id
@@ -127,6 +129,10 @@ public actor TaskBoardService {
         draft.linkedWishlistItemID = try existingWishlistLink(draft.linkedWishlistItemID)
         draft.linkedTransactionID = try existingTransactionLink(draft.linkedTransactionID)
         let task = try requireTask(id)
+        // A completed task may keep the rule it has (one completed by a column change), never gain a new one.
+        guard draft.recurrence == nil || task.completedAt == nil || draft.recurrence == task.recurrence else {
+            throw TaskBoardError.repeatOnCompletedTask
+        }
         // A wishlist item that pointed back at this task keeps that link only if the task still points at it;
         // otherwise the pair would be one-sided and backups would refuse to validate.
         let target: UUID? = id
@@ -138,7 +144,7 @@ public actor TaskBoardService {
         }
         task.title = draft.trimmedTitle
         task.priority = draft.priority
-        apply(draft, to: task)
+        try apply(draft, to: task)
         task.updatedAt = now
         try linkBack(draft.linkedWishlistItemID, to: id, now: now)
         try commit()
@@ -149,6 +155,7 @@ public actor TaskBoardService {
         begin()
         let task = try requireTask(id)
         _ = try requireColumn(columnID)
+        let previousColumnID = task.columnID
         let siblings = try tasks(in: columnID).filter { $0.id != id }
         let position = min(max(index, 0), siblings.count)
         var key = SortKey.between(
@@ -164,8 +171,7 @@ public actor TaskBoardService {
         task.columnID = columnID
         task.sortOrder = key ?? Double(position + 1)
         task.updatedAt = now
-        let doneColumnID = try columns().last?.id
-        applyCompletion(to: task, doneColumnID: doneColumnID, now: now)
+        try settleCompletion(of: task, columns: try columns(), returnTo: previousColumnID, now: now)
         try commit()
     }
 
@@ -187,8 +193,7 @@ public actor TaskBoardService {
             // Back at the bottom of its column with a fresh key; its old key may now tie with another task.
             let last = try tasks(in: task.columnID).last?.sortOrder
             task.sortOrder = SortKey.between(last, nil) ?? 1
-            let doneColumnID = try columns().last?.id
-            applyCompletion(to: task, doneColumnID: doneColumnID, now: now)
+            try settleCompletion(of: task, columns: try columns(), returnTo: nil, now: now)
         }
         task.archivedAt = archived ? now : nil
         task.updatedAt = now
@@ -213,6 +218,20 @@ public actor TaskBoardService {
         }
         modelContext.delete(task)
         try commit()
+    }
+
+    /// Open tasks on the board with a due date, for due-day reminders (Sprint 14).
+    public func reminderSources() throws -> [TaskReminderSource] {
+        // The due-date check runs in Swift: a three-part optional predicate timed out the type checker (CI run
+        // 36262716786).
+        let open = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.completedAt == nil && $0.archivedAt == nil })
+        var sources: [TaskReminderSource] = []
+        for task in try modelContext.fetch(open) {
+            if let due = task.dueDate {
+                sources.append(TaskReminderSource(taskID: task.id, title: task.title, dueDate: due))
+            }
+        }
+        return sources
     }
 
     // MARK: Subtasks
@@ -277,12 +296,14 @@ public actor TaskBoardService {
 
     // MARK: Helpers
 
-    private func apply(_ draft: TaskDraft, to task: TaskItem) {
+    private func apply(_ draft: TaskDraft, to task: TaskItem) throws {
         let notes = draft.notes?.trimmingCharacters(in: .whitespacesAndNewlines)
         task.notes = notes?.isEmpty == false ? notes : nil
         task.dueDate = draft.dueDate
         task.linkedWishlistItemID = draft.linkedWishlistItemID
         task.linkedTransactionID = draft.linkedTransactionID
+        task.recurrenceRuleData = try draft.recurrence?.encoded()
+        task.recurrenceTimeZoneIdentifier = draft.recurrence == nil ? nil : draft.timeZone.identifier
     }
 
     private func renumber(_ ordered: [BoardColumn], now: Date) {
@@ -292,20 +313,63 @@ public actor TaskBoardService {
         }
     }
 
-    private func applyCompletion(to task: TaskItem, doneColumnID: UUID?, now: Date) {
-        let isDone = task.columnID == doneColumnID
+    /// Sets or clears `completedAt` from the task's column (the last column is done). A repeating task that has just
+    /// been completed hands its repeat to the next task (Sprint 13).
+    /// - Parameters:
+    ///   - returnTo: where the task was before this change; the next task goes there unless that is the done column,
+    ///     else to the first column.
+    ///   - repeats: false for board-wide changes (reordering or deleting columns): owner decision 21 says only a task
+    ///     completed on its own adds its next one. Such a task keeps its rule, so reopening it leaves one series.
+    private func settleCompletion(
+        of task: TaskItem, columns ordered: [BoardColumn], returnTo: UUID?, repeats: Bool = true, now: Date
+    ) throws {
+        let isDone = task.columnID == ordered.last?.id
         if isDone, task.completedAt == nil {
             task.completedAt = now
+            if repeats {
+                try scheduleNext(after: task, columns: ordered, returnTo: returnTo, now: now)
+            }
         } else if !isDone, task.completedAt != nil {
             task.completedAt = nil
         }
     }
 
     /// Archived tasks keep their completion history; only tasks on the board follow the done column.
-    private func applyCompletionRule(doneColumnID: UUID?, now: Date) throws {
+    private func applyCompletionRule(_ ordered: [BoardColumn], now: Date) throws {
         let onBoard = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.archivedAt == nil })
         for task in try modelContext.fetch(onBoard) {
-            applyCompletion(to: task, doneColumnID: doneColumnID, now: now)
+            try settleCompletion(of: task, columns: ordered, returnTo: nil, repeats: false, now: now)
+        }
+    }
+
+    /// Sprint 13 decisions 2–4: a copy of the completed task (title, notes, priority, subtasks unticked; no links) due
+    /// on the rule's next date after the completed task's due date, which keeps no rule, so completing it again or
+    /// reopening it never makes a second copy. If no copy can be made (an unreadable rule, no next date, no open
+    /// column) the rule stays where it is rather than being dropped; an unknown zone falls back to the device's.
+    private func scheduleNext(
+        after task: TaskItem, columns ordered: [BoardColumn], returnTo: UUID?, now: Date
+    ) throws {
+        guard let data = task.recurrenceRuleData, let rule = try? RecurrenceRule.decoded(from: data),
+            let due = task.dueDate
+        else { return }
+        let zone = task.recurrenceTimeZoneIdentifier.flatMap(TimeZone.init(identifier:)) ?? .current
+        let open = ordered.dropLast()
+        guard
+            let next = RecurrenceEngine().nextOccurrence(
+                of: rule, start: due, after: due, calendar: HouseholdCalendar(timeZone: zone)),
+            let column = open.first(where: { $0.id == returnTo }) ?? open.first
+        else { return }
+        task.recurrenceRuleData = nil
+        task.recurrenceTimeZoneIdentifier = nil
+        let key = SortKey.between(try tasks(in: column.id, includingArchived: true).last?.sortOrder, nil) ?? 1
+        let copy = TaskItem(title: task.title, columnID: column.id, priority: task.priority, sortOrder: key, now: now)
+        copy.notes = task.notes
+        copy.dueDate = next
+        copy.recurrenceRuleData = data
+        copy.recurrenceTimeZoneIdentifier = zone.identifier
+        modelContext.insert(copy)
+        for step in try subtasks(of: task.id) {
+            modelContext.insert(SubtaskItem(title: step.title, taskID: copy.id, sortOrder: step.sortOrder, now: now))
         }
     }
 

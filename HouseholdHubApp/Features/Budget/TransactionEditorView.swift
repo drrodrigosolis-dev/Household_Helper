@@ -9,6 +9,7 @@ struct TransactionEditorView: View {
     @Environment(\.services) private var services
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
+    @Query(sort: \Account.sortOrder) private var accounts: [Account]
     /// Tasks that link this transaction (spec §2.1 links); shown read-only, the link is edited on the task.
     @Query private var linkedTasks: [TaskItem]
 
@@ -21,6 +22,7 @@ struct TransactionEditorView: View {
     @State private var notes: String
     @State private var errorMessage: String?
     @State private var isSaving = false
+    @State private var accountID: UUID?
 
     init(record: TransactionRecord) {
         self.record = record
@@ -31,6 +33,7 @@ struct TransactionEditorView: View {
         _categoryID = State(initialValue: record.categoryID)
         _merchant = State(initialValue: record.merchantNameSnapshot ?? "")
         _notes = State(initialValue: record.notes ?? "")
+        _accountID = State(initialValue: record.accountID)
         let id: UUID? = record.id
         _linkedTasks = Query(filter: #Predicate<TaskItem> { $0.linkedTransactionID == id }, sort: \.createdAt)
     }
@@ -62,7 +65,7 @@ struct TransactionEditorView: View {
                     }
                     .pickerStyle(.segmented)
                 }
-                LabeledContent("Amount") {
+                FocusingRow("Amount") {
                     TextField("0.00", text: $amountText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
@@ -76,17 +79,27 @@ struct TransactionEditorView: View {
                 }
             }
             Section {
+                // Active accounts, plus the record's own even if it was archived since (Sprint 10).
+                let pickable = accounts.filter { !$0.isArchived || $0.id == accountID }
+                if pickable.count > 1 {
+                    Picker("Account", selection: $accountID) {
+                        ForEach(pickable) { account in
+                            Text(account.name).tag(UUID?.some(account.id))
+                        }
+                    }
+                    .accessibilityIdentifier("editor.account")
+                }
                 Picker("Category", selection: $categoryID) {
                     Text("None").tag(UUID?.none)
                     ForEach(pickableCategories) { category in
                         Text(category.name).tag(UUID?.some(category.id))
                     }
                 }
-                LabeledContent("Merchant") {
+                FocusingRow("Merchant") {
                     TextField("Optional", text: $merchant)
                         .multilineTextAlignment(.trailing)
                 }
-                LabeledContent("Notes") {
+                FocusingRow("Notes") {
                     TextField("Optional", text: $notes, axis: .vertical)
                         .multilineTextAlignment(.trailing)
                 }
@@ -131,7 +144,7 @@ struct TransactionEditorView: View {
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         let draft = TransactionDraft(
             amount: amount, type: type, occurredAt: occurredAt, status: status, categoryID: categoryID,
-            merchantName: merchant, notes: trimmedNotes.isEmpty ? nil : trimmedNotes)
+            merchantName: merchant, notes: trimmedNotes.isEmpty ? nil : trimmedNotes, accountID: accountID)
         do {
             try await services.transactions.update(record.id, with: draft, now: .now)
             dismiss()

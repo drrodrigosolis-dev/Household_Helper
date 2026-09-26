@@ -64,10 +64,13 @@ public enum TransactionCSV {
         public var category: String?
         public var merchant: String?
         public var notes: String?
+        /// The account's name, and a transfer's destination (Sprint 10 decision 11).
+        public var account: String?
+        public var toAccount: String?
 
         public init(
             occurredAt: Date, type: TransactionType, status: TransactionStatus, amount: Money, category: String?,
-            merchant: String?, notes: String?
+            merchant: String?, notes: String?, account: String? = nil, toAccount: String? = nil
         ) {
             self.occurredAt = occurredAt
             self.type = type
@@ -76,12 +79,18 @@ public enum TransactionCSV {
             self.category = category
             self.merchant = merchant
             self.notes = notes
+            self.account = account
+            self.toAccount = toAccount
         }
     }
 
-    public static let header = ["Date", "Type", "Status", "Amount", "Currency", "Category", "Merchant", "Notes"]
+    public static let header = [
+        "Date", "Type", "Status", "Amount", "Currency", "Category", "Merchant", "Notes", "Account", "To account",
+    ]
 
-    /// Amounts are signed decimals in major units ("-47.50"); dates are the household calendar day and time.
+    /// Amounts are signed decimals in major units ("-47.50"); a transfer's amount is unsigned, since it moves money
+    /// from Account to To account without changing the household total. Dates are the household calendar day and
+    /// time.
     public static func text(_ rows: [Row], calendar: HouseholdCalendar) -> String {
         var lines = [header.map(cell).joined(separator: ",")]
         for row in rows {
@@ -91,7 +100,8 @@ public enum TransactionCSV {
                 .number.precision(.fractionLength(digits)).grouping(.never).locale(Locale(identifier: "en_US_POSIX")))
             let fields = [
                 timestamp(row.occurredAt, calendar: calendar), row.type.rawValue, row.status.rawValue, amount,
-                row.amount.currencyCode, row.category ?? "", row.merchant ?? "", row.notes ?? "",
+                row.amount.currencyCode, row.category ?? "", row.merchant ?? "", row.notes ?? "", row.account ?? "",
+                row.toAccount ?? "",
             ]
             // The amount is a number the export itself wrote; only user text is guarded against formulas.
             let guarded = fields.enumerated().map { index, value in index == 3 ? value : formulaSafe(value) }

@@ -49,13 +49,16 @@ public enum OnDeviceModel {
 
     /// A short narrative written only from `facts`, with figures as `facts` placeholders; `NarrativeValidator`
     /// checks it and fills them in.
-    public static func narrate(_ facts: AnalyticsFacts) async -> String? {
+    /// - Parameter language: the language to write in, named in English ("Spanish"), so the summary matches the app
+    ///   (Sprint 16). If the model can't write it, it fails and the deterministic summary shows instead.
+    public static func narrate(_ facts: AnalyticsFacts, language: String = "English") async -> String? {
         #if canImport(FoundationModels)
             guard isAvailable else { return nil }
             let instructions = """
                 You write two or three plain sentences summarising a household's spending for a period. \
                 Each figure is given as a placeholder in braces, such as {income}. Write figures only by copying \
-                those placeholders exactly; never write a digit or a number in words. Do not give advice.
+                those placeholders exactly; never write a digit or a number in words. Do not give advice. \
+                Write in \(language).
                 """
             do {
                 let session = LanguageModelSession(instructions: instructions)

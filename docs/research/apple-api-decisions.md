@@ -17,7 +17,9 @@ availability conditions, deprecations, fallback. Verified against official Apple
 - **`RecurrenceRule` stored as JSON `Data`**: enums with associated values have been unreliable as SwiftData
   composite attributes. `ColorToken` (a plain Codable struct) is stored directly.
 - **No `.unique` on `Merchant.normalizedName`**: a unique-constraint clash in SwiftData upserts (silently replaces
-  the existing row). Uniqueness is enforced by `TransactionService.findOrCreateMerchant`.
+  the existing row). Uniqueness is enforced by `TransactionService.findOrCreateMerchant`. The same holds for
+  `CategoryBudget.categoryID` (Sprint 11): one budget per category is kept by `CategoryService.setBudget` and the
+  backup validator, so a restore's merge-by-id never meets an upsert.
 - **UUID references, not relationships**, as §7 lists them; services enforce integrity and backup DTOs (§26) map
   one-to-one.
 - **Services are `@ModelActor` actors** created through `make(container:)`, so the app never depends on the
@@ -106,3 +108,17 @@ availability conditions, deprecations, fallback. Verified against official Apple
 - **Verification:** from memory of the SwiftUI SDK; a unit test (`LedgerFormatTests.resolvedColorsRoundTripToTheSameToken`)
   checks that every palette color survives `ColorToken → Color → resolve → ColorToken` unchanged, which would fail
   if the components were linear.
+
+## UserNotifications — local reminders (Sprint 14, 2026-09-26)
+- **API:** `UNUserNotificationCenter` with `UNCalendarNotificationTrigger` (non-repeating, one request per reminder,
+  identifiers `task-<uuid>` / `bill-<series>-<occurrence>` so a reschedule replaces rather than duplicates).
+- **Min OS / toolchain:** iOS 10+; async variants (`notificationSettings()`, `pendingNotificationRequests()`,
+  `requestAuthorization(options:)`, `add(_:)`) iOS 15+. Project floor is iOS 26.
+- **Entitlement / account:** none. Local notifications need no push entitlement, no APNs and no paid membership;
+  they work under a free Personal Team and in the Simulator. No Info.plist key is required.
+- **Limits:** iOS keeps at most 64 pending requests per app; the planner caps at 60, soonest first.
+- **Permission:** asked only when the user turns a reminder switch on (never at launch); if refused, the switch
+  goes back off and Settings explains where to allow it.
+- **Fallback:** without permission nothing is scheduled; the app works the same.
+- **Tests:** the plan is pure Core logic (`ReminderPlanner`, unit-tested); UI tests never touch notifications
+  (`ReminderSync` returns early under `-uiTesting`).

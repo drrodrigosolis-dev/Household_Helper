@@ -5,6 +5,8 @@ public enum MoneyError: Error, Equatable, Sendable {
     case currencyMismatch(String, String)
     case overflow
     case notFinite
+    /// Division needs a positive number of parts and, here, a non-negative amount.
+    case invalidDivision
 }
 
 /// Canonical money value: integer minor units plus an ISO currency code (spec §6.1). All accounting arithmetic
@@ -24,6 +26,11 @@ public struct Money: Hashable, Sendable, Codable {
         let minor = try Money.roundedInteger(decimal * Money.scale(currency.minorUnitDigits), rounding: rounding)
         self.init(minorUnits: minor, currencyCode: currency.code)
     }
+
+    /// Largest budget limit or goal target the app accepts or restores: one billion in major units of a two-decimal
+    /// currency. It keeps rollover and goal sums far from overflow, and the services and the backup validator share
+    /// it, so the app never stores a plan its own export would refuse.
+    public static let maxPlanMinorUnits: Int64 = 100_000_000_000
 
     public static func zero(_ currencyCode: String) -> Money {
         Money(minorUnits: 0, currencyCode: currencyCode)
@@ -67,6 +74,15 @@ public struct Money: Hashable, Sendable, Codable {
 
     public static func sum(_ values: [Money], currencyCode: String) throws -> Money {
         try values.reduce(zero(currencyCode)) { try $0.adding($1) }
+    }
+
+    /// This amount split into `parts` equal shares, rounded up to the minor unit, so paying one share per part never
+    /// falls short of the total. The amount must not be negative (rounding up has no meaning for a debt here).
+    public func dividedRoundingUp(by parts: Int) throws -> Money {
+        guard parts > 0, minorUnits >= 0 else { throw MoneyError.invalidDivision }
+        let (quotient, remainder) = minorUnits.quotientAndRemainder(dividingBy: Int64(parts))
+        // quotient <= Int64.max / 2 whenever remainder > 0 (parts >= 2), so the + 1 can't overflow.
+        return Money(minorUnits: remainder > 0 ? quotient + 1 : quotient, currencyCode: currencyCode)
     }
 
     /// Mean rounded to the nearest minor unit with banker's rounding; nil for an empty list.

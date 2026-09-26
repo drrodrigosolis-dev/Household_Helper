@@ -22,6 +22,10 @@ extension SchemaV1 {
         public var endDate: Date?
         public var nextOccurrence: Date?
         public var isEnabled: Bool
+        /// The account each occurrence lands in (a transfer's source); set by the service (Sprint 10).
+        public var accountID: UUID?
+        /// A recurring transfer's destination account.
+        public var transferAccountID: UUID?
         public var createdAt: Date
         public var updatedAt: Date
 
@@ -76,7 +80,8 @@ extension SchemaV1 {
             }
             return RecurringSeries(
                 id: id, templateAmount: templateAmount, type: type, rule: decodedRule, timeZone: zone,
-                startDate: startDate, endDate: endDate, isEnabled: isEnabled)
+                startDate: startDate, endDate: endDate, isEnabled: isEnabled, accountID: accountID,
+                transferAccountID: transferAccountID)
         }
     }
 }

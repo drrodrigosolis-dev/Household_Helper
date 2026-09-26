@@ -18,12 +18,23 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
         /// Positive magnitude in minor units; nil when amounts are hidden.
         public let amountMinorUnits: Int64?
         public let isIncome: Bool
+        /// A transfer between accounts (Sprint 10): neither income nor spending. Optional so a snapshot written
+        /// before accounts existed still reads (absent = not a transfer).
+        public let isTransfer: Bool?
 
-        public init(title: String?, date: Date, amountMinorUnits: Int64?, isIncome: Bool) {
+        public init(title: String?, date: Date, amountMinorUnits: Int64?, isIncome: Bool, isTransfer: Bool = false) {
             self.title = title
             self.date = date
             self.amountMinorUnits = amountMinorUnits
             self.isIncome = isIncome
+            self.isTransfer = isTransfer
+        }
+
+        /// The amount as the widget shows it: income positive, spending negative, a transfer unsigned.
+        public func displayAmount(currencyCode: String) throws -> Money? {
+            guard let amountMinorUnits else { return nil }
+            let money = Money(minorUnits: amountMinorUnits, currencyCode: currencyCode)
+            return isIncome || isTransfer == true ? money : try money.negated()
         }
     }
 
@@ -71,7 +82,8 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
         let upcoming = summary.upcoming.prefix(2).map { item in
             Upcoming(
                 title: showAmounts ? item.title : nil, date: item.date,
-                amountMinorUnits: showAmounts ? abs(item.amount.minorUnits) : nil, isIncome: item.type == .income)
+                amountMinorUnits: showAmounts ? abs(item.amount.minorUnits) : nil, isIncome: item.type == .income,
+                isTransfer: item.type == .transfer)
         }
         return WidgetSnapshot(
             generatedAt: now, currencyCode: balance.current.currencyCode,

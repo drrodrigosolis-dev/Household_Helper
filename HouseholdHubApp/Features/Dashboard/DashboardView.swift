@@ -10,10 +10,15 @@ struct DashboardView: View {
     @Environment(AppRouter.self) private var router
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
+    @Query(sort: \Account.sortOrder) private var accountRecords: [Account]
     @Query private var recent: [TransactionRecord]
     @Query private var recentWishes: [WishlistItem]
     @Query private var recentTasks: [TaskItem]
     @State private var summary: DashboardSummary?
+    /// The three budgets closest to, or over, their limit this month (Sprint 11).
+    @State private var budgets: [BudgetStatus] = []
+    /// Up to three active savings goals, in list order (Sprint 12 decision 5).
+    @State private var goals: [GoalStatus] = []
     @State private var loadFailed = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -71,6 +76,15 @@ struct DashboardView: View {
                 VStack(spacing: 16) {
                     if let summary {
                         balanceCards(summary)
+                        if summary.accounts.count > 1 {
+                            accountsCard(summary.accounts)
+                        }
+                        if !budgets.isEmpty {
+                            budgetsCard(budgets)
+                        }
+                        if !goals.isEmpty {
+                            goalsCard(goals)
+                        }
                         upcomingCard(summary.upcoming)
                     } else if loadFailed {
                         ContentUnavailableView(
@@ -92,6 +106,13 @@ struct DashboardView: View {
 
     // MARK: Cards
 
+    private var quickAddButton: some View {
+        Button("Add", systemImage: "plus") { router.isQuickAddPresented = true }
+            .buttonStyle(.bordered)
+            .accessibilityLabel("Quick Add")
+            .accessibilityIdentifier("dashboard.quickAdd")
+    }
+
     @ViewBuilder
     private func balanceCards(_ summary: DashboardSummary) -> some View {
         let posted = TransactionFilter(status: .posted)
@@ -101,13 +122,18 @@ struct DashboardView: View {
             router.showBudget(.transactions, filter: posted)
         } content: {
             // Quick Add from the primary card as well as the floating button (spec §24.3).
-            HStack(alignment: .firstTextBaseline) {
-                AmountText(summary.balance.current.formatted(), font: .largeTitle.bold())
-                Spacer(minLength: 8)
-                Button("Add", systemImage: "plus") { router.isQuickAddPresented = true }
-                    .buttonStyle(.bordered)
-                    .accessibilityLabel("Quick Add")
-                    .accessibilityIdentifier("dashboard.quickAdd")
+            // Stacked at accessibility sizes so "Add" never breaks mid-word (local Sprint 10 walk).
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 8) {
+                    AmountText(summary.balance.current.formatted(), font: .largeTitle.bold())
+                    quickAddButton
+                }
+            } else {
+                HStack(alignment: .firstTextBaseline) {
+                    AmountText(summary.balance.current.formatted(), font: .largeTitle.bold())
+                    Spacer(minLength: 8)
+                    quickAddButton
+                }
             }
         }
         pairLayout {
@@ -138,6 +164,78 @@ struct DashboardView: View {
                 Toggle("Include pending", isOn: pendingBinding)
                     .font(.subheadline)
                     .accessibilityIdentifier("dashboard.includePending")
+            }
+        }
+    }
+
+    /// The three budgets nearest their limit; a row opens that category's transactions this month.
+    private func budgetsCard(_ statuses: [BudgetStatus]) -> some View {
+        DashboardCard(title: "Budgets", identifier: "dashboard.budgets") {
+            router.showBudget(.budgets)
+        } content: {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(statuses, id: \.categoryID) { status in
+                    if let category = categories.first(where: { $0.id == status.categoryID }) {
+                        Button {
+                            router.showBudget(
+                                .transactions, filter: TransactionFilter(period: .thisMonth, categoryID: category.id))
+                        } label: {
+                            BudgetRow(status: status, category: category)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("dashboard.budget")
+                    }
+                }
+            }
+        }
+    }
+
+    /// Up to three active goals; the card opens Wishlist › Goals.
+    private func goalsCard(_ statuses: [GoalStatus]) -> some View {
+        DashboardCard(title: "Goals", identifier: "dashboard.goals", hint: "Opens Wishlist goals") {
+            router.showGoals()
+        } content: {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(statuses) { status in
+                    Button {
+                        router.showGoals()
+                    } label: {
+                        GoalRow(
+                            status: status, accountName: accountRecords.first { $0.id == status.rule.accountID }?.name)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("dashboard.goal")
+                }
+            }
+        }
+    }
+
+    /// Each account's current figure (Sprint 10 decision 7); a row opens Budget filtered to that account.
+    private func accountsCard(_ balances: [AccountBalance]) -> some View {
+        DashboardCard(title: "Accounts", identifier: "dashboard.accounts") {
+            router.showBudget(.transactions)
+        } content: {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(balances, id: \.accountID) { balance in
+                    if let account = accountRecords.first(where: { $0.id == balance.accountID }) {
+                        Button {
+                            router.showBudget(.transactions, filter: TransactionFilter(accountID: account.id))
+                        } label: {
+                            rowLayout {
+                                Label(account.name, systemImage: AccountFormat.icon(account.kind))
+                                if !typeSize.isAccessibilitySize {
+                                    Spacer()
+                                }
+                                Text(AccountFormat.balanceText(balance.snapshot.current, kind: account.kind))
+                                    .monospacedDigit()
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .accessibilityElement(children: .combine)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("dashboard.account")
+                    }
+                }
             }
         }
     }
@@ -191,7 +289,8 @@ struct DashboardView: View {
             if activity.isEmpty {
                 Text("No transactions yet. Tap + to add one.").foregroundStyle(.secondary)
             } else {
-                VStack(spacing: 8) {
+                // Leading-aligned so rows that stack at accessibility sizes don't centre (local walk L-005).
+                VStack(alignment: .leading, spacing: 8) {
                     // Each row opens its own tab (spec §24.2 "deep-link into owning tab").
                     ForEach(activity) { entry in
                         switch entry {
@@ -199,7 +298,8 @@ struct DashboardView: View {
                             Button {
                                 router.showBudget(.transactions)
                             } label: {
-                                TransactionRow(record: record, category: category(of: record))
+                                TransactionRow(
+                                    record: record, category: category(of: record), accounts: accountRecords)
                             }
                             .buttonStyle(.plain)
                         case .wishlist(let item):
@@ -241,8 +341,14 @@ struct DashboardView: View {
     private func refresh() async {
         guard let services else { return }
         do {
-            summary = try await services.transactions.dashboardSummary(
-                now: .now, calendar: HouseholdCalendar(timeZone: .current))
+            let calendar = HouseholdCalendar(timeZone: .current)
+            summary = try await services.transactions.dashboardSummary(now: .now, calendar: calendar)
+            // The budget card fails on its own: a budget problem must not hide the balances.
+            let report = (try? await services.transactions.budgetReport(month: .now, calendar: calendar)) ?? []
+            budgets = Array(report.sorted { $0.usedFraction > $1.usedFraction }.prefix(3))
+            // Goals fail on their own too.
+            let goalReport = (try? await services.transactions.goalReport(now: .now, calendar: calendar)) ?? []
+            goals = Array(goalReport.filter { !$0.rule.isArchived }.prefix(3))
             loadFailed = false
         } catch {
             loadFailed = true
@@ -256,16 +362,19 @@ private struct DashboardCard<Content: View>: View {
     let identifier: String
     /// The card's figure, read with its title on the button so VoiceOver hears "Current balance, $1,234".
     let value: String?
+    let hint: LocalizedStringKey
     let action: () -> Void
     let content: () -> Content
 
     init(
-        title: LocalizedStringKey, identifier: String, value: String? = nil, action: @escaping () -> Void,
+        title: LocalizedStringKey, identifier: String, value: String? = nil,
+        hint: LocalizedStringKey = "Opens the matching Budget view", action: @escaping () -> Void,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.title = title
         self.identifier = identifier
         self.value = value
+        self.hint = hint
         self.action = action
         self.content = content
     }
@@ -285,7 +394,7 @@ private struct DashboardCard<Content: View>: View {
             }
             .buttonStyle(.plain)
             .accessibilityValue(value.map { Text($0) } ?? Text(""))
-            .accessibilityHint("Opens the matching Budget view")
+            .accessibilityHint(hint)
             .accessibilityIdentifier(identifier)
             content()
         }

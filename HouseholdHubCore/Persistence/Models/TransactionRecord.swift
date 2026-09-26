@@ -23,6 +23,10 @@ extension SchemaV1 {
         public var scheduledOccurrence: Date?
         public var wishlistItemID: UUID?
         public var isAIClassified: Bool
+        /// The account the money is in (a transfer's source); the service always sets it (Sprint 10).
+        public var accountID: UUID?
+        /// A transfer's destination account; nil for income and expenses.
+        public var transferAccountID: UUID?
         public var createdAt: Date
         public var updatedAt: Date
 
@@ -72,7 +76,8 @@ extension SchemaV1 {
             }
             return LedgerLine(
                 amount: amount, type: type, status: status, occurredAt: occurredAt,
-                recurringSeriesID: recurringSeriesID, scheduledOccurrence: scheduledOccurrence)
+                recurringSeriesID: recurringSeriesID, scheduledOccurrence: scheduledOccurrence, accountID: accountID,
+                transferAccountID: transferAccountID)
         }
     }
 }

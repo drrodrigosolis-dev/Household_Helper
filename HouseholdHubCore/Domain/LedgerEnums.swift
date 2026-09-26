@@ -3,7 +3,8 @@ import Foundation
 public enum TransactionType: String, Codable, Sendable, CaseIterable {
     case income
     case expense
-    /// Reserved for multi-account support; hidden in the v1 UI and neutral to the single household balance.
+    /// Money moved between two of the household's accounts (Sprint 10): out of one, into the other. Never income or
+    /// spending, and neutral to the household total.
     case transfer
 }
 
@@ -35,5 +36,26 @@ public enum CategoryKind: String, Codable, Sendable, CaseIterable {
     public func allows(_ type: TransactionType) -> Bool {
         guard type != .transfer else { return false }
         return self == .both || rawValue == type.rawValue
+    }
+}
+
+/// What an account is (Sprint 10 decision 1). A credit card's balance is normally negative: the amount owed.
+public enum AccountKind: String, Codable, Sendable, CaseIterable {
+    case bank
+    case savings
+    case creditCard
+    case cash
+
+    /// Whether the account's balance is read as a debt (shown as "owed" when negative).
+    public var isLiability: Bool { self == .creditCard }
+
+    /// What a person enters or reads for a stored, signed balance: a card's debt as a positive amount owed.
+    public func entered(fromStored stored: Money) throws -> Money {
+        isLiability ? try stored.negated() : stored
+    }
+
+    /// The signed balance to store for what a person entered: a card's "owed" becomes a negative balance.
+    public func stored(fromEntered entered: Money) throws -> Money {
+        isLiability ? try entered.negated() : entered
     }
 }

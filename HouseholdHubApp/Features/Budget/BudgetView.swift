@@ -7,13 +7,19 @@ struct BudgetView: View {
     enum Segment: String, CaseIterable, Identifiable {
         case transactions
         case recurring
+        /// Category budgets (Sprint 11).
+        case budgets
 
         var id: String { rawValue }
     }
 
     @Environment(AppRouter.self) private var router
     @State private var isPresentingQuickAdd = false
+    @State private var isPresentingTransfer = false
+    /// Sprint 14: searches the transactions the filter allows.
+    @State private var searchText = ""
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
+    @Query(sort: \Account.sortOrder) private var accounts: [Account]
 
     var body: some View {
         @Bindable var router = router
@@ -21,16 +27,20 @@ struct BudgetView: View {
             Group {
                 switch router.budgetSegment {
                 case .transactions:
-                    TransactionListView(filter: router.budgetFilter)
+                    TransactionListView(filter: router.budgetFilter, search: searchText)
+                        .searchable(text: $searchText, prompt: "Search transactions")
                         .refreshable { isPresentingQuickAdd = true }
                 case .recurring:
                     RecurringListView()
+                case .budgets:
+                    BudgetsListView()
                 }
             }
             .safeAreaInset(edge: .top) {
                 Picker("View", selection: $router.budgetSegment) {
                     Text("Transactions").tag(Segment.transactions)
                     Text("Recurring").tag(Segment.recurring)
+                    Text("Budgets").tag(Segment.budgets)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
@@ -40,10 +50,22 @@ struct BudgetView: View {
             .navigationTitle("Budget")
             .toolbar {
                 if router.budgetSegment == .transactions {
+                    // Transfers need two accounts (Sprint 10 decision 8).
+                    if accounts.filter({ !$0.isArchived }).count > 1 {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("New transfer", systemImage: "arrow.left.arrow.right") {
+                                isPresentingTransfer = true
+                            }
+                            .accessibilityIdentifier("budget.newTransfer")
+                        }
+                    }
                     ToolbarItem(placement: .topBarTrailing) { filterMenu(filter: $router.budgetFilter) }
                 }
             }
             .sheet(isPresented: $isPresentingQuickAdd) { QuickAddView() }
+            .sheet(isPresented: $isPresentingTransfer) {
+                NavigationStack { TransferEditorView() }
+            }
         }
     }
 
@@ -59,6 +81,14 @@ struct BudgetView: View {
                 Text("All categories").tag(UUID?.none)
                 ForEach(categories) { category in
                     Text(category.name).tag(UUID?.some(category.id))
+                }
+            }
+            if accounts.count > 1 {
+                Picker("Account", selection: filter.accountID) {
+                    Text("All accounts").tag(UUID?.none)
+                    ForEach(accounts) { account in
+                        Text(account.name).tag(UUID?.some(account.id))
+                    }
                 }
             }
             Picker("Status", selection: filter.status) {

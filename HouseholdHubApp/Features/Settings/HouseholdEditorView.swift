@@ -1,11 +1,13 @@
 import HouseholdHubCore
 import SwiftUI
 
-/// Settings › Household (spec §24.2 "Currency", §6.3, §9.1): corrects the starting balance and its date, and changes
-/// the currency only while nothing has been recorded. A new baseline changes the current balance, so saving asks
-/// first; no transaction is touched.
+/// Settings › Household (spec §24.2 "Currency", §6.3, §9.1): corrects the default account's starting balance and its
+/// date, and changes the currency only while nothing has been recorded. A new baseline changes the current balance,
+/// so saving asks first; no transaction is touched.
 struct HouseholdEditorView: View {
     let settings: AppSettings
+    /// The default account, whose baseline this screen edits (Sprint 10 decision 2).
+    let account: Account?
 
     @Environment(\.services) private var services
     @Environment(\.dismiss) private var dismiss
@@ -17,12 +19,15 @@ struct HouseholdEditorView: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
 
-    init(settings: AppSettings) {
+    init(settings: AppSettings, account: Account?) {
         self.settings = settings
-        let balance = Money(minorUnits: settings.startingBalanceMinorUnits, currencyCode: settings.currencyCode)
+        self.account = account
+        let stored = account?.startingBalance ?? .zero(settings.currencyCode)
+        // A credit card is entered as the amount owed, as in Settings › Accounts.
+        let balance = (try? account?.kind.entered(fromStored: stored)) ?? stored
         _currencyCode = State(initialValue: settings.currencyCode)
         _balanceText = State(initialValue: LedgerFormat.editableAmount(balance))
-        _asOf = State(initialValue: settings.startingBalanceDate)
+        _asOf = State(initialValue: account?.startingBalanceDate ?? .now)
     }
 
     private var choices: [String] {
@@ -30,16 +35,20 @@ struct HouseholdEditorView: View {
         return codes.contains(settings.currencyCode) ? codes : [settings.currencyCode] + codes
     }
 
-    /// The typed balance in the chosen currency; nil when it isn't a valid amount for it.
+    /// The signed baseline to store for the typed amount in the chosen currency; nil when it isn't a valid amount.
     private var balance: Money? {
         let trimmed = balanceText.trimmingCharacters(in: .whitespaces)
         let decimal = trimmed.isEmpty ? Decimal(0) : LedgerFormat.parseDecimal(trimmed)
-        guard let decimal, let currency = try? Currency(code: currencyCode) else { return nil }
-        return try? Money(decimal: decimal, currency: currency)
+        guard let decimal, let currency = try? Currency(code: currencyCode),
+            let entered = try? Money(decimal: decimal, currency: currency)
+        else { return nil }
+        return try? (account?.kind ?? .bank).stored(fromEntered: entered)
     }
 
+    private var isCard: Bool { account?.kind.isLiability == true }
+
     private var baselineChanged: Bool {
-        balance?.minorUnits != settings.startingBalanceMinorUnits || asOf != settings.startingBalanceDate
+        balance?.minorUnits != account?.startingBalanceMinorUnits || asOf != account?.startingBalanceDate
     }
 
     var body: some View {
@@ -60,8 +69,9 @@ struct HouseholdEditorView: View {
                 if currencyLocked {
                     Text(
                         """
-                        Amounts you've recorded are stored in this currency, so it can't change without \
-                        reinterpreting them. To use another currency, start a new data set (back up first).
+                        Amounts you've recorded, and your accounts' balances, are stored in this currency, so it \
+                        can't change without reinterpreting them. To use another currency, start a new data set \
+                        (back up first).
                         """
                     )
                 } else {
@@ -71,13 +81,16 @@ struct HouseholdEditorView: View {
             Section {
                 TextField("0.00", text: $balanceText)
                     .keyboardType(.numbersAndPunctuation)
-                    .accessibilityLabel("Starting balance")
+                    .accessibilityLabel(isCard ? "Starting amount owed" : "Starting balance")
                     .accessibilityIdentifier("household.balance")
                 DatePicker("As of", selection: $asOf, in: ...Date.now, displayedComponents: .date)
             } header: {
                 Text("Starting balance")
             } footer: {
-                Text("What the account held when this day began. Changing it changes the current balance.")
+                Text(
+                    isCard
+                        ? "What the card owed when this day began. Changing it changes the current balance."
+                        : "What the account held when this day began. Changing it changes the current balance.")
             }
             if let errorMessage {
                 ErrorText(errorMessage)
