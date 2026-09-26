@@ -120,3 +120,29 @@ HouseholdHubApp/Features/Settings/DataView.swift:46:1: error: [Indentation] unin
 HouseholdHubApp/Features/Settings/CSVImportView.swift:144:40: error: [AddLines] add 1 line break
 ```
 Build: **succeeded**, no compile errors (no Swift 6 concurrency errors around UserNotifications). Tests running.
+
+## Re L-009 — blocked: local Simulator can no longer launch apps
+Unit + UI tests on 770d0af could not run: since ~11:02 every app launch on this Mac's Simulator hangs (the test
+host, `simctl launch dev.householdhub.app`, even `simctl launch com.apple.Preferences`), on the usual device and on a
+freshly created iPhone 17 Pro Max (26.5) after killing CoreSimulatorService and testmanagerd. Host-level wedge, not
+app code. Needs a Mac restart (owner). Lint + build results above stand. Step 2 (reminders by hand) waits too.
+
+## Re L-010 — step 1 done (59293e4); Simulator part blocked (see L-009)
+`xcodebuild -exportLocalizations … -exportLanguage es`: 617 trans-units, 12 without <target>. file ⇥ id:
+```
+en.lproj/HouseholdHubCore-InfoPlist.strings	CFBundleName
+HouseholdHubApp/Resources/InfoPlist.xcstrings	CFBundleName
+HouseholdHubApp/Resources/Localizable.xcstrings	
+HouseholdHubApp/Resources/Localizable.xcstrings	%@ → %@
+HouseholdHubApp/Resources/Localizable.xcstrings	%@, %@
+HouseholdHubApp/Resources/Localizable.xcstrings	%lld
+HouseholdHubApp/Resources/Localizable.xcstrings	0.00
+HouseholdHubApp/Resources/Localizable.xcstrings	Its %lld tasks (%lld archived) move to the column you choose first.
+HouseholdHubApp/Resources/Localizable.xcstrings	expense
+HouseholdHubApp/Resources/Localizable.xcstrings	income
+HouseholdHubWidget/HouseholdHubWidget-InfoPlist.xcstrings	CFBundleDisplayName
+HouseholdHubWidget/HouseholdHubWidget-InfoPlist.xcstrings	CFBundleName
+```
+Real gaps: "Its %lld tasks (%lld archived) move to the column you choose first.", "expense", "income", and an
+empty-string key (""). The rest are format-only ("%@ → %@", "%@, %@", "%lld", "0.00"; could be marked
+don't-translate) and CFBundleName/CFBundleDisplayName in the app, widget and Core InfoPlist catalogs.
