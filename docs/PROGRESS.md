@@ -97,4 +97,4 @@ where money sits. Each is one sprint (`docs/sprints/SPRINT-10…`), closed only 
 | 13 | Recurring tasks (reuse the recurrence rules) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
 | 14 | Search (deterministic) + local reminders (task due dates, upcoming bills) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`); real reminder on device pending (L-009) |
 | 15 | CSV import (user-picked file, column mapping, preview, duplicate check, one atomic save) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
-| 16 | Spanish translation (String Catalog; walked in Spanish) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`); Xcode export gaps fixed (L-010); default task columns now seeded in Spanish (next run) |
+| 16 | Spanish translation (String Catalog; walked in Spanish) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`); Xcode export gaps fixed (L-010); default task columns now seeded in Spanish (run 36274947830 on `54387a4`, green) |
