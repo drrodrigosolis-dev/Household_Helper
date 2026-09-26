@@ -77,12 +77,20 @@ extension XCTestCase {
 
     /// Replaces a text field's contents. Taps at the trailing edge so the cursor lands after the existing text:
     /// fields inside `LabeledContent` are narrow and trailing-aligned, so a center tap can land mid-value.
+    /// The field's value is read back with a wait: on a slow simulator the accessibility value can lag the typing
+    /// (run 36211558237 read the old "20"). One more edit is made only if the field still doesn't hold the text.
     @MainActor
     func replaceText(in field: XCUIElement, with text: String) {
-        field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
-        let current = (field.value as? String) ?? ""
-        let deletes = String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 2)
-        field.typeText(deletes + text)
+        for _ in 0..<2 {
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
+            let current = (field.value as? String) ?? ""
+            let deletes = String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 2)
+            field.typeText(deletes + text)
+            let holds = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", text), object: field)
+            if XCTWaiter().wait(for: [holds], timeout: 5) == .completed {
+                return
+            }
+        }
         XCTAssertEqual(field.value as? String, text, "Field did not end up holding '\(text)'")
     }
 
