@@ -78,10 +78,10 @@ Sprints 12 and 13 have not compiled anywhere yet (CI keeps replacing queued runs
 message verbatim (file:line), then failing tests with their messages. Don't fix code; the cloud session will.
 
 ## L-009 — open, priority
-Pull `3c0d6cd` or later (Sprint 13 column rule, CI pinning, Sprint 14 search + reminders) and run
-`Scripts/verify.sh --keep-going`. Report compile, swift-format and test failures verbatim in `TO-CLOUD.md` as soon as
-each step finishes (Swift 6 concurrency errors around UserNotifications are the most likely). Then, by hand on the
-Simulator: Settings › Reminders › turn on "Tasks due today", allow notifications, create a task due today, set the
-Simulator clock or wait is not needed — instead check `xcrun simctl` isn't required: just background the app and
-confirm with Settings that the switch stayed on. If you can, temporarily verify a pending request exists (e.g. a
-breakpoint or `po await UNUserNotificationCenter.current().pendingNotificationRequests()` in the debugger). Report.
+1. Pull `3c0d6cd` or later (Sprint 13 column rule, CI pinning, Sprint 14 search + reminders) and run
+   `Scripts/verify.sh --keep-going`. Report compile, swift-format and test failures verbatim in `TO-CLOUD.md` as each
+   step finishes (Swift 6 concurrency errors around UserNotifications are the most likely).
+2. By hand on the Simulator: Settings › Reminders › turn on "Tasks due today" and allow notifications; create a task
+   due tomorrow; send the app to the background. In the debugger (or a temporary breakpoint), check that
+   `UNUserNotificationCenter.current().pendingNotificationRequests()` holds one `task-…` request for 9:00 tomorrow.
+   Also try Budget › Transactions search with an amount (e.g. "4.50") and Wishlist search with an accent. Report.
