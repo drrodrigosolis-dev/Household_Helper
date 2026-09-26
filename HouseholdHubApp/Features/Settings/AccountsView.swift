@@ -15,6 +15,7 @@ struct AccountsView: View {
     @State private var inUse: Account?
     @State private var balances: HouseholdBalances?
     @State private var errorMessage: String?
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var defaultID: UUID? { settings.first?.defaultAccountID }
     private var active: [Account] { accounts.filter { !$0.isArchived } }
@@ -78,22 +79,30 @@ struct AccountsView: View {
     }
 
     private func row(_ account: Account) -> some View {
+        // At accessibility text sizes the icon goes and the amount moves under the name, so no word or amount is
+        // broken across lines (Sprint 10 walk).
         HStack(spacing: 12) {
-            Image(systemName: AccountFormat.icon(account.kind))
-                .font(.title3)
-                .frame(width: 32)
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(account.name)
-                Text(detail(account))
-                    .font(.caption)
+            if !typeSize.isAccessibilitySize {
+                Image(systemName: AccountFormat.icon(account.kind))
+                    .font(.title3)
+                    .frame(width: 32)
                     .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
             }
-            Spacer(minLength: 8)
-            if let current = balances?.balance(of: account.id)?.current {
-                Text(AccountFormat.balanceText(current, kind: account.kind))
-                    .monospacedDigit()
+            rowLayout {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(account.name)
+                    Text(detail(account))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if !typeSize.isAccessibilitySize {
+                    Spacer(minLength: 8)
+                }
+                if let current = balances?.balance(of: account.id)?.current {
+                    Text(AccountFormat.balanceText(current, kind: account.kind))
+                        .monospacedDigit()
+                }
             }
         }
         .accessibilityElement(children: .combine)
@@ -110,6 +119,13 @@ struct AccountsView: View {
         }
         .contextMenu { actions(account) }
         .accessibilityActions { actions(account) }
+    }
+
+    private var rowLayout: AnyLayout {
+        if typeSize.isAccessibilitySize {
+            return AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+        }
+        return AnyLayout(HStackLayout(spacing: 8))
     }
 
     @ViewBuilder
