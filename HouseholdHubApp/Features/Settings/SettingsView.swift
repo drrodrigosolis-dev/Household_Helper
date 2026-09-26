@@ -22,6 +22,12 @@ struct SettingsView: View {
                     Label("Backup and export", systemImage: "externaldrive")
                 }
                 .accessibilityIdentifier("settings.data")
+                NavigationLink {
+                    IntelligenceView()
+                } label: {
+                    Label("Intelligence", systemImage: "sparkles")
+                }
+                .accessibilityIdentifier("settings.intelligence")
             }
             if let current = settings.first {
                 Section("Household") {

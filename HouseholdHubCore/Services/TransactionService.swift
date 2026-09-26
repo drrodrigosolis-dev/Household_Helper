@@ -79,6 +79,51 @@ public actor TransactionService {
         try commit()
     }
 
+    public enum AISwitch: Sendable {
+        case categorization
+        case naturalLanguage
+        case insights
+    }
+
+    public func setAI(_ feature: AISwitch, enabled: Bool, now: Date) throws {
+        let settings = try requireSettings()
+        switch feature {
+        case .categorization: settings.aiCategorizationEnabled = enabled
+        case .naturalLanguage: settings.naturalLanguageEnabled = enabled
+        case .insights: settings.aiInsightsEnabled = enabled
+        }
+        settings.updatedAt = now
+        try commit()
+    }
+
+    /// Deterministic category suggestion (Sprint 7 default 2): the category most often used with the merchant that
+    /// `text` names, ties broken by the most recent use; only an active category of the right kind is returned.
+    public func suggestedCategory(forMerchantText text: String, type: TransactionType) throws -> UUID? {
+        let key = Merchant.normalize(text)
+        guard !key.isEmpty else { return nil }
+        let merchants = FetchDescriptor<Merchant>(predicate: #Predicate { $0.normalizedName == key })
+        guard let merchant = try modelContext.fetch(merchants).first else { return nil }
+        let merchantID: UUID? = merchant.id
+        let typeRaw = type.rawValue
+        let history = try modelContext.fetch(
+            FetchDescriptor<TransactionRecord>(
+                predicate: #Predicate { $0.merchantID == merchantID && $0.typeRawValue == typeRaw }))
+        let usable = Set(
+            try modelContext.fetch(FetchDescriptor<CategoryRecord>()).filter { !$0.isArchived && $0.kind.allows(type) }
+                .map(\.id))
+        var uses: [UUID: (count: Int, latest: Date)] = [:]
+        for record in history {
+            guard let categoryID = record.categoryID, usable.contains(categoryID) else { continue }
+            let current = uses[categoryID] ?? (0, .distantPast)
+            uses[categoryID] = (current.count + 1, max(current.latest, record.occurredAt))
+        }
+        return uses.max { lhs, rhs in
+            if lhs.value.count != rhs.value.count { return lhs.value.count < rhs.value.count }
+            if lhs.value.latest != rhs.value.latest { return lhs.value.latest < rhs.value.latest }
+            return lhs.key.uuidString > rhs.key.uuidString
+        }?.key
+    }
+
     public func setStartingBalance(_ balance: Money, asOf date: Date, now: Date) throws {
         let settings = try requireSettings()
         try requireCurrency(balance, settings)

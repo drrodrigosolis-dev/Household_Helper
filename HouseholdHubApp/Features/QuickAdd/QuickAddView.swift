@@ -75,6 +75,9 @@ struct QuickAddView: View {
     @State private var typeFromText = false
     @State private var amountFromText = false
     @State private var categoryFromText = false
+    /// Fields filled by a suggestion (merchant history or the on-device model), shown as such until edited.
+    @State private var suggestedFields: Set<String> = []
+    @State private var suggestionTask: Task<Void, Never>?
     @FocusState private var quickFieldFocused: Bool
 
     private var currencyCode: String { settings.first?.currencyCode ?? "CAD" }
@@ -119,6 +122,12 @@ struct QuickAddView: View {
                 } else {
                     Button("Add details") { showDetails = true }
                         .accessibilityIdentifier("quickadd.details")
+                }
+                if !suggestedFields.isEmpty {
+                    Label("Suggested on this device. Check before saving.", systemImage: "sparkles")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("quickadd.suggested")
                 }
                 if let errorMessage {
                     Text(errorMessage).foregroundStyle(.red)
@@ -230,6 +239,78 @@ struct QuickAddView: View {
             dueFromText = false
         }
         notes = parsed.description
+        suggestedFields = []
+        scheduleSuggestions(for: text, parsed: parsed, currency: currency, options: options, now: now)
+    }
+
+    /// Suggestions run after the deterministic parse and may only fill fields it left empty (Sprint 7 defaults 2
+    /// and 3). Merchant history always runs; the on-device model only with its switch on and the model available.
+    private func scheduleSuggestions(
+        for input: String, parsed: QuickAddParse, currency: Currency, options: [QuickAddCategoryOption], now: Date
+    ) {
+        suggestionTask?.cancel()
+        guard let services, entry == .expense || entry == .income, !input.isEmpty else { return }
+        // Each switch governs its own fields: Quick Add understanding the text fields, Category suggestions the
+        // model's category pick. Merchant history needs neither.
+        let understand = settings.first?.naturalLanguageEnabled ?? false
+        let categorize = settings.first?.aiCategorizationEnabled ?? false
+        let useModel = (understand || categorize) && OnDeviceModel.isAvailable
+        let type = self.type
+        suggestionTask = Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            if parsed.categoryID == nil, !parsed.description.isEmpty,
+                let fromHistory = try? await services.transactions.suggestedCategory(
+                    forMerchantText: parsed.description, type: type),
+                text == input, categoryID == nil
+            {
+                categoryID = fromHistory
+                categoryFromText = true
+                suggestedFields.insert("category")
+            }
+            guard useModel else { return }
+            let names = options.filter { $0.kind.allows(type) }.map(\.name)
+            guard let raw = await OnDeviceModel.suggestQuickAdd(input, categoryNames: names), !Task.isCancelled,
+                text == input
+            else { return }
+            var checked = QuickAddSuggestionValidator.validate(
+                raw, parsed: parsed, currency: currency, categories: options, now: now,
+                calendar: HouseholdCalendar(timeZone: .current))
+            if !understand {
+                checked = ValidatedQuickAdd(categoryID: checked.categoryID)
+            }
+            if !categorize {
+                checked.categoryID = nil
+            }
+            apply(checked)
+        }
+    }
+
+    private func apply(_ suggestion: ValidatedQuickAdd) {
+        if let amount = suggestion.amount, amountText.isEmpty {
+            amountText = LedgerFormat.editableAmount(amount)
+            amountFromText = true
+            showDetails = true
+            suggestedFields.insert("amount")
+        }
+        if suggestion.type == .income, entry == .expense {
+            entry = .income
+            typeFromText = true
+            suggestedFields.insert("type")
+        }
+        if let category = suggestion.categoryID, categoryID == nil {
+            categoryID = category
+            categoryFromText = true
+            suggestedFields.insert("category")
+        }
+        if let date = suggestion.occurredAt {
+            occurredAt = date
+            suggestedFields.insert("date")
+        }
+        if let description = suggestion.description, notes.isEmpty {
+            notes = description
+            suggestedFields.insert("notes")
+        }
     }
 
     private func save() async {

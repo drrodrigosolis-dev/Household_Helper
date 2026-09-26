@@ -65,6 +65,9 @@ struct AnalyticsView: View {
                     description: Text("Posted income and expenses appear here. Pending items are not counted."))
             }
         } else {
+            if settings.first?.aiInsightsEnabled == true, OnDeviceModel.isAvailable {
+                NarrativeSection(facts: facts(report))
+            }
             CategorySection(
                 report: report, categories: categories, currencyCode: report.income.currencyCode, onSelect: showBudget)
             TrendSection(report: report, bucket: selectedPeriod.bucket, currencyCode: report.income.currencyCode)
@@ -82,6 +85,18 @@ struct AnalyticsView: View {
                 }
             }
         }
+    }
+
+    private func facts(_ report: AnalyticsReport) -> AnalyticsFacts {
+        let names = Dictionary(categories.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+        let top = report.byCategory.prefix(3).map { slice in
+            let name = slice.categoryID.flatMap { names[$0] } ?? String(localized: "Uncategorized")
+            return "\(name) \(slice.total.formatted())"
+        }
+        return AnalyticsFacts(
+            periodTitle: AnalyticsFormat.periodTitle(selectedPeriod), income: report.income.formatted(),
+            expense: report.expense.formatted(), net: report.net.formatted(), topCategories: Array(top),
+            topMerchants: report.topMerchants.prefix(3).map { "\($0.name) \($0.total.formatted())" })
     }
 
     private var periodBinding: Binding<AnalyticsPeriod> {

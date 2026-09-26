@@ -48,3 +48,14 @@ availability conditions, deprecations, fallback. Verified against official Apple
   the view maps back to a slice; the table rows are the non-gesture path to the same action.
 - Not yet verified against Apple documentation in this session (no network docs access here); CI compiling and
   the walk rendering are the check. Revisit in the Phase 10 verification pass.
+
+## Foundation Models (on-device AI) — Sprint 7, 2026-09-26
+- **Framework:** `FoundationModels` (iOS 26): `SystemLanguageModel.default.availability`, `LanguageModelSession`
+  (`instructions:`), `respond(to:)` and `respond(to:generating:)` with a `@Generable` struct whose fields carry
+  `@Guide` descriptions. Used only in `HouseholdHubCore/Intelligence/OnDeviceModel.swift`, behind
+  `#if canImport(FoundationModels)` and an availability check; every call returns nil when unavailable.
+- **Generated fields are plain strings and an integer**, not optionals or Double (amount travels as text and is
+  parsed as `Decimal`), to keep the structured output simple and money exact.
+- **Not verified against Apple documentation in this session** (no docs access from the cloud container): the API
+  shape above is from memory of the iOS 26 SDK. CI compiling it is the first check; behaviour needs a device with
+  Apple Intelligence (WALK-QUEUE). The CI simulator reports the model unavailable, so live fixtures are skipped.

@@ -15,6 +15,10 @@ extension SchemaV1 {
         public var includePendingInProjection: Bool = false
         /// The Analytics period last chosen (spec §7.11 `defaultAnalyticsPeriod`), stored as its raw value.
         public var defaultAnalyticsPeriodRawValue: String = AnalyticsPeriod.thisMonth.rawValue
+        /// On-device AI switches (spec §7.11, §12). Off until the user turns them on (Sprint 7 default 1).
+        public var aiCategorizationEnabled: Bool = false
+        public var naturalLanguageEnabled: Bool = false
+        public var aiInsightsEnabled: Bool = false
         public var createdAt: Date
         public var updatedAt: Date
 

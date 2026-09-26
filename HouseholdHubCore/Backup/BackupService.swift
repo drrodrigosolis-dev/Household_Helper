@@ -51,8 +51,10 @@ public actor BackupService {
                 startingBalanceMinorUnits: settings.startingBalanceMinorUnits,
                 startingBalanceDate: settings.startingBalanceDate,
                 includePendingInProjection: settings.includePendingInProjection,
-                defaultAnalyticsPeriod: settings.defaultAnalyticsPeriodRawValue, createdAt: settings.createdAt,
-                updatedAt: settings.updatedAt),
+                defaultAnalyticsPeriod: settings.defaultAnalyticsPeriodRawValue,
+                aiCategorizationEnabled: settings.aiCategorizationEnabled,
+                naturalLanguageEnabled: settings.naturalLanguageEnabled, aiInsightsEnabled: settings.aiInsightsEnabled,
+                createdAt: settings.createdAt, updatedAt: settings.updatedAt),
             categories: sorted(try fetch(CategoryRecord.self).map(Self.dto), by: \.id),
             merchants: sorted(try fetch(Merchant.self).map(Self.dto), by: \.id),
             transactions: sorted(try fetch(TransactionRecord.self).map(Self.dto), by: \.id),
@@ -172,6 +174,9 @@ extension BackupService {
         model.startingBalanceDate = dto.startingBalanceDate
         model.includePendingInProjection = dto.includePendingInProjection
         model.defaultAnalyticsPeriodRawValue = dto.defaultAnalyticsPeriod
+        model.aiCategorizationEnabled = dto.aiCategorizationEnabled ?? false
+        model.naturalLanguageEnabled = dto.naturalLanguageEnabled ?? false
+        model.aiInsightsEnabled = dto.aiInsightsEnabled ?? false
         model.createdAt = dto.createdAt
         model.updatedAt = dto.updatedAt
     }

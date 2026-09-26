@@ -14,6 +14,12 @@ result, and why it could not be walked automatically. Emptied at the next walk o
   OAuth client and a network dependency, both on the confirm-first list. Say whether to add it and who owns the
   Google project.
 
+- **Sprint 7 (Phase 8) — on-device AI on a device with Apple Intelligence.** Settings › Intelligence: turn on all
+  three switches. Quick Add: type "twelve dollars lunch" (amount and Dining should be suggested and labelled), then
+  "47.50 coffee" (nothing from the model may override the parsed amount). Analytics › Summary › Write summary: the
+  text must only quote figures shown on the screen. Also run the unit tests there: the live AI fixtures run only
+  where the model is available. Why queued: the CI simulator has no Apple Intelligence model.
+
 ## Done
 - ~~Sprint 0/1 (Phases 0–1) — visual pass of the tab shell.~~ Covered by the automated screenshot walks from Sprint 2
   on (every tab and More › Analytics / Settings in light, dark, and largest text; `docs/walk/`).
