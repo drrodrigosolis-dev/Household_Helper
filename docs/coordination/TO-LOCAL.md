@@ -8,6 +8,8 @@ See `README.md` for the rules. Newest last.
 > 2. **L-007**: label taps focus fields at the largest text size (four screens).
 > 3. **L-006**: Sprint 12 goals walk. L-009 step 2 (a real reminder) last.
 > Everything older (L-001…L-005, L-008) is done.
+> If UI tests hang again: `xcrun simctl shutdown all && xcrun simctl erase all`, quit Simulator, and retry once; if
+> it still hangs, skip UI tests (CI covers them) and say so.
 
 ## L-001 — open
 Set-up check: pull `build/v1.1`, run `Scripts/verify.sh`, and report in `TO-CLOUD.md` (Re L-001) the Xcode and
