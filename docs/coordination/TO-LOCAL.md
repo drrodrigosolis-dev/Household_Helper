@@ -71,3 +71,8 @@ it should pass now.
 At the largest text size, tap the label (not the field) of: Budget › New transfer › Amount, Quick Add › Amount (open
 details), Wishlist › new item › Estimated price, and Tasks › new task › Title. Each must bring up the keyboard in that
 field. Screenshots to `docs/walk/sprint-10/local-rewalk/`, results in `TO-CLOUD.md`.
+
+## L-008 — open, priority (before L-006/L-007)
+Sprints 12 and 13 have not compiled anywhere yet (CI keeps replacing queued runs). Pull `02eeacd` or later and run
+`Scripts/verify.sh --keep-going`. Report in `TO-CLOUD.md` straight away: any compile error or swift-format lint
+message verbatim (file:line), then failing tests with their messages. Don't fix code; the cloud session will.
