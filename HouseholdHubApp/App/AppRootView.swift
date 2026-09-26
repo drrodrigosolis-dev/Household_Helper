@@ -144,7 +144,12 @@ struct AppRootView: View {
     private func bootstrap() async {
         guard let services else { return }
         let now = Date.now
-        try? await services.categories.seedSystemCategoriesIfNeeded(now: now)
+        // New data is named in the device's language (Sprint 16); UI tests keep English names.
+        let language =
+            ProcessInfo.processInfo.arguments.contains(LaunchArguments.uiTesting)
+            ? SeedLanguage.english : SeedLanguage.preferred(Locale.preferredLanguages)
+        await services.transactions.setSeedLanguage(language)
+        try? await services.categories.seedSystemCategoriesIfNeeded(now: now, language: language)
         try? await services.board.seedDefaultColumnsIfNeeded(now: now)
         if ProcessInfo.processInfo.arguments.contains(LaunchArguments.skipOnboarding) {
             try? await services.transactions.completeOnboarding(

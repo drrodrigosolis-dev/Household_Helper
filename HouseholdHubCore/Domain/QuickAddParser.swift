@@ -40,7 +40,8 @@ public struct QuickAddParse: Equatable, Sendable {
 }
 
 /// The non-AI Quick Add grammar (spec §25). It never guesses: no category from meaning, no merchant normalization,
-/// no recurrence, no currency detection (§25.3). Keywords are English in v1.
+/// no recurrence, no currency detection (§25.3). Keywords are English and Spanish (Sprint 16), whatever the device
+/// language: "ingreso", "ayer", "hoy", weekday names; "gasto" marks an expense explicitly.
 ///
 ///     47.50 coffee            → expense 47.50, "coffee"
 ///     + 1200 paycheck         → income 1200.00, "paycheck"
@@ -68,8 +69,10 @@ public struct QuickAddParser: Sendable {
             type = .income
             tokens[0] = String(first.dropFirst())
         }
-        if let index = tokens.firstIndex(where: { Self.incomeWords.contains($0.lowercased()) }) {
+        if let index = tokens.firstIndex(where: { Self.incomeWords.contains(Self.fold($0)) }) {
             type = .income
+            tokens.remove(at: index)
+        } else if let index = tokens.firstIndex(where: { Self.expenseWords.contains(Self.fold($0)) }) {
             tokens.remove(at: index)
         }
 
@@ -103,8 +106,16 @@ public struct QuickAddParser: Sendable {
 
     // MARK: Grammar pieces
 
-    private static let incomeWords: Set<String> = ["income", "received"]
+    private static let incomeWords: Set<String> = ["income", "received", "ingreso", "recibido", "recibi"]
+    /// Expense is the default; these words only say so explicitly and are left out of the description.
+    private static let expenseWords: Set<String> = ["gasto"]
     private static let weekdays = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+    private static let spanishWeekdays = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"]
+
+    /// Lowercased without accents, so "Miércoles" and "miercoles" read the same.
+    static func fold(_ word: String) -> String {
+        word.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+    }
 
     /// A plain number: `47`, `47.50`, `1,200.50`, optionally prefixed with `$`. Anything else is description text.
     private func amountValue(_ token: String) -> Decimal? {
@@ -121,11 +132,12 @@ public struct QuickAddParser: Sendable {
 
     /// Days back for `today`, `yesterday`, or a weekday name (its most recent occurrence, today included).
     private func dayOffset(for token: String, now: Date) -> Int? {
-        let word = token.lowercased()
-        if word == "today" { return 0 }
-        if word == "yesterday" { return 1 }
-        let index = Self.weekdays.firstIndex { $0 == word || ($0.prefix(3) == word && word.count == 3) }
-        guard let index else { return nil }
+        let word = Self.fold(token)
+        if word == "today" || word == "hoy" { return 0 }
+        if word == "yesterday" || word == "ayer" { return 1 }
+        let matches: (String) -> Bool = { $0 == word || ($0.prefix(3) == word && word.count == 3) }
+        guard let index = Self.weekdays.firstIndex(where: matches) ?? Self.spanishWeekdays.firstIndex(where: matches)
+        else { return nil }
         let today = calendar.calendar.component(.weekday, from: now)
         return (today - (index + 1) + 7) % 7
     }

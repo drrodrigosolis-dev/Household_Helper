@@ -11,6 +11,13 @@ public actor TransactionService {
     // Holds each container for the process lifetime, so ObjectIdentifier keys are never reused.
     private static let instances = Mutex<[ObjectIdentifier: TransactionService]>([:])
 
+    /// The language the first account is named in when the data is first set up (Sprint 16).
+    var seedLanguage = SeedLanguage.english
+
+    public func setSeedLanguage(_ language: SeedLanguage) {
+        seedLanguage = language
+    }
+
     public static func make(container: ModelContainer) -> TransactionService {
         instances.withLock { cache in
             if let existing = cache[ObjectIdentifier(container)] {

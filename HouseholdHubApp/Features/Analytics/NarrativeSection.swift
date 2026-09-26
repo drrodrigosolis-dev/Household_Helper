@@ -40,7 +40,10 @@ struct NarrativeSection: View {
         isWorking = true
         defer { isWorking = false }
         let facts = self.facts
-        let raw = await OnDeviceModel.narrate(facts)
+        // In the app's own language (Sprint 16), named in English for the model's instructions.
+        let code = Bundle.main.preferredLocalizations.first ?? "en"
+        let language = Locale(identifier: "en").localizedString(forLanguageCode: code) ?? "English"
+        let raw = await OnDeviceModel.narrate(facts, language: language)
         // The period or figures changed while the model was writing: this text describes something no longer shown.
         guard facts == self.facts else { return }
         if let raw, let checked = NarrativeValidator.validate(raw, facts: facts) {

@@ -23,6 +23,7 @@ public struct AccountDraft: Equatable, Sendable {
 /// every transaction references one: a single writer keeps "in use" checks and archiving race-free.
 extension TransactionService {
     public static let mainAccountName = "Main account"
+    public static let spanishMainAccountName = "Cuenta principal"
 
     /// Adds an account at the end of the list.
     @discardableResult
@@ -110,8 +111,9 @@ extension TransactionService {
     // MARK: Internals
 
     func insertMainAccount(currencyCode: String, now: Date) throws -> Account {
+        let name = seedLanguage == .spanish ? Self.spanishMainAccountName : Self.mainAccountName
         let account = Account(
-            name: Self.mainAccountName, kind: .bank, startingBalance: .zero(currencyCode), startingBalanceDate: now,
+            name: name, kind: .bank, startingBalance: .zero(currencyCode), startingBalanceDate: now,
             sortOrder: 0, now: now)
         modelContext.insert(account)
         return account

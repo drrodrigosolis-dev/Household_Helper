@@ -94,3 +94,11 @@ message verbatim (file:line), then failing tests with their messages. Don't fix 
    due tomorrow; send the app to the background. In the debugger (or a temporary breakpoint), check that
    `UNUserNotificationCenter.current().pendingNotificationRequests()` holds one `task-…` request for 9:00 tomorrow.
    Also try Budget › Transactions search with an amount (e.g. "4.50") and Wishlist search with an accent. Report.
+
+## L-010 — open (Sprint 16, after L-009 step 1)
+The String Catalogs were written by hand from the source. Check them against Xcode's own extraction:
+`xcodebuild -exportLocalizations -project HouseholdHub.xcodeproj -localizationPath build/l10n -exportLanguage es`
+(after `Scripts/generate.sh`). In `build/l10n/es.xcloc/Localized Contents/es.xliff`, list every `<trans-unit>` that
+has no `<target>` (untranslated), with its `id`, in `TO-CLOUD.md` (just the ids, one per line). Don't edit the catalogs;
+the cloud session adds the missing ones. Then run the app with the Simulator set to Español and glance at Inicio,
+Presupuesto and Configuración for English left over.

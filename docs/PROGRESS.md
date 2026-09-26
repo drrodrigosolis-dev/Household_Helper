@@ -62,6 +62,7 @@ Statuses: not started / in progress / CI green / blocked.
 22. **CI workflow pinned** (owner go-ahead 2026-09-26): actions by commit SHA and XcodeGen at a fixed version.
 23. **Sprint 14 defaults accepted ("run")**: search and local reminders, `docs/sprints/SPRINT-14.md`.
 24. **Sprint 15 defaults accepted ("run")**: CSV import, `docs/sprints/SPRINT-15.md`.
+25. **Sprint 16 defaults accepted ("run Spanish")**: neutral Latin-American Spanish, `docs/sprints/SPRINT-16.md`.
 
 ## Defaults awaiting the owner's review (Phase 10)
 - **Currency after records exist (§6.3):** Settings › Household refuses the change and says why, rather than §6.3's
@@ -95,5 +96,5 @@ where money sits. Each is one sprint (`docs/sprints/SPRINT-10…`), closed only 
 | 12 | Savings goals (target and date, monthly amount needed; can point at a wishlist item) | built, data-safety review fixed; awaiting CI |
 | 13 | Recurring tasks (reuse the recurrence rules) | built, data-safety review fixed; awaiting CI |
 | 14 | Search (deterministic) + local reminders (task due dates, upcoming bills) | built; awaiting CI and review |
-| 15 | CSV import (user-picked file, column mapping, preview, duplicate check, one atomic save) | built; awaiting CI and review |
-| 16 | Spanish translation (String Catalog; walked in Spanish) | not started |
+| 15 | CSV import (user-picked file, column mapping, preview, duplicate check, one atomic save) | built, data-safety review fixed; awaiting CI |
+| 16 | Spanish translation (String Catalog; walked in Spanish) | built; awaiting CI and the Mac's export check |
