@@ -67,6 +67,13 @@ extension TransactionService {
             record.wishlistItemID = nil
             record.updatedAt = now
         }
+        // Tasks linked to the item keep existing; only the link goes (spec §7.8 links are optional).
+        let itemID: UUID? = id
+        let linked = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.linkedWishlistItemID == itemID })
+        for task in try modelContext.fetch(linked) {
+            task.linkedWishlistItemID = nil
+            task.updatedAt = now
+        }
         modelContext.delete(item)
         try commit()
         return media

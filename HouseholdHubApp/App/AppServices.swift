@@ -6,12 +6,14 @@ import SwiftUI
 struct AppServices: Sendable {
     let transactions: TransactionService
     let categories: CategoryService
+    let board: TaskBoardService
     /// Media files outside the store (spec §5.5); nil only if Application Support is unavailable.
     let images: ImageStore?
 
     init(container: ModelContainer) {
         transactions = .make(container: container)
         categories = .make(container: container)
+        board = .make(container: container)
         images = try? ImageStore.standard()
     }
 }

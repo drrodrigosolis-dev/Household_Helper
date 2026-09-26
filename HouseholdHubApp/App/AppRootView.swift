@@ -38,6 +38,7 @@ struct AppRootView: View {
         guard let services else { return }
         let now = Date.now
         try? await services.categories.seedSystemCategoriesIfNeeded(now: now)
+        try? await services.board.seedDefaultColumnsIfNeeded(now: now)
         if ProcessInfo.processInfo.arguments.contains(LaunchArguments.skipOnboarding) {
             try? await services.transactions.completeOnboarding(
                 currencyCode: "CAD", startingBalance: .zero("CAD"), asOf: now, now: now)
