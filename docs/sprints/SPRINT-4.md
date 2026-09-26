@@ -18,21 +18,23 @@ for review. Binding: §7.8–§7.10, §8.5, §24.2 Tasks row, §24.3 (Quick Add 
 7. Quick Add gains the Task segment: the description becomes the title, a date word ("tomorrow") the due date; an
    amount is ignored for tasks.
 8. `linkedWishlistItemID` gets a picker in the task editor; `linkedTransactionID` is stored but has no v1 UI yet.
-   Deleting a wishlist item clears task links to it.
+   Deleting a wishlist item clears task links to it; a stale link is dropped on save (data-safety review S3).
+10. Added after the data-safety review: archived tasks keep their completion time when the done column changes, and a
+    column reorder that changes the done column asks for confirmation first.
 9. Dashboard recent activity adds task changes (completing the §24.2 "transactions/tasks/wishlist" list).
 
 ## Items
 | # | Item | Spec | Built (CI green) | Walked |
 |---|---|---|---|---|
-| 1 | `BoardColumn`, `TaskItem`, `SubtaskItem` models; schema update | §7.8–§7.10 | ☐ | tests |
-| 2 | `TaskBoardService`: seed columns, task CRUD, move/reorder with rebalance, completion rule | §7.8, §7.10 | ☐ | tests |
-| 3 | Subtasks: add, toggle, reorder, delete with the task | §7.9 | ☐ | tests |
-| 4 | Column add/rename/reorder/delete-with-destination | §8.5 | ☐ | tests |
-| 5 | Board screen: columns, cards, drag and drop | §24.2 | ☐ | ☐ |
-| 6 | Non-drag alternatives: context menu and VoiceOver actions | §24.5 | ☐ | ☐ |
-| 7 | Task detail/editor with subtasks and wishlist link | §7.8, §7.9 | ☐ | ☐ |
-| 8 | Quick Add Task segment; Dashboard activity includes tasks | §24.3, §24.2 | ☐ | ☐ |
+| 1 | `BoardColumn`, `TaskItem`, `SubtaskItem` models; schema update | §7.8–§7.10 | ☑ | tests |
+| 2 | `TaskBoardService`: seed columns, task CRUD, move/reorder with rebalance, completion rule | §7.8, §7.10 | ☑ | tests |
+| 3 | Subtasks: add, toggle, reorder, delete with the task | §7.9 | ☑ | tests |
+| 4 | Column add/rename/reorder/delete-with-destination | §8.5 | ☑ | tests |
+| 5 | Board screen: columns, cards, drag and drop | §24.2 | ☑ | ☑ |
+| 6 | Non-drag alternatives: context menu and VoiceOver actions | §24.5 | ☑ | ☑ |
+| 7 | Task detail/editor with subtasks and wishlist link | §7.8, §7.9 | ☑ | ☑ |
+| 8 | Quick Add Task segment; Dashboard activity includes tasks | §24.3, §24.2 | ☑ | ☑ |
 
 ## Close-out
-☐ CI green on final head · ☐ walk screenshots saved to `docs/walk/sprint-4/` and reviewed · ☐ data-safety review
+☐ CI green on final head (built green on run 36205435799 on `9635f01`; review fixes `1c11590` pending) · ☑ walk screenshots saved to `docs/walk/sprint-4/` and reviewed · ☑ data-safety review
 (column delete, cascade, links) · ☐ PROGRESS + PR · ☐ WALK-QUEUE

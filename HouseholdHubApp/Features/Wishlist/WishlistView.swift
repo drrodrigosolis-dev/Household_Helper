@@ -40,6 +40,7 @@ struct WishlistView: View {
     @Query(sort: \WishlistItem.createdAt, order: .reverse) private var items: [WishlistItem]
     /// A per-device display preference, deliberately outside the store and backups (spec §7.11).
     @AppStorage("wishlist.layout") private var layout = Layout.list
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var priority: Priority?
     @State private var status = StatusFilter.active
     @State private var isAdding = false
@@ -80,7 +81,7 @@ struct WishlistView: View {
                 description: Text("Add things you're saving for. Mark them purchased to record the expense."))
         } else if layout == .grid {
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: gridMinimum), spacing: 12)], spacing: 12) {
                     ForEach(visible) { item in
                         NavigationLink(value: item.id) { WishlistCard(item: item) }
                             .buttonStyle(.plain)
@@ -96,41 +97,48 @@ struct WishlistView: View {
         }
     }
 
+    /// One card per row at accessibility text sizes, so names wrap between words instead of mid-word.
+    private var gridMinimum: CGFloat { typeSize.isAccessibilitySize ? 300 : 150 }
+
     private var emptyTitle: String {
         items.isEmpty ? String(localized: "No wishlist items yet") : String(localized: "Nothing matches these filters")
     }
 
+    /// Two chips side by side, stacked when they don't fit (large text). A horizontal ScrollView here left a ~90 pt gap
+    /// above the content even with fixedSize (walks of runs 36202442661 and 36205435799), so none is used.
     private var chips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                Menu {
-                    Picker("Priority", selection: $priority) {
-                        Text("Any priority").tag(Priority?.none)
-                        ForEach(Priority.allCases.reversed(), id: \.self) { value in
-                            Text(WishlistFormat.priorityText(value)).tag(Priority?.some(value))
-                        }
-                    }
-                } label: {
-                    chipLabel(priorityChipTitle, active: priority != nil)
-                }
-                .accessibilityIdentifier("wishlist.priorityFilter")
-                Menu {
-                    Picker("Status", selection: $status) {
-                        ForEach(StatusFilter.allCases) { value in
-                            Text(value.title).tag(value)
-                        }
-                    }
-                } label: {
-                    chipLabel(status.title, active: status != .active)
-                }
-                .accessibilityIdentifier("wishlist.statusFilter")
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 6)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) { chipMenus }
+            VStack(alignment: .leading, spacing: 8) { chipMenus }
         }
-        // A horizontal ScrollView is vertically flexible; without this it claims extra height in the top inset and
-        // leaves a gap above the list (walk of run 36202442661).
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal)
+        .padding(.vertical, 6)
+    }
+
+    @ViewBuilder
+    private var chipMenus: some View {
+        Menu {
+            Picker("Priority", selection: $priority) {
+                Text("Any priority").tag(Priority?.none)
+                ForEach(Priority.allCases.reversed(), id: \.self) { value in
+                    Text(WishlistFormat.priorityText(value)).tag(Priority?.some(value))
+                }
+            }
+        } label: {
+            chipLabel(priorityChipTitle, active: priority != nil)
+        }
+        .accessibilityIdentifier("wishlist.priorityFilter")
+        Menu {
+            Picker("Status", selection: $status) {
+                ForEach(StatusFilter.allCases) { value in
+                    Text(value.title).tag(value)
+                }
+            }
+        } label: {
+            chipLabel(status.title, active: status != .active)
+        }
+        .accessibilityIdentifier("wishlist.statusFilter")
     }
 
     private var priorityChipTitle: String {

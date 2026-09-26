@@ -84,11 +84,17 @@ struct ColumnsView: View {
 
     private func row(_ column: BoardColumn) -> some View {
         HStack {
-            Text(column.name)
-            Spacer()
-            Text("\(tasks.filter { $0.columnID == column.id && $0.archivedAt == nil }.count)")
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
+            // Name first: at large text it wraps between words rather than being squeezed by the count and controls.
+            VStack(alignment: .leading, spacing: 2) {
+                Text(column.name)
+                let count = tasks.filter { $0.columnID == column.id && $0.archivedAt == nil }.count
+                Text("^[\(count) task](inflect: true)")
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            .layoutPriority(1)
+            Spacer(minLength: 8)
             Menu {
                 Button("Rename", systemImage: "pencil") {
                     renameText = column.name

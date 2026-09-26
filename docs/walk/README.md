@@ -13,3 +13,8 @@ dark, and largest-accessibility-text side by side. Produced by `Scripts/walk-scr
 | Run | Folder | What it shows | Findings |
 |---|---|---|---|
 | 36202442661 (`b69c8fa`) | [run-36202442661](sprint-3/run-36202442661) | Sprint 2 walk fixes; first real dark mode; Wishlist list, grid, editor, detail, Mark Purchased (light/dark). Walk stopped at the purchased check (a test query bug, fixed in `0748b2a`), so large-text wishlist screens and the purchased state are missing | Dark mode now correct everywhere. Large-text rows and dashboard cards stack, amounts stay on one line, editor fields labelled: Sprint 2 findings fixed. New: ~100 pt gap between wishlist filter chips and content (horizontal ScrollView claiming height; fixed next commit). Minor: uncategorized rows show a "?" badge |
+
+## Sprint 4 (Phase 5)
+| Run | Folder | What it shows | Findings |
+|---|---|---|---|
+| 36205435799 (`9635f01`, all green) | [run-36205435799](sprint-4/run-36205435799) | Full walk, all 25 UI tests passing: every screen of Phases 1–5 in light, dark, largest text, incl. Tasks board/detail/editor/columns, Quick Add Task and Wishlist, purchased wishlist item, Dashboard activity | Balances correct after purchase (1,152.50 − 450.00 = 702.50; week 497.50). Still open: gap under wishlist chips (earlier fix ineffective; chips now a ViewThatFits, no ScrollView); large-text wishlist grid broke names mid-word (one column at accessibility sizes); Columns sheet broke "In Progress" mid-word (name gets priority, count moves under it). Fixes in the next commit |

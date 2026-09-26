@@ -22,14 +22,14 @@ Planned 2026-09-25 (cloud session); owner answered "run" (all defaults). Starts 
 ## Items
 | # | Item | Spec | Built (CI green) | Walked |
 |---|---|---|---|---|
-| 1 | Onboarding sheet + `AppSettings` bootstrap; §24.2 table updated | §7.11, §24.2 | ☐ | ☐ |
-| 2 | Deterministic Quick Add parser (core, parameterized tests) | §25 | ☐ | tests |
-| 3 | Quick Add sheet + floating button on every tab | §24.3, §24.5 | ☐ | ☐ |
-| 4 | Budget › Transactions: grouped by day, filters (period, category, status), swipe + context-menu edit/delete, §8.3 delete options, paginated | §24.2, §5.4, §8.3 | ☐ | ☐ |
-| 5 | Transaction detail/edit (service `update`) | §7.2 | ☐ | ☐ |
-| 6 | Budget › Recurring: list, create series, post an occurrence | §7.5, §9.4 | ☐ | ☐ |
-| 7 | Dashboard: current / pending / projected (+ pending toggle), this week, upcoming 7 days, recent 5; cards deep-link | §9.2, §24.2 | ☐ | ☐ |
-| 8 | Category management: list, add, edit, archive, reassign | §7.3, §8.4 | ☐ | ☐ |
+| 1 | Onboarding sheet + `AppSettings` bootstrap; §24.2 table updated | §7.11, §24.2 | ☑ | ☑ |
+| 2 | Deterministic Quick Add parser (core, parameterized tests) | §25 | ☑ | tests |
+| 3 | Quick Add sheet + floating button on every tab | §24.3, §24.5 | ☑ | ☑ |
+| 4 | Budget › Transactions: grouped by day, filters (period, category, status), swipe + context-menu edit/delete, §8.3 delete options, paginated | §24.2, §5.4, §8.3 | ☑ | ☑ |
+| 5 | Transaction detail/edit (service `update`) | §7.2 | ☑ | ☑ |
+| 6 | Budget › Recurring: list, create series, post an occurrence | §7.5, §9.4 | ☑ | ☑ |
+| 7 | Dashboard: current / pending / projected (+ pending toggle), this week, upcoming 7 days, recent 5; cards deep-link | §9.2, §24.2 | ☑ | ☑ |
+| 8 | Category management: list, add, edit, archive, reassign | §7.3, §8.4 | ☑ | ☑ |
 
 ## Doubts found while planning (default taken, owner may overrule)
 - **Where category management lives:** §21 puts it in Phase 3 but §24.2 has no screen for it. Default: More ›
@@ -61,5 +61,8 @@ a series merchant); revisit when one does. Not covered by a UI test: the double-
 - Artifacts download needs `*.blob.core.windows.net` in the environment's allowed domains (owner added it).
 
 ## Close-out
-☐ CI green on final head · ☐ walk screenshots reviewed · ☐ data-safety review (delete flows) · ☐ PROGRESS + PR ·
-☐ WALK-QUEUE updated
+☑ CI green on final head · ☑ walk screenshots reviewed · ☑ data-safety review (delete flows) · ☑ PROGRESS + PR ·
+☑ WALK-QUEUE updated
+
+Closed 2026-09-26: CI green on run 36205435799 on `9635f01` (all unit tests, 25 UI tests including the full light/dark/large-text
+walks). Walks saved under `docs/walk/`. Data-safety review findings fixed before green.

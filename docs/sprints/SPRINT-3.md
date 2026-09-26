@@ -26,14 +26,17 @@ for review. Starts only once Phase 3 is CI green and walked (§28). Binding: §7
 | # | Item | Spec | Built (CI green) | Walked |
 |---|---|---|---|---|
 | 1 | `WishlistItem` model, `WishlistStatus`, `Priority`; schema update | §7.7 | pending CI | tests |
-| 2 | `WishlistService`: create/update/archive/delete with §8.2 rules | §7.7, §8.2 | ☐ | tests |
-| 3 | Purchase conversion: one atomic linked expense, never duplicated | §8.1 | ☐ | tests |
-| 4 | `ImageStore` (save, thumbnail, delete) with in-memory test double | §5.5 | ☐ | tests |
-| 5 | Wishlist screen: chips, list/grid, cards | §24.2 | ☐ | ☐ |
-| 6 | Item detail + editor + Mark Purchased flow | §24.2, §8.1 | ☐ | ☐ |
-| 7 | Quick Add Wishlist segment | §24.3 | ☐ | ☐ |
-| 8 | Dashboard recent activity includes wishlist changes | §24.2 | ☐ | ☐ |
+| 2 | `WishlistService`: create/update/archive/delete with §8.2 rules | §7.7, §8.2 | ☑ | tests |
+| 3 | Purchase conversion: one atomic linked expense, never duplicated | §8.1 | ☑ | tests |
+| 4 | `ImageStore` (save, thumbnail, delete) with in-memory test double | §5.5 | ☑ | tests |
+| 5 | Wishlist screen: chips, list/grid, cards | §24.2 | ☑ | ☑ |
+| 6 | Item detail + editor + Mark Purchased flow | §24.2, §8.1 | ☑ | ☑ |
+| 7 | Quick Add Wishlist segment | §24.3 | ☑ | ☑ |
+| 8 | Dashboard recent activity includes wishlist changes | §24.2 | ☑ | ☑ |
 
 ## Close-out
-☐ CI green on final head · ☐ walk screenshots saved to `docs/walk/sprint-3/` and reviewed · ☐ data-safety review
-(purchase atomicity, deletion) · ☐ PROGRESS + PR · ☐ WALK-QUEUE
+☑ CI green on final head · ☑ walk screenshots saved to `docs/walk/sprint-3/` and reviewed · ☑ data-safety review
+(purchase atomicity, deletion) · ☑ PROGRESS + PR · ☑ WALK-QUEUE
+
+Closed 2026-09-26: CI green on run 36205435799 on `9635f01` (all unit tests, 25 UI tests including the full light/dark/large-text
+walks). Walks saved under `docs/walk/`. Data-safety review findings fixed before green.
