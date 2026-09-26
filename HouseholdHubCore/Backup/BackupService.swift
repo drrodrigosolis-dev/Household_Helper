@@ -54,7 +54,8 @@ public actor BackupService {
                 defaultAnalyticsPeriod: settings.defaultAnalyticsPeriodRawValue,
                 aiCategorizationEnabled: settings.aiCategorizationEnabled,
                 naturalLanguageEnabled: settings.naturalLanguageEnabled, aiInsightsEnabled: settings.aiInsightsEnabled,
-                widgetShowsBalance: settings.widgetShowsBalance,
+                widgetShowsBalance: settings.widgetShowsBalance, selectedTheme: settings.selectedThemeRawValue,
+                accentColorHex: settings.accentColorHex, defaultQuickAddType: settings.defaultQuickAddTypeRawValue,
                 createdAt: settings.createdAt, updatedAt: settings.updatedAt),
             categories: sorted(try fetch(CategoryRecord.self).map(Self.dto), by: \.id),
             merchants: sorted(try fetch(Merchant.self).map(Self.dto), by: \.id),
@@ -179,6 +180,9 @@ extension BackupService {
         model.naturalLanguageEnabled = dto.naturalLanguageEnabled ?? false
         model.aiInsightsEnabled = dto.aiInsightsEnabled ?? false
         model.widgetShowsBalance = dto.widgetShowsBalance ?? true
+        model.selectedThemeRawValue = dto.selectedTheme ?? ThemePreference.system.rawValue
+        model.accentColorHex = dto.accentColorHex ?? ""
+        model.defaultQuickAddTypeRawValue = dto.defaultQuickAddType ?? QuickAddType.expense.rawValue
         model.createdAt = dto.createdAt
         model.updatedAt = dto.updatedAt
     }

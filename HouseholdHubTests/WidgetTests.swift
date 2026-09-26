@@ -213,3 +213,37 @@ struct ShortcutEntryTests {
         #expect(hidden.amountsHidden && hidden.pendingImpact == nil && hidden.projected == nil)
     }
 }
+
+/// Sprint 9 settings: appearance and Quick Add default persist, back up, and restore; old backups read defaults.
+struct PreferenceSettingsTests {
+    private let now = Date(timeIntervalSince1970: 1_790_000_000)
+
+    @Test func appearanceAndQuickAddDefaultRoundTripThroughBackups() async throws {
+        let container = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
+        let ledger = TransactionService.make(container: container)
+        try await ledger.ensureSettings(currencyCode: "CAD", now: now)
+        func stored(_ container: ModelContainer) throws -> AppSettings {
+            try #require(try ModelContext(container).fetch(FetchDescriptor<AppSettings>()).first)
+        }
+        let fresh = try stored(container)
+        #expect(fresh.selectedTheme == .system && fresh.accentColor == nil && fresh.defaultQuickAddType == .expense)
+
+        let purple = try #require(ColorToken(hex: "#6A1B9A"))
+        try await ledger.setAppearance(theme: .dark, accent: purple, now: now)
+        try await ledger.setDefaultQuickAddType(.task, now: now)
+        var backup = try await BackupService.make(container: container).snapshot(now: now, appVersion: "1") { _ in nil }
+        let target = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
+        _ = try await BackupService.make(container: target).restore(backup, availableMedia: [], now: now)
+        let restored = try stored(target)
+        #expect(restored.selectedTheme == .dark && restored.accentColor == purple)
+        #expect(restored.defaultQuickAddType == .task)
+
+        backup.settings.selectedTheme = nil
+        backup.settings.accentColorHex = nil
+        backup.settings.defaultQuickAddType = "somethingNew"
+        _ = try await BackupService.make(container: target).restore(backup, availableMedia: [], now: now)
+        let defaults = try stored(target)
+        #expect(defaults.selectedTheme == .system && defaults.accentColor == nil)
+        #expect(defaults.defaultQuickAddType == .expense, "An unknown value reads as the default")
+    }
+}

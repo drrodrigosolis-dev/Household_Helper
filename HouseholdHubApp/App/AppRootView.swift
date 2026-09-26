@@ -16,6 +16,20 @@ struct AppRootView: View {
     @State private var pendingQuickAdd = false
 
     private var lockEnabled: Bool { settings.first?.faceIDEnabled == true }
+
+    /// The UI-test walk forces dark; otherwise Settings › Appearance decides, nil following the system.
+    private var colorScheme: ColorScheme? {
+        if ProcessInfo.processInfo.arguments.contains(LaunchArguments.darkMode) {
+            return .dark
+        }
+        switch settings.first?.selectedTheme ?? .system {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+
+    private var accent: Color? { settings.first?.accentColor.map { Color($0) } }
     private var isLocked: Bool { lockEnabled && !isUnlocked }
 
     var body: some View {
@@ -42,6 +56,8 @@ struct AppRootView: View {
                 router.isQuickAddPresented = true
             }
         }
+        .preferredColorScheme(colorScheme)
+        .tint(accent)
         // App switcher: cover the screen whenever the gated app isn't frontmost.
         .overlay {
             if lockEnabled, scenePhase != .active, !isAuthenticating {

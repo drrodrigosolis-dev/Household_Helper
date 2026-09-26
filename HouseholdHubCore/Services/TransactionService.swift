@@ -83,6 +83,24 @@ public actor TransactionService {
         try commit()
     }
 
+    /// Appearance (spec §7.11). A nil accent means the app's own accent color.
+    public func setAppearance(theme: ThemePreference, accent: ColorToken?, now: Date) throws {
+        begin()
+        let settings = try requireSettings()
+        settings.selectedThemeRawValue = theme.rawValue
+        settings.accentColorHex = accent?.hex ?? ""
+        settings.updatedAt = now
+        try commit()
+    }
+
+    public func setDefaultQuickAddType(_ type: QuickAddType, now: Date) throws {
+        begin()
+        let settings = try requireSettings()
+        settings.defaultQuickAddTypeRawValue = type.rawValue
+        settings.updatedAt = now
+        try commit()
+    }
+
     public func setFaceIDEnabled(_ enabled: Bool, now: Date) throws {
         begin()
         let settings = try requireSettings()

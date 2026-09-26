@@ -24,8 +24,17 @@ extension SchemaV1 {
         /// Optional Face ID / passcode gate (spec §2.1, §7.11). Device configuration: never written to a backup
         /// (§26.1), and a restore leaves this device's value as it is.
         public var faceIDEnabled: Bool = false
+        /// Appearance and Quick Add preferences (spec §7.11), stored as raw values; an unknown value reads as the
+        /// default. `accentColorHex` empty means the app's own accent color.
+        public var selectedThemeRawValue: String = ThemePreference.system.rawValue
+        public var accentColorHex: String = ""
+        public var defaultQuickAddTypeRawValue: String = QuickAddType.expense.rawValue
         public var createdAt: Date
         public var updatedAt: Date
+
+        public var selectedTheme: ThemePreference { ThemePreference(rawValue: selectedThemeRawValue) ?? .system }
+        public var accentColor: ColorToken? { accentColorHex.isEmpty ? nil : ColorToken(hex: accentColorHex) }
+        public var defaultQuickAddType: QuickAddType { QuickAddType(rawValue: defaultQuickAddTypeRawValue) ?? .expense }
 
         public init(id: UUID = UUID(), currencyCode: String, now: Date) {
             self.id = id

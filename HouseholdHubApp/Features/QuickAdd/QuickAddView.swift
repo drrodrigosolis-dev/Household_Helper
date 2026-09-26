@@ -157,7 +157,18 @@ struct QuickAddView: View {
                     suggestionTask?.cancel()
                 }
             }
-            .onAppear { quickFieldFocused = true }
+            .onAppear {
+                quickFieldFocused = true
+                // Opens on the kind chosen in Settings (spec §7.11 `defaultQuickAddType`).
+                if text.isEmpty {
+                    switch settings.first?.defaultQuickAddType ?? .expense {
+                    case .expense: entry = .expense
+                    case .income: entry = .income
+                    case .wishlist: entry = .wishlist
+                    case .task: entry = .task
+                    }
+                }
+            }
             .onDisappear { suggestionTask?.cancel() }
         }
     }

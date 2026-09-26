@@ -53,6 +53,35 @@ struct SettingsView: View {
                         Text("Set a passcode on this device to lock Household Hub.")
                     }
                 }
+                Section("Appearance") {
+                    Picker("Theme", selection: themeBinding) {
+                        Text("System").tag(ThemePreference.system)
+                        Text("Light").tag(ThemePreference.light)
+                        Text("Dark").tag(ThemePreference.dark)
+                    }
+                    .accessibilityIdentifier("settings.theme")
+                    Picker("Accent color", selection: accentBinding) {
+                        Text("Default").tag(ColorToken?.none)
+                        ForEach(CategoryEditorView.palette, id: \.self) { token in
+                            Label {
+                                Text(CategoryEditorView.colorName(token))
+                            } icon: {
+                                Image(systemName: "circle.fill").foregroundStyle(Color(token))
+                            }
+                            .tag(ColorToken?.some(token))
+                        }
+                    }
+                    .accessibilityIdentifier("settings.accent")
+                }
+                Section("Quick Add") {
+                    Picker("Opens on", selection: quickAddTypeBinding) {
+                        Text("Expense").tag(QuickAddType.expense)
+                        Text("Income").tag(QuickAddType.income)
+                        Text("Wishlist").tag(QuickAddType.wishlist)
+                        Text("Task").tag(QuickAddType.task)
+                    }
+                    .accessibilityIdentifier("settings.quickAddType")
+                }
                 Section {
                     Toggle("Show amounts in widget", isOn: widgetShowsBalanceBinding)
                         .accessibilityIdentifier("settings.widgetShowsBalance")
@@ -61,6 +90,16 @@ struct SettingsView: View {
                 } footer: {
                     Text("When off, the Home Screen widget shows “Hidden” instead of your balances.")
                 }
+            }
+            Section("About") {
+                LabeledContent("Version", value: "\(AppInfo.version) (\(AppInfo.build))")
+                Text(
+                    """
+                    Household Hub keeps your data on this device. Nothing is sent anywhere, and on-device Apple \
+                    Intelligence features are optional and off until you turn them on.
+                    """)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
         .navigationTitle("Settings")
@@ -79,6 +118,30 @@ struct SettingsView: View {
                     try? await services?.transactions.setFaceIDEnabled(value, now: .now)
                 }
             })
+    }
+
+    private var themeBinding: Binding<ThemePreference> {
+        Binding(
+            get: { settings.first?.selectedTheme ?? .system },
+            set: { value in
+                let accent = settings.first?.accentColor
+                Task { try? await services?.transactions.setAppearance(theme: value, accent: accent, now: .now) }
+            })
+    }
+
+    private var accentBinding: Binding<ColorToken?> {
+        Binding(
+            get: { settings.first?.accentColor },
+            set: { value in
+                let theme = settings.first?.selectedTheme ?? .system
+                Task { try? await services?.transactions.setAppearance(theme: theme, accent: value, now: .now) }
+            })
+    }
+
+    private var quickAddTypeBinding: Binding<QuickAddType> {
+        Binding(
+            get: { settings.first?.defaultQuickAddType ?? .expense },
+            set: { value in Task { try? await services?.transactions.setDefaultQuickAddType(value, now: .now) } })
     }
 
     private var widgetShowsBalanceBinding: Binding<Bool> {
