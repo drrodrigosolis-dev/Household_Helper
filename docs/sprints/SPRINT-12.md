@@ -21,6 +21,14 @@ decision 15), so the goal model goes into it.
    exists, deleting its account or wishlist item is refused (both can still be archived); deleting a goal changes
    nothing else. A goal locks the household currency, like every other amount.
 
+## Data-safety review (Sprint 12) — fixed before the gate
+- B1: goal targets (and budget limits) are capped at `Money.maxPlanMinorUnits` in the services, the same bound the
+  backup validator uses, so the app can't store a plan its own export would refuse.
+- B2: tests for export dropping a dangling goal link, restore updating goals in place and removing others, and the cap.
+- S1/S2: a new goal needs an active account and a wishlist item still wanted; a goal keeps what it already has.
+- S3: the rounding-up division moved into `Money` (`dividedRoundingUp(by:)`, refuses negative amounts).
+- Accepted: the target date is an instant read as a calendar day in the current zone (same as wishlist dates).
+
 ## Items
 | # | Item | Built (CI green) | Walked |
 |---|---|---|---|

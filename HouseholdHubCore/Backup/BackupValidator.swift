@@ -280,8 +280,8 @@ public enum BackupValidator {
         return unique
     }
 
-    /// Largest budget limit or goal target a backup may carry: one billion in major units of a two-decimal currency.
-    static let maxBudgetMinorUnits: Int64 = 100_000_000_000
+    /// Largest budget limit or goal target a backup may carry; the same bound the services enforce.
+    static let maxBudgetMinorUnits = Money.maxPlanMinorUnits
 
     /// A transfer names two different accounts and no category; nothing else names a destination (Sprint 10).
     private static func transferShape(

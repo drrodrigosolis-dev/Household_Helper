@@ -9,6 +9,8 @@ public enum GoalError: Error, Equatable, Sendable {
     case wishlistItemHasGoal
     /// Goals still use the account or wishlist item; delete or change them first (Sprint 12 decision 6).
     case usedByGoals(count: Int)
+    /// Only an item still wanted (or pending) can get a goal; a goal keeps the item it already has.
+    case wishlistItemNotWanted
 }
 
 /// What the goal editor sends (Sprint 12).
@@ -103,14 +105,6 @@ public struct GoalCalculator: Sendable {
         let months = max(1, whole)
         return GoalStatus(
             rule: rule, saved: saved, remaining: remaining, monthsLeft: months,
-            neededPerMonth: Self.dividedRoundingUp(remaining, by: months), isOverdue: false)
-    }
-
-    /// `money` split into `parts` equal amounts, rounded up to the minor unit, so paying it every month reaches the
-    /// total on time. `money` is never negative here and `parts` is at least 1, so this can't overflow.
-    static func dividedRoundingUp(_ money: Money, by parts: Int) -> Money {
-        let divisor = Int64(parts)
-        let (quotient, remainder) = money.minorUnits.quotientAndRemainder(dividingBy: divisor)
-        return Money(minorUnits: remainder > 0 ? quotient + 1 : quotient, currencyCode: money.currencyCode)
+            neededPerMonth: try remaining.dividedRoundingUp(by: months), isOverdue: false)
     }
 }

@@ -188,6 +188,12 @@ struct GoalEditorView: View {
             errorMessage = String(localized: "Give the goal a name.")
         } catch LedgerError.nonPositiveAmount {
             errorMessage = String(localized: "Enter a target above zero.")
+        } catch LedgerError.amountTooLarge {
+            errorMessage = String(localized: "That target is too large.")
+        } catch LedgerError.archivedAccount {
+            errorMessage = String(localized: "That account is archived. Restore it to save towards it.")
+        } catch GoalError.wishlistItemNotWanted {
+            errorMessage = String(localized: "Only a wishlist item still wanted can get a goal.")
         } catch GoalError.liabilityAccount {
             errorMessage = String(localized: "Pick an account that holds money, not a credit card.")
         } catch GoalError.wishlistItemHasGoal {

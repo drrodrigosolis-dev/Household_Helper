@@ -331,6 +331,16 @@ struct BudgetTests {
         #expect(afterOlder.isEmpty, "A file without budgets has none")
     }
 
+    @Test func theServiceRefusesALimitItsBackupWouldRefuse() async throws {
+        let fixture = try await makeFixture()
+        await #expect(throws: LedgerError.amountTooLarge) {
+            try await setBudget(fixture, fixture.dining, Money.maxPlanMinorUnits + 1)
+        }
+        try await setBudget(fixture, fixture.dining, Money.maxPlanMinorUnits)
+        let service = BackupService.make(container: fixture.container)
+        try BackupValidator.validate(try await service.snapshot(now: now, appVersion: "1") { _ in nil })
+    }
+
     @Test func theValidatorBoundsBudgets() async throws {
         let fixture = try await makeFixture()
         try await setBudget(fixture, fixture.dining, 30_000)

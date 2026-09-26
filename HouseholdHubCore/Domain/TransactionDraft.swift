@@ -9,6 +9,8 @@ public enum LedgerError: Error, Equatable, Sendable {
     /// guess, because a wrong guess can flip the sign of a balance.
     case unreadableRecord(field: String, value: String)
     case nonPositiveAmount
+    /// A budget limit or goal target above `Money.maxPlanMinorUnits`.
+    case amountTooLarge
     /// A transfer needs a destination account other than its source, and only a transfer has one (Sprint 10). A
     /// transfer also carries no category or merchant: it is neither income nor spending.
     case transferNeedsTwoAccounts

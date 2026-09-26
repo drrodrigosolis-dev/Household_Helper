@@ -133,6 +133,8 @@ struct BudgetEditorView: View {
             dismiss()
         } catch LedgerError.nonPositiveAmount {
             errorMessage = String(localized: "Enter a limit above zero.")
+        } catch LedgerError.amountTooLarge {
+            errorMessage = String(localized: "That limit is too large.")
         } catch LedgerError.archivedCategory {
             errorMessage = String(localized: "That category is archived. Restore it to budget for it.")
         } catch LedgerError.categoryKindMismatch {

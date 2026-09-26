@@ -36,9 +36,25 @@ struct GoalTests {
         ((Int64(1), 12), Int64(1)),
         ((Int64(0), 3), Int64(0)),
         ((Int64(99_999), 1), Int64(99_999)),
+        ((Int64.max, 1), Int64.max),
+        ((Int64.max, 2), Int64.max / 2 + 1),
+        ((Int64.max - 1, 2), Int64.max / 2),
     ])
-    func theMonthlyAmountRoundsUpToTheMinorUnit(split: (Int64, Int), expected: Int64) {
-        #expect(GoalCalculator.dividedRoundingUp(cad(split.0), by: split.1) == cad(expected))
+    func theMonthlyAmountRoundsUpToTheMinorUnit(split: (Int64, Int), expected: Int64) throws {
+        #expect(try cad(split.0).dividedRoundingUp(by: split.1) == cad(expected))
+    }
+
+    @Test func divisionRefusesNegativeAmountsAndNonPositiveParts() {
+        #expect(throws: MoneyError.invalidDivision) { try cad(-1).dividedRoundingUp(by: 2) }
+        #expect(throws: MoneyError.invalidDivision) { try cad(100).dividedRoundingUp(by: 0) }
+    }
+
+    @Test func aMonthEndDateUnderAMonthAwayStillNeedsOneMonth() throws {
+        let status = try GoalCalculator().status(
+            of: rule(target: 90_000, date: day(2027, 2, 28, hour: 0)), saved: cad(0), now: day(2027, 1, 31),
+            calendar: calendar)
+        #expect(status.monthsLeft == 1)
+        #expect(status.neededPerMonth == cad(90_000))
     }
 
     @Test(arguments: [
@@ -55,7 +71,7 @@ struct GoalTests {
         let status = try GoalCalculator().status(
             of: rule(target: 120_000, date: date), saved: cad(0), now: today, calendar: calendar)
         #expect(status.monthsLeft == months)
-        #expect(status.neededPerMonth == GoalCalculator.dividedRoundingUp(cad(120_000), by: months))
+        #expect(status.neededPerMonth == (try cad(120_000).dividedRoundingUp(by: months)))
         #expect(!status.isOverdue)
     }
 
@@ -162,7 +178,38 @@ struct GoalTests {
         await #expect(throws: LedgerError.unknownAccount) {
             try await ledger.createGoal(GoalDraft(name: "A", target: cad(1_000), accountID: UUID()), now: now)
         }
+        await #expect(throws: LedgerError.amountTooLarge) {
+            try await ledger.createGoal(
+                GoalDraft(name: "A", target: cad(Money.maxPlanMinorUnits + 1), accountID: fixture.main), now: now)
+        }
         #expect(try fixture.context().fetchCount(FetchDescriptor<SavingsGoal>()) == 0)
+        try await ledger.createGoal(
+            GoalDraft(name: "A", target: cad(Money.maxPlanMinorUnits), accountID: fixture.main), now: now)
+    }
+
+    @Test func archivedAccountsAndBoughtItemsTakeNoNewGoalButKeepTheirs() async throws {
+        let fixture = try await makeFixture()
+        let ledger = fixture.ledger
+        let savings = try await addAccount(.savings, 0, to: fixture)
+        let wish = try await addWish(fixture)
+        let draft = GoalDraft(name: "Bike", target: cad(80_000), accountID: savings, wishlistItemID: wish)
+        let goal = try await ledger.createGoal(draft, now: now)
+        try await ledger.setAccountArchived(true, account: savings, now: now)
+        try await ledger.purchaseWishlistItem(
+            wish, actualPrice: cad(75_000), occurredAt: now, categoryID: nil, now: now)
+
+        var edited = draft
+        edited.name = "Bike fund"
+        try await ledger.updateGoal(goal, with: edited, now: now)
+
+        await #expect(throws: LedgerError.archivedAccount) {
+            try await ledger.createGoal(GoalDraft(name: "B", target: cad(1_000), accountID: savings), now: now)
+        }
+        try await ledger.deleteGoal(goal)
+        await #expect(throws: GoalError.wishlistItemNotWanted) {
+            try await ledger.createGoal(
+                GoalDraft(name: "B", target: cad(1_000), accountID: fixture.main, wishlistItemID: wish), now: now)
+        }
     }
 
     @Test func aWishlistItemHasAtMostOneGoal() async throws {
@@ -240,6 +287,38 @@ struct GoalTests {
         older.goals = nil
         _ = try await BackupService.make(container: target.container).restore(older, availableMedia: [], now: now)
         #expect(try target.context().fetchCount(FetchDescriptor<SavingsGoal>()) == 0, "A file without goals has none")
+    }
+
+    @Test func restoringUpdatesExistingGoalsInPlaceAndRemovesOthers() async throws {
+        let fixture = try await makeFixture()
+        let ledger = fixture.ledger
+        let draft = GoalDraft(name: "Trip", target: cad(80_000), accountID: fixture.main)
+        let kept = try await ledger.createGoal(draft, now: now)
+        let service = BackupService.make(container: fixture.container)
+        let backup = try await service.snapshot(now: now, appVersion: "1") { _ in nil }
+
+        var changed = draft
+        changed.target = cad(50_000)
+        try await ledger.updateGoal(kept, with: changed, now: now)
+        try await ledger.createGoal(GoalDraft(name: "Extra", target: cad(1_000), accountID: fixture.main), now: now)
+        _ = try await service.restore(backup, availableMedia: [], now: now)
+
+        let restored = try fixture.context().fetch(FetchDescriptor<SavingsGoal>())
+        #expect(restored.map(\.id) == [kept])
+        #expect(restored.first?.target == cad(80_000))
+    }
+
+    @Test func exportDropsAGoalLinkToAMissingWishlistItem() async throws {
+        let fixture = try await makeFixture()
+        let wish = try await addWish(fixture)
+        try await fixture.ledger.createGoal(
+            GoalDraft(name: "Bike", target: cad(80_000), accountID: fixture.main, wishlistItemID: wish), now: now)
+        let service = BackupService.make(container: fixture.container)
+        var backup = try await service.snapshot(now: now, appVersion: "1") { _ in nil }
+        backup.goals?[0].wishlistItemID = UUID()
+        #expect(backup.droppingDanglingLinks() == 1)
+        #expect(backup.goals?.first?.wishlistItemID == nil)
+        try BackupValidator.validate(backup)
     }
 
     @Test func theValidatorChecksGoals() async throws {

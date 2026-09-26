@@ -12,6 +12,7 @@ extension CategoryService {
     ) throws {
         begin()
         guard limit.minorUnits > 0 else { throw LedgerError.nonPositiveAmount }
+        guard limit.minorUnits <= Money.maxPlanMinorUnits else { throw LedgerError.amountTooLarge }
         var settingsDescriptor = FetchDescriptor<AppSettings>(sortBy: [SortDescriptor(\.createdAt)])
         settingsDescriptor.fetchLimit = 1
         guard let settings = try modelContext.fetch(settingsDescriptor).first else { throw LedgerError.settingsMissing }
