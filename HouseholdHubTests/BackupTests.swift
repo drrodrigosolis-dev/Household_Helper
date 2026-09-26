@@ -71,6 +71,29 @@ struct BackupTests {
 
     // MARK: Round trip
 
+    /// Phase 10 review open question: other services' contexts may hold objects the restore replaced. A write
+    /// through one of them afterwards must not bring back the pre-restore values.
+    @Test func writesAfterRestoringThisDevicesBackupKeepTheRestoredValues() async throws {
+        let services = try makeServices()
+        try await populate(services)
+        try await services.ledger.completeOnboarding(
+            currencyCode: "CAD", startingBalance: cad(10_000), asOf: now, now: now)
+        let backup = try await snapshot(services)
+        // Change things after the backup, through the same services that will write after the restore.
+        try await services.ledger.completeOnboarding(
+            currencyCode: "CAD", startingBalance: cad(99_999), asOf: now, now: now)
+        try await services.ledger.setIncludePendingInProjection(true, now: now)
+        _ = try await services.backup.restore(backup, availableMedia: [], now: now)
+
+        try await services.ledger.setWidgetShowsBalance(false, now: now)
+        let settings = try #require(try services.context().fetch(FetchDescriptor<AppSettings>()).first)
+        #expect(settings.startingBalanceMinorUnits == 10_000)
+        #expect(settings.includePendingInProjection == backup.settings.includePendingInProjection)
+        #expect(settings.widgetShowsBalance == false)
+        let snapshotAfter = try await services.ledger.settingsSnapshot()
+        #expect(snapshotAfter?.startingBalance == cad(10_000))
+    }
+
     @Test func exportRestoreRoundTripKeepsEveryRecordAndField() async throws {
         let source = try makeServices()
         try await populate(source)
