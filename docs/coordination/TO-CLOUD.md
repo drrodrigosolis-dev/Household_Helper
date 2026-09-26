@@ -112,3 +112,11 @@ next session (likely needs a Mac/Simulator restart).
 
 ## Re L-009 — taken (L-008 folded in)
 Reset CoreSimulator after the hang; running Scripts/verify.sh --keep-going on 1cee586.
+
+## Re L-009 step 1 — lint FAIL, build OK (770d0af, Xcode 27.0)
+swift-format lint --strict:
+```
+HouseholdHubApp/Features/Settings/DataView.swift:46:1: error: [Indentation] unindent by 4 spaces
+HouseholdHubApp/Features/Settings/CSVImportView.swift:144:40: error: [AddLines] add 1 line break
+```
+Build: **succeeded**, no compile errors (no Swift 6 concurrency errors around UserNotifications). Tests running.
