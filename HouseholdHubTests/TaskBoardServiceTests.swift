@@ -342,4 +342,29 @@ struct TaskBoardServiceTests {
         try await fixture.ledger.deleteWishlistItem(item, now: now)
         #expect(try fixture.task(task).linkedWishlistItemID == nil)
     }
+
+    /// v1 audit: links go both ways, a later task takes the item's back-link, and unlinking clears it; the store stays
+    /// one a backup validates.
+    @Test func linkingAWishlistItemPointsTheItemBackAtTheTask() async throws {
+        let fixture = try await makeFixture()
+        try await fixture.ledger.ensureSettings(currencyCode: "CAD", now: now)
+        let draft = WishlistDraft(name: "Lamp", estimatedPrice: Money(minorUnits: 100, currencyCode: "CAD"))
+        let item = try await fixture.ledger.createWishlistItem(draft, now: now)
+        func backLink() throws -> UUID? {
+            try fixture.context().fetch(FetchDescriptor<WishlistItem>()).first { $0.id == item }?.linkedTaskID
+        }
+        let measure = TaskDraft(title: "Measure", linkedWishlistItemID: item)
+        let first = try await fixture.board.createTask(measure, now: now)
+        #expect(try backLink() == first)
+        let pick = TaskDraft(title: "Pick", linkedWishlistItemID: item)
+        let second = try await fixture.board.createTask(pick, now: now)
+        #expect(try backLink() == second)
+        try await fixture.board.updateTask(second, with: TaskDraft(title: "Pick"), now: now)
+        #expect(try backLink() == nil)
+        try await fixture.board.updateTask(first, with: measure, now: now)
+        #expect(try backLink() == first)
+        let backupService = BackupService.make(container: fixture.container)
+        let backup = try await backupService.snapshot(now: now, appVersion: "1") { _ in nil }
+        try BackupValidator.validate(backup)
+    }
 }

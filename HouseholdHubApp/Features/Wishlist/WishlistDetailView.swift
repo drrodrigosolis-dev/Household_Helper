@@ -58,6 +58,22 @@ struct WishlistDetailView: View {
                     Text(notes)
                 }
             }
+            let linked = tasks.filter { $0.linkedWishlistItemID == item.id }.sorted { $0.createdAt < $1.createdAt }
+            if !linked.isEmpty {
+                // Links go both ways (spec §2.1): the tasks that link this item, each opening its task detail.
+                Section("Tasks") {
+                    ForEach(linked) { task in
+                        NavigationLink {
+                            TaskDetailView(taskID: task.id)
+                        } label: {
+                            Label(
+                                task.title,
+                                systemImage: task.completedAt == nil ? "circle" : "checkmark.circle.fill")
+                        }
+                        .accessibilityIdentifier("wishlist.linkedTask")
+                    }
+                }
+            }
             Section {
                 if item.status == .wanted || item.status == .pending {
                     Button("Mark Purchased", systemImage: "checkmark.circle") { isPurchasing = true }

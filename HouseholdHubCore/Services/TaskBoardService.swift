@@ -115,6 +115,7 @@ public actor TaskBoardService {
         apply(draft, to: task)
         task.completedAt = column.id == ordered.last?.id ? now : nil
         modelContext.insert(task)
+        try linkBack(draft.linkedWishlistItemID, to: task.id, now: now)
         try commit()
         return task.id
     }
@@ -139,6 +140,7 @@ public actor TaskBoardService {
         task.priority = draft.priority
         apply(draft, to: task)
         task.updatedAt = now
+        try linkBack(draft.linkedWishlistItemID, to: id, now: now)
         try commit()
     }
 
@@ -312,6 +314,16 @@ public actor TaskBoardService {
         guard let id else { return nil }
         let descriptor = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.id == id })
         return try modelContext.fetchCount(descriptor) > 0 ? id : nil
+    }
+
+    /// Links are two-way (spec §7.7 `linkedTaskID`, §7.8 `linkedWishlistItemID`): the wishlist item points at the
+    /// task that most recently linked it. Several tasks may link one item; the pair stays consistent for backups.
+    private func linkBack(_ wishID: UUID?, to taskID: UUID, now: Date) throws {
+        guard let wishID else { return }
+        let descriptor = FetchDescriptor<WishlistItem>(predicate: #Predicate { $0.id == wishID })
+        guard let wish = try modelContext.fetch(descriptor).first, wish.linkedTaskID != taskID else { return }
+        wish.linkedTaskID = taskID
+        wish.updatedAt = now
     }
 
     private func existingWishlistLink(_ id: UUID?) throws -> UUID? {

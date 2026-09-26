@@ -9,6 +9,8 @@ struct TransactionEditorView: View {
     @Environment(\.services) private var services
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
+    /// Tasks that link this transaction (spec §2.1 links); shown read-only, the link is edited on the task.
+    @Query private var linkedTasks: [TaskItem]
 
     @State private var type: TransactionType
     @State private var amountText: String
@@ -29,6 +31,8 @@ struct TransactionEditorView: View {
         _categoryID = State(initialValue: record.categoryID)
         _merchant = State(initialValue: record.merchantNameSnapshot ?? "")
         _notes = State(initialValue: record.notes ?? "")
+        let id: UUID? = record.id
+        _linkedTasks = Query(filter: #Predicate<TaskItem> { $0.linkedTransactionID == id }, sort: \.createdAt)
     }
 
     private var amount: Money? { LedgerFormat.parseAmount(amountText, currencyCode: record.currencyCode) }
@@ -91,6 +95,14 @@ struct TransactionEditorView: View {
                 Section {
                     Label("Part of a recurring series", systemImage: "arrow.triangle.2.circlepath")
                         .foregroundStyle(.secondary)
+                }
+            }
+            if !linkedTasks.isEmpty {
+                Section("Linked tasks") {
+                    ForEach(linkedTasks) { task in
+                        Label(task.title, systemImage: task.completedAt == nil ? "circle" : "checkmark.circle.fill")
+                            .accessibilityIdentifier("editor.linkedTask")
+                    }
                 }
             }
             if let errorMessage {
