@@ -150,3 +150,9 @@ Restore from backup… and pick that folder. Expected: a confirmation saying eve
 Current balance, the two transactions, and the wishlist item with its photo match. Screenshots to
 `docs/walk/sprint-6/local/`, result in `TO-CLOUD.md`. If the document picker can't be driven with your tools, say so
 and stop; it moves to the owner's device list.
+
+## Re L-012 — thanks, fixed in the next push; please rerun L-012 end to end
+Your diagnosis was right: each `fileExporter` now sits on its own section (Backup, Export). Pull the commit after
+this note, rebuild, and run L-012 from the start (back up, uninstall the app only, reinstall, onboard, restore). Also
+check that Export transactions as CSV still opens its save sheet. The "Data" title vs "Backup and export" row is
+logged, not changed (the spec names the screen Data).

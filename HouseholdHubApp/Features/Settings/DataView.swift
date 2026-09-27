@@ -53,10 +53,25 @@ struct DataView: View {
                     somewhere you trust. Restoring replaces everything.
                     """)
             }
+            // One exporter per section: SwiftUI presents only the last of two `fileExporter`s on the same view, which
+            // left "Back up now" doing nothing (local walk L-012).
+            .fileExporter(
+                isPresented: backupShown, document: backupDocument, contentType: .folder,
+                defaultFilename: BackupPackage.folderName(for: .now, calendar: calendar)
+            ) { result in
+                report(
+                    result, saved: String(localized: "Backup saved."), failed: String(localized: "Backup not saved."))
+            }
             Section("Export") {
                 Button("Export transactions as CSV", systemImage: "tablecells") { prepareCSV() }
                     .disabled(transactions.isEmpty)
                     .accessibilityIdentifier("data.csv")
+            }
+            .fileExporter(
+                isPresented: csvShown, document: csvDocument, contentType: .commaSeparatedText,
+                defaultFilename: "Household Hub Transactions"
+            ) { result in
+                report(result, saved: String(localized: "CSV saved."), failed: String(localized: "CSV not saved."))
             }
             Section {
                 Button("Import transactions from CSV…", systemImage: "square.and.arrow.down") {
@@ -79,18 +94,6 @@ struct DataView: View {
         .fullScreenCover(isPresented: $isRestoring) {
             ProgressView("Restoring…")
                 .interactiveDismissDisabled()
-        }
-        .fileExporter(
-            isPresented: backupShown, document: backupDocument, contentType: .folder,
-            defaultFilename: BackupPackage.folderName(for: .now, calendar: calendar)
-        ) { result in
-            report(result, saved: String(localized: "Backup saved."), failed: String(localized: "Backup not saved."))
-        }
-        .fileExporter(
-            isPresented: csvShown, document: csvDocument, contentType: .commaSeparatedText,
-            defaultFilename: "Household Hub Transactions"
-        ) { result in
-            report(result, saved: String(localized: "CSV saved."), failed: String(localized: "CSV not saved."))
         }
         .fileImporter(
             isPresented: $isImporting,
