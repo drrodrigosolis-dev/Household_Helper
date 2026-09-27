@@ -415,3 +415,7 @@ V1→V2 migration included. UI tests in progress; result follows.
 phone's Household Hub held **no data to keep**, so no backup was taken. Installed Release at fd7e67e (SchemaV2) on the
 owner's iPhone 16 Pro Max (iOS 27.0) with devicectl; it launched. CI had not finished green at the time.
 (Held this push per the CI pause; pushed after the run completed.)
+**L-017 UI result (fd7e67e): 61/62.** ThemesUITests now passes. Only failure left, as reported earlier:
+`RefundUITests.swift:62 testRefundingAWishlistPurchaseAsksToKeepTheItem(): Failed to tap "Keep on wishlist" Button:
+Multiple matching elements found` (alert's `refund.keep` vs the editor's `editor.keepOnWishlist`, same label). Query by
+identifier (`app.alerts.buttons["refund.keep"].firstMatch`).
