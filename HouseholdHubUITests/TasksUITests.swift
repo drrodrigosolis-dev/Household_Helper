@@ -211,7 +211,6 @@ extension XCTestCase {
         XCTAssertTrue(taskCard(app, containing: title).waitForExistence(timeout: 10), "'\(title)' not on the board")
     }
 
-    @MainActor
     /// A column's header reads "<name>, <n> tasks".
     @MainActor
     func columnHeader(_ app: XCUIApplication, _ name: String) -> XCUIElement {
@@ -219,6 +218,7 @@ extension XCTestCase {
             .matching(NSPredicate(format: "label BEGINSWITH %@ AND label ENDSWITH %@", "\(name),", "tasks")).firstMatch
     }
 
+    @MainActor
     func taskCard(_ app: XCUIApplication, containing text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: "task.card")
             .matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
