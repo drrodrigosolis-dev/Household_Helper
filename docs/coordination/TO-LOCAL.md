@@ -2,19 +2,8 @@
 
 See `README.md` for the rules. Newest last.
 
-> **Resume here (2026-09-27, after the owner restarted the Mac).** Save tokens: don't re-read the whole file or the
-> transcript. Work on `4ae437b` or later (CI green there). Do only these, in order; short reports in `TO-CLOUD.md`
-> (verbatim errors, screenshots paths, no narration):
-> 0. **Simulator health first**: `xcrun simctl boot "iPhone 17 Pro Max"` then `xcrun simctl launch booted
->    com.apple.Preferences`. If Settings doesn't open within a minute, stop and report; don't spend tokens retrying.
-> 1. **Full verify**: `Scripts/verify.sh --keep-going` (the unit/UI tests that hung before). Report failures verbatim.
-> 2. **L-010 glance** (Spanish): erase the Simulator, set it to Español, fresh install. Check Inicio, Presupuesto,
->    Configuración and Tareas for English left over. Tareas must show "Por hacer / En curso / Hecho" (fixed in
->    `2c4624c`). Settings may say "Cuenta principal".
-> 3. **L-007**: label taps at the largest text size (four screens, below).
-> 4. **L-006**: Sprint 12 goals walk (below).
-> 5. **L-009 step 2**: a real reminder (below), last.
-> Everything else (L-001…L-005, L-008, L-009 step 1, L-010 export) is done.
+> **Resume here (2026-09-27 evening): install on the owner's iPhone (L-013), then the device checks (L-014).**
+> CI is green on `bc5ceaa` (run 36334223494); everything older (L-001…L-012) is done. Short reports in `TO-CLOUD.md`.
 
 ## L-001 — open
 Set-up check: pull `build/v1.1`, run `Scripts/verify.sh`, and report in `TO-CLOUD.md` (Re L-001) the Xcode and
@@ -156,3 +145,33 @@ Your diagnosis was right: each `fileExporter` now sits on its own section (Backu
 this note, rebuild, and run L-012 from the start (back up, uninstall the app only, reinstall, onboard, restore). Also
 check that Export transactions as CSV still opens its save sheet. The "Data" title vs "Backup and export" row is
 logged, not changed (the spec names the screen Data).
+
+## L-013 — open, now: install on the owner's iPhone (connected to the Mac)
+1. Pull `build/v1.1` (includes `Scripts/install-device.sh`).
+2. On the iPhone, once: Settings › Privacy & Security › Developer Mode › On (it restarts). If an older Household Hub
+   build is installed, delete it first (older SchemaV1 stores may not open; WALK-QUEUE note).
+3. Xcode › Settings › Accounts: the owner's Apple ID must be signed in; note the Personal Team's Team ID. Don't commit
+   it anywhere (not project.yml, not settings, not docs).
+4. `xcrun devicectl list devices` for the iPhone's name, then
+   `HH_TEAM=<Team ID> Scripts/install-device.sh "<iPhone name>"`.
+   If Xcode reports the bundle ID is unavailable, rerun with `HH_BUNDLE_PREFIX=<something unique, e.g. com.<name>.hh>`.
+5. First launch: the owner trusts the developer on the iPhone (Settings › General › VPN & Device Management ›
+   Apple Development › Trust), then opens the app and onboards.
+6. Report in `TO-CLOUD.md`: the installed commit (the script prints it), the bundle prefix used, and any signing or
+   install error verbatim. Known: under the free team the widget shows sample figures (no App Group, by design).
+
+**SchemaV1 freezes with this install** (CLAUDE.md §4, owner decision). The cloud session records the frozen commit in
+PROGRESS from your report; from then on every stored-model change needs SchemaV2 plus a migration stage.
+Free provisioning expires after 7 days: rerun the same command to reinstall; data stays on the phone.
+
+## L-014 — open, after L-013, with the owner holding the phone (WALK-QUEUE device checks)
+Guide the owner through these and write what they report; don't guess results.
+1. **Face ID:** Settings › Privacy › Require Face ID on (asks for Face ID first). Leave the app, come back: locked;
+   the app switcher shows only the lock; the passcode works as a fallback. With the lock on, run the Log Transaction
+   shortcut: it asks for Face ID, or refuses with "Household Hub is locked" (either is acceptable; record which).
+2. **On-device AI** (only if the iPhone supports Apple Intelligence): Settings › Intelligence, all three switches on.
+   Quick Add "twelve dollars lunch" → amount 12 and Dining suggested and labelled; "47.50 coffee" → the amount stays
+   47.50. Analytics › Summary › Write summary quotes only figures on screen. If the phone lacks Apple Intelligence,
+   record "not supported" (the switches must then be unavailable, not broken).
+3. **Launch time:** force-quit, then open from the Home Screen three times; for a number, Xcode › Open Developer Tool ›
+   Instruments › App Launch on the device. Target under 2 s to an interactive Dashboard.
