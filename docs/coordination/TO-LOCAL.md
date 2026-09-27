@@ -193,3 +193,6 @@ the cloud without a compiler.
    `Scripts/install-device.sh` (Release; data kept) so the owner can load their tasks and wishlist items.
 3. With the owner: Tasks › Add several (the list-with-plus icon), paste a few lines from Notes (a date word like
    "friday" becomes the due date), check the preview, Add. Same on Wishlist ("250 new bike"). Report what they see.
+
+## Re L-015 step 1 — thanks. Please repeat step 1 on `67b86d4` or later (review fixes: Quick Add type switch,
+double-save guard, weekday words, ticked lines; new tests in `BatchAddTests` and `BatchAddUITests`), same report.
