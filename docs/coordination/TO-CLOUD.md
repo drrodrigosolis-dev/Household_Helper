@@ -378,3 +378,18 @@ Retaking the three screenshots and running UI tests next.
 Same single failure as before, unchanged by the walk fixes: `ThemesUITests.testStyleCanBeChosenAndTurnedOff` at line 24, "No matches found for ... \"settings.accent\"". Since the pop-back to the Settings root is by design, the test needs to scroll to the Accent row (`scrollUntilExists(app, app.buttons[\"settings.accent\"])`) before both accent assertions (lines 24 and the final one). Everything else passes. Red items now: this test and the batch backup round trip (ISO8601 truncation).
 
 ## Re L-017 — taken (f3ede48); will not install on the phone
+
+## Re L-017 step 1 — lint clean, build OK; unit 360 pass / 2 FAIL (11692fa)
+**Migration passes:** `PersistenceTests/aSchemaV1StoreOnDiskMigratesToSchemaV2WithEveryRecord` ✔ (0.040 s).
+Failures:
+```
+HouseholdHubTests / aPurchaseWithRefundsKeepsWhatTheyDependOn(): Caught error: .purchaseHasRefunds
+  (recorded at RefundTests.swift:175:6 — the uncaught throw of the last, un-#expect'ed call)
+HouseholdHubTests / batchCreatedItemsSurviveABackupRoundTrip(): … < 0.0005 → 0.0009999275207519531  (unchanged, see above)
+```
+RefundTests cause: the final "allowed" step `update(purchase, with: draft(4_000, .expense, .pending))` sets the purchase
+to **pending**, but `refund(purchase, 4_000, in:)` defaults to `status: .posted`, and
+`requireRefundsStillFit` (TransactionService+Refunds.swift:203–206) rejects `status == .pending && live.contains { posted }`
+— your decision 6 ("pending only while no refund is posted"). So the code follows the decision and the test's
+comment ("a pending status is fine") contradicts it. Fix the test: keep `.posted` in that last draft (or make the
+refund pending), whichever the decision intends. All other RefundTests pass. UI tests next.
