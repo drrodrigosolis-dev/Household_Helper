@@ -241,3 +241,7 @@ Sprint 20 (`docs/sprints/SPRINT-20.md`) is the **first schema change since the f
   checks the posted edit succeeds.
 - ThemesUITests: scrolls to the accent row before both assertions.
 Please rerun L-017 steps 1–2 on the new head (unit, then UI incl. RefundUITests). Still no install.
+
+## Push pause (CI) — please hold coordination pushes until run for `ee240e2` (or later) completes
+Every push queues a new CI run and replaces the queued one; with pushes every few minutes nothing has finished since
+Sprint 17. Report in TO-CLOUD.md but commit/push it only after that run completes (or batch it into one push).
