@@ -21,6 +21,12 @@ struct DashboardView: View {
     @State private var goals: [GoalStatus] = []
     @State private var loadFailed = false
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.funTheme) private var theme
+
+    /// Big figures take the theme's font (Sprint 19).
+    private func figureFont(_ style: Font.TextStyle) -> Font {
+        theme?.displayFont(style) ?? .system(style)
+    }
 
     init() {
         var descriptor = FetchDescriptor<TransactionRecord>(sortBy: [SortDescriptor(\.occurredAt, order: .reverse)])
@@ -97,6 +103,7 @@ struct DashboardView: View {
                 }
                 .padding()
             }
+            .background { AmbientLayer() }
             .quickAddAccess()
             .navigationTitle("Dashboard")
             .themedScreen()
@@ -126,12 +133,12 @@ struct DashboardView: View {
             // Stacked at accessibility sizes so "Add" never breaks mid-word (local Sprint 10 walk).
             if typeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 8) {
-                    AmountText(summary.balance.current.formatted(), font: .largeTitle.bold())
+                    AmountText(summary.balance.current.formatted(), font: figureFont(.largeTitle).bold())
                     quickAddButton
                 }
             } else {
                 HStack(alignment: .firstTextBaseline) {
-                    AmountText(summary.balance.current.formatted(), font: .largeTitle.bold())
+                    AmountText(summary.balance.current.formatted(), font: figureFont(.largeTitle).bold())
                     Spacer(minLength: 8)
                     quickAddButton
                 }
@@ -144,14 +151,14 @@ struct DashboardView: View {
             ) {
                 router.showBudget(.transactions, filter: TransactionFilter(status: .pending))
             } content: {
-                AmountText(summary.balance.pendingImpact.formatted(), font: .title3)
+                AmountText(summary.balance.pendingImpact.formatted(), font: figureFont(.title3))
             }
             DashboardCard(
                 title: "Spent this week", identifier: "dashboard.week", value: summary.spentThisWeek.formatted()
             ) {
                 router.showBudget(.transactions, filter: TransactionFilter(period: .thisWeek, status: .posted))
             } content: {
-                AmountText(summary.spentThisWeek.formatted(), font: .title3)
+                AmountText(summary.spentThisWeek.formatted(), font: figureFont(.title3))
             }
         }
         DashboardCard(
@@ -161,7 +168,7 @@ struct DashboardView: View {
             router.showBudget(.recurring)
         } content: {
             VStack(alignment: .leading, spacing: 8) {
-                AmountText(summary.balance.projected.formatted(), font: .title2)
+                AmountText(summary.balance.projected.formatted(), font: figureFont(.title2))
                 Toggle("Include pending", isOn: pendingBinding)
                     .font(.subheadline)
                     .accessibilityIdentifier("dashboard.includePending")
@@ -385,7 +392,7 @@ private struct DashboardCard<Content: View>: View {
             Button(action: action) {
                 HStack {
                     Text(title)
-                        .font(.headline)
+                        .themedFont(.headline)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.footnote)
@@ -401,7 +408,7 @@ private struct DashboardCard<Content: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
+        .themedSurface(cornerRadius: 16, standard: .background.secondary)
     }
 }
 

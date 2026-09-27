@@ -25,7 +25,7 @@ struct GoalsListView: View {
         Group {
             if statuses.isEmpty, !loadFailed {
                 ContentUnavailableView {
-                    Label("No savings goals", systemImage: "target")
+                    EmptyStateLabel(Text("No savings goals"), systemImage: "target")
                 } description: {
                     Text("Set a target on an account to see how far along you are and what to save each month.")
                 } actions: {
@@ -83,8 +83,15 @@ struct GoalsListView: View {
     private func refresh() async {
         guard let services else { return }
         do {
-            statuses = try await services.transactions.goalReport(
+            let report = try await services.transactions.goalReport(
                 now: .now, calendar: HouseholdCalendar(timeZone: .current))
+            // A goal already on screen that has just been reached is celebrated (Sprint 19); goals that were
+            // reached before the list opened are not.
+            let before = Dictionary(statuses.map { ($0.rule.id, $0.isReached) }) { first, _ in first }
+            statuses = report
+            if report.contains(where: { $0.isReached && before[$0.rule.id] == false }) {
+                Celebration.shared.fire()
+            }
             loadFailed = false
         } catch {
             loadFailed = true

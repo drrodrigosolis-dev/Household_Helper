@@ -190,7 +190,10 @@ struct TaskDetailView: View {
 
     private func setCompleted(_ completed: Bool, _ task: TaskItem) {
         let id = task.id
-        run { try await $0.board.setTaskCompleted(completed, task: id, now: .now) }
+        run {
+            try await $0.board.setTaskCompleted(completed, task: id, now: .now)
+            if completed { Celebration.shared.fire() }
+        }
     }
 
     private func move(_ task: TaskItem, to columnID: UUID) {

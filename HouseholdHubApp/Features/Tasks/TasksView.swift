@@ -135,7 +135,7 @@ struct TasksView: View {
         let cards = tasks.filter { $0.columnID == column.id && matches($0, query) }
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(column.name).font(.headline)
+                Text(column.name).themedFont(.headline)
                 Spacer()
                 Text("\(cards.count)")
                     .font(.subheadline.monospacedDigit())
@@ -160,7 +160,7 @@ struct TasksView: View {
         }
         .padding(12)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(uiColor: .secondarySystemBackground)))
+        .themedSurface(cornerRadius: 16, standard: Color(uiColor: .secondarySystemBackground))
         .overlay {
             if hoveredColumn == column.id {
                 RoundedRectangle(cornerRadius: 16).strokeBorder(.tint, lineWidth: 3)
@@ -245,12 +245,20 @@ struct TasksView: View {
     private func move(_ task: TaskItem, to columnID: UUID, at index: Int) {
         let id = task.id
         if task.columnID != columnID { focus(columnID) }
-        run { try await $0.board.moveTask(id, to: columnID, at: index, now: .now) }
+        // The last column is Done: moving an open task there completes it (Sprint 19 celebration).
+        let completes = task.completedAt == nil && columnID == columns.last?.id
+        run {
+            try await $0.board.moveTask(id, to: columnID, at: index, now: .now)
+            if completes { Celebration.shared.fire() }
+        }
     }
 
     private func setCompleted(_ completed: Bool, _ task: TaskItem) {
         let id = task.id
-        run { try await $0.board.setTaskCompleted(completed, task: id, now: .now) }
+        run {
+            try await $0.board.setTaskCompleted(completed, task: id, now: .now)
+            if completed { Celebration.shared.fire() }
+        }
     }
 
     private func delete(_ task: TaskItem) {

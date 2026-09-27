@@ -90,6 +90,11 @@ extension View {
         modifier(ThemedFont(style: style, weight: weight))
     }
 
+    /// A card or column: the theme's surface color, or `standard` (the original fill) with themes off.
+    func themedSurface(cornerRadius: CGFloat, standard: some ShapeStyle) -> some View {
+        modifier(ThemedSurface(cornerRadius: cornerRadius, standard: AnyShapeStyle(standard)))
+    }
+
     /// The theme's background behind a screen. Every pushed or presented screen applies it next to its title.
     func themedScreen() -> some View {
         modifier(ThemedScreen())
@@ -104,6 +109,49 @@ private struct ThemedFont: ViewModifier {
     func body(content: Content) -> some View {
         let font = theme?.displayFont(style) ?? .system(style)
         content.font(weight.map { font.weight($0) } ?? font)
+    }
+}
+
+private struct ThemedSurface: ViewModifier {
+    @Environment(\.funTheme) private var theme
+    let cornerRadius: CGFloat
+    let standard: AnyShapeStyle
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius)
+        if let theme {
+            content.background(theme.surface, in: shape)
+        } else {
+            content.background(standard, in: shape)
+        }
+    }
+}
+
+/// An empty state's title and picture: the theme's picture when a theme is on, else the given symbol.
+struct EmptyStateLabel: View {
+    @Environment(\.funTheme) private var theme
+    let title: Text
+    let systemImage: String
+
+    init(_ title: Text, systemImage: String) {
+        self.title = title
+        self.systemImage = systemImage
+    }
+
+    var body: some View {
+        if let theme {
+            Label {
+                title
+            } icon: {
+                Text(theme.emptyStateGlyph).accessibilityHidden(true)
+            }
+        } else {
+            Label {
+                title
+            } icon: {
+                Image(systemName: systemImage)
+            }
+        }
     }
 }
 

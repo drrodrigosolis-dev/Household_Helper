@@ -78,9 +78,11 @@ private struct FilteredTransactions: View {
                     }
                 }
             } else if shown.isEmpty {
-                ContentUnavailableView(
-                    "No transactions", systemImage: "list.bullet.rectangle",
-                    description: Text("Use Quick Add to record an expense or income."))
+                ContentUnavailableView {
+                    EmptyStateLabel(Text("No transactions"), systemImage: "list.bullet.rectangle")
+                } description: {
+                    Text("Use Quick Add to record an expense or income.")
+                }
             } else {
                 List {
                     if let errorMessage {

@@ -119,9 +119,11 @@ struct WishlistView: View {
     @ViewBuilder
     private var content: some View {
         if visible.isEmpty {
-            ContentUnavailableView(
-                emptyTitle, systemImage: "heart",
-                description: Text("Add things you're saving for. Mark them purchased to record the expense."))
+            ContentUnavailableView {
+                EmptyStateLabel(Text(emptyTitle), systemImage: "heart")
+            } description: {
+                Text("Add things you're saving for. Mark them purchased to record the expense.")
+            }
         } else if layout == .grid {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: gridMinimum), spacing: 12)], spacing: 12) {
@@ -264,7 +266,7 @@ struct WishlistCard: View {
             AmountText(WishlistItemSummary.price(item), font: .subheadline)
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(uiColor: .secondarySystemGroupedBackground)))
+        .themedSurface(cornerRadius: 14, standard: Color(uiColor: .secondarySystemGroupedBackground))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("wishlist.row")
     }

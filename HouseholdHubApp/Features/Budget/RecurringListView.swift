@@ -17,7 +17,7 @@ struct RecurringListView: View {
         Group {
             if series.isEmpty {
                 ContentUnavailableView {
-                    Label("No recurring items", systemImage: "arrow.triangle.2.circlepath")
+                    EmptyStateLabel(Text("No recurring items"), systemImage: "arrow.triangle.2.circlepath")
                 } description: {
                     Text("Add rent, salary, or subscriptions to see them in your projection.")
                 } actions: {

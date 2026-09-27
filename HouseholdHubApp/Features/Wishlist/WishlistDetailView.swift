@@ -315,6 +315,7 @@ struct WishlistPurchaseView: View {
             try await services.transactions.purchaseWishlistItem(
                 item.id, actualPrice: price, occurredAt: purchasedAt, categoryID: categoryID, accountID: accountID,
                 now: .now)
+            Celebration.shared.fire()
             dismiss()
         } catch {
             errorMessage = String(localized: "The purchase couldn't be recorded. Nothing was changed.")

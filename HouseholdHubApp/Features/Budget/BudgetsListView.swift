@@ -23,7 +23,7 @@ struct BudgetsListView: View {
             // Budgets of archived categories are hidden, so an empty report is an empty screen.
             if statuses.isEmpty, !loadFailed {
                 ContentUnavailableView {
-                    Label("No budgets", systemImage: "chart.bar.doc.horizontal")
+                    EmptyStateLabel(Text("No budgets"), systemImage: "chart.bar.doc.horizontal")
                 } description: {
                     Text("Set a monthly limit on a spending category to see how much is left.")
                 } actions: {

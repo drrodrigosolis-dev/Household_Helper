@@ -39,6 +39,11 @@ struct AppRootView: View {
     private var funTheme: ThemeSpec? { FunTheme(storedValue: storedTheme).spec }
     /// A theme sets the accent; the custom accent applies with themes off.
     private var accent: Color? { funTheme?.accent ?? settings.first?.accentColor.map { Color($0) } }
+    /// A theme's icon for a tab, or the standard one.
+    private func tabSymbol(_ tab: ThemedTab, _ standard: String) -> String {
+        funTheme?.tabSymbols[tab] ?? standard
+    }
+
     private var isLocked: Bool { lockEnabled && !isUnlocked }
 
     var body: some View {
@@ -127,16 +132,16 @@ struct AppRootView: View {
 
     private var tabs: some View {
         TabView(selection: $router.tab) {
-            Tab("Dashboard", systemImage: "house", value: AppRouter.AppTab.dashboard) {
+            Tab("Dashboard", systemImage: tabSymbol(.dashboard, "house"), value: AppRouter.AppTab.dashboard) {
                 DashboardView()
             }
             Tab("Budget", systemImage: "dollarsign.circle", value: AppRouter.AppTab.budget) {
                 BudgetView()
             }
-            Tab("Wishlist", systemImage: "heart", value: AppRouter.AppTab.wishlist) {
+            Tab("Wishlist", systemImage: tabSymbol(.wishlist, "heart"), value: AppRouter.AppTab.wishlist) {
                 WishlistView()
             }
-            Tab("Tasks", systemImage: "checklist", value: AppRouter.AppTab.tasks) {
+            Tab("Tasks", systemImage: tabSymbol(.tasks, "checklist"), value: AppRouter.AppTab.tasks) {
                 TasksView()
             }
             Tab("More", systemImage: "ellipsis", value: AppRouter.AppTab.more) {
@@ -144,6 +149,7 @@ struct AppRootView: View {
             }
         }
         .environment(router)
+        .overlay { CelebrationOverlay() }
         .task { await bootstrap() }
         .sheet(isPresented: $router.isQuickAddPresented) { QuickAddView() }
         .onChange(of: needsOnboarding, initial: true) { router.isOnboarding = needsOnboarding }
