@@ -297,3 +297,22 @@ Sprint 17 compiles as written: no compiler errors, swift-format --strict clean. 
 Same head as the unit run: UI tests passed 53, failed 0 (includes BatchAddUITests). So Sprint 17 is fully green on this Mac (Xcode 27.0). Waiting for green CI on the Sprint 17 head, then the Release reinstall when the owner unlocks the phone.
 
 ## Re L-016 (+ L-015 step 1 repeat) — taken (1f63892)
+
+## Re L-016 step 1 — lint FAIL, build FAIL (test target only) (7fd0dc1, Xcode 27.0)
+swift-format lint --strict:
+```
+HouseholdHubApp/Features/Tasks/TasksView.swift:172:24: error: [AddLines] add 1 line break
+HouseholdHubApp/Features/Tasks/TasksView.swift:172:76: error: [AddLines] add 1 line break
+HouseholdHubApp/Features/Tasks/TasksView.swift:184:24: error: [AddLines] add 1 line break
+HouseholdHubApp/Features/Tasks/TasksView.swift:184:74: error: [AddLines] add 1 line break
+```
+Build (build-for-testing) — two errors, same cause, both in `HouseholdHubTests/ThemeWordingTests.swift`:
+```
+ThemeWordingTests.swift:30 @Test(arguments: themes) … namesTheUserChoseAreKept
+ThemeWordingTests.swift:48 @Test(arguments: themes) … everyThemeHasAllItsWords
+macro expansion @Test:16:26: error: main actor-isolated static property 'themes' cannot be accessed from outside of the actor
+```
+The struct is `@MainActor`, so `static let themes` (line 11) is main-actor isolated, and the @Test macro evaluates
+`arguments:` nonisolated. Likely fix: `nonisolated static let themes = …` (FunTheme is Sendable), or move the list out
+of the struct. `FunThemeTests.swift:8` has the same pattern but no error (that struct isn't @MainActor). App, Core
+and Widget targets compiled; unit/UI tests not run (test target doesn't build). L-015 step 1 repeat: same result.
