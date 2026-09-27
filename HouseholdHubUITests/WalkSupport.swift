@@ -146,6 +146,40 @@ extension XCTestCase {
         return XCTWaiter().wait(for: [expectation], timeout: 10) == .completed
     }
 
+    /// Swipes `row` until its swipe action `action` shows. A synthesized swipe is sometimes lost on a busy simulator:
+    /// run 36342742016 swiped a Budget row and no Delete appeared, on code that passed on the run before. One more
+    /// swipe is made only if the action never showed; the action must still be offered.
+    @MainActor
+    @discardableResult
+    func revealSwipeAction(_ row: XCUIElement, _ action: XCUIElement, leading: Bool = false) -> Bool {
+        for _ in 0..<2 {
+            if leading { row.swipeRight() } else { row.swipeLeft() }
+            if action.waitForExistence(timeout: 4) {
+                return true
+            }
+        }
+        XCTFail("Swiping the row never offered \(action)")
+        return false
+    }
+
+    /// Taps a sheet's Save and waits for the sheet to close. Run 36342742016 kept the Recurring editor open after
+    /// its Save tap: the UI hierarchy at failure showed the editor, Save enabled, the typed amount, and no error, so
+    /// the synthesized tap never arrived. The tap is repeated once only in that state (Save guards double saves).
+    @MainActor
+    func tapSaveAndWaitForClose(_ save: XCUIElement, closes screen: XCUIElement) {
+        for _ in 0..<2 {
+            save.tap()
+            let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: screen)
+            if XCTWaiter().wait(for: [gone], timeout: 5) == .completed {
+                return
+            }
+            if !save.exists || !save.isEnabled {
+                break
+            }
+        }
+        XCTFail("Save did not close the screen")
+    }
+
     @MainActor
     func transactionRow(_ app: XCUIApplication, containing text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: "transaction.row")

@@ -42,8 +42,9 @@ final class BudgetUITests: XCTestCase {
         app.tabBars.buttons["Budget"].tap()
         let row = transactionRow(app, containing: "parking")
         XCTAssertTrue(row.waitForExistence(timeout: 10))
-        row.swipeLeft()
-        app.buttons["Delete"].firstMatch.tap()
+        let delete = app.buttons["Delete"].firstMatch
+        revealSwipeAction(row, delete)
+        delete.tap()
         let confirm = app.buttons["Delete transaction"]
         XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Delete must be confirmed (spec §8.3)")
         confirm.tap()

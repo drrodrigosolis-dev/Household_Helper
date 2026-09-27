@@ -14,8 +14,9 @@ final class RecurringUITests: XCTestCase {
 
         let row = recurringRow(app, containing: "Rent")
         XCTAssertTrue(row.waitForExistence(timeout: 10), "New series missing from Recurring")
-        row.swipeLeft()
-        app.buttons["Post"].tap()
+        let post = app.buttons["Post"]
+        revealSwipeAction(row, post)
+        post.tap()
 
         app.buttons["Transactions"].tap()
         XCTAssertTrue(transactionRow(app, containing: "Rent").waitForExistence(timeout: 10), "Posted rent missing")
@@ -31,19 +32,17 @@ final class RecurringUITests: XCTestCase {
 
         let row = recurringRow(app, containing: "Rent")
         XCTAssertTrue(row.waitForExistence(timeout: 10), "New series missing from Recurring")
-        row.swipeRight()
         let edit = app.buttons["Edit"]
-        XCTAssertTrue(edit.waitForExistence(timeout: 5), "Leading swipe should offer Edit")
+        XCTAssertTrue(revealSwipeAction(row, edit, leading: true), "Leading swipe should offer Edit")
         edit.tap()
         XCTAssertTrue(app.navigationBars["Edit Recurring Item"].waitForExistence(timeout: 5), "Editor did not open")
         replaceText(in: app.textFields["recurringEditor.amount"], with: "1350")
-        app.buttons["recurringEditor.save"].tap()
+        tapSaveAndWaitForClose(app.buttons["recurringEditor.save"], closes: app.navigationBars["Edit Recurring Item"])
         let edited = recurringRow(app, containing: "1,350.00")
         XCTAssertTrue(edited.waitForExistence(timeout: 10), "The row should show the edited amount")
 
-        edited.swipeRight()
         let delete = app.buttons["Delete"].firstMatch
-        XCTAssertTrue(delete.waitForExistence(timeout: 5), "Leading swipe should offer Delete")
+        XCTAssertTrue(revealSwipeAction(edited, delete, leading: true), "Leading swipe should offer Delete")
         delete.tap()
         let confirm = app.sheets.buttons["Delete"].firstMatch
         let fallback = app.buttons.matching(NSPredicate(format: "label == %@", "Delete")).element(boundBy: 0)
