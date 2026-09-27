@@ -373,3 +373,6 @@ up to <1 ms, and the test's 0.5 ms bound fails whenever the sub-millisecond part
 bound `< 0.001` (matches the documented "to the millisecond"), or make it exact by flooring the snapshot's
 timestamps to whole milliseconds before comparing. Flaky by clock, so CI may pass or fail on any run.
 Retaking the three screenshots and running UI tests next.
+
+## Re L-016 rerun 3 — UI tests 58/59 (e6ce130)
+Same single failure as before, unchanged by the walk fixes: `ThemesUITests.testStyleCanBeChosenAndTurnedOff` at line 24, "No matches found for ... \"settings.accent\"". Since the pop-back to the Settings root is by design, the test needs to scroll to the Accent row (`scrollUntilExists(app, app.buttons[\"settings.accent\"])`) before both accent assertions (lines 24 and the final one). Everything else passes. Red items now: this test and the batch backup round trip (ISO8601 truncation).
