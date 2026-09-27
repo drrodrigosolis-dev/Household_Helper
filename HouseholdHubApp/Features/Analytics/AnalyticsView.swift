@@ -66,6 +66,11 @@ struct AnalyticsView: View {
         Section {
             LabeledContent("Income") { AmountText(report.income.formatted()) }
             LabeledContent("Expenses") { AmountText(report.expense.formatted()) }
+            // Sprint 20: money given back lowers spending; shown so the Expenses figure adds up.
+            if report.refunds.minorUnits > 0 {
+                LabeledContent("Refunds") { AmountText(report.refunds.formatted()) }
+                    .accessibilityIdentifier("analytics.refunds")
+            }
             LabeledContent("Net") { AmountText(report.net.formatted()) }
                 .accessibilityIdentifier("analytics.net")
         } header: {
@@ -78,7 +83,7 @@ struct AnalyticsView: View {
                 Text("Posted transactions only.")
             }
         }
-        if report.income.minorUnits == 0 && report.expense.minorUnits == 0 {
+        if report.income.minorUnits == 0 && report.expense.minorUnits == 0 && report.refunds.minorUnits == 0 {
             Section {
                 ContentUnavailableView(
                     "Nothing recorded in this period", systemImage: "chart.pie",

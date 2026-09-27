@@ -241,12 +241,32 @@
         }
       }
     },
+    "A purchase with refunds keeps its type and account. Delete its refunds to change those.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una compra con reembolsos conserva su tipo y su cuenta. Elimina sus reembolsos para cambiarlos."
+          }
+        }
+      }
+    },
     "A recurring bill is due tomorrow.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Un pago recurrente vence mañana."
+          }
+        }
+      }
+    },
+    "A refund can't be dated before the purchase.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un reembolso no puede tener fecha anterior a la compra."
           }
         }
       }
@@ -577,6 +597,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Todo el tiempo"
+          }
+        }
+      }
+    },
+    "Already refunded": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya reembolsado"
           }
         }
       }
@@ -2091,6 +2121,16 @@
         }
       }
     },
+    "Fully refunded": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reembolsado por completo"
+          }
+        }
+      }
+    },
     "Future occurrences disappear from the projection. Posted transactions are never deleted.": {
       "localizations": {
         "es": {
@@ -2651,6 +2691,26 @@
         }
       }
     },
+    "Keep it on your wishlist?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Lo mantienes en tu lista de deseos?"
+          }
+        }
+      }
+    },
+    "Keep on wishlist": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantener en la lista"
+          }
+        }
+      }
+    },
     "Kind": {
       "localizations": {
         "es": {
@@ -2717,6 +2777,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mes pasado"
+          }
+        }
+      }
+    },
+    "Left to refund": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falta por reembolsar"
           }
         }
       }
@@ -3531,6 +3601,16 @@
         }
       }
     },
+    "Only a posted or pending expense can be refunded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo se puede reembolsar un gasto registrado o pendiente."
+          }
+        }
+      }
+    },
     "Only a wishlist item still wanted can get a goal.": {
       "localizations": {
         "es": {
@@ -4231,6 +4311,56 @@
         }
       }
     },
+    "Refund": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reembolso"
+          }
+        }
+      }
+    },
+    "Refund for": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reembolso de"
+          }
+        }
+      }
+    },
+    "Refunded": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reembolsado"
+          }
+        }
+      }
+    },
+    "Refunds": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reembolsos"
+          }
+        }
+      }
+    },
+    "Refund…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reembolsar…"
+          }
+        }
+      }
+    },
     "Reminders": {
       "localizations": {
         "es": {
@@ -4257,6 +4387,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quitar presupuesto"
+          }
+        }
+      }
+    },
+    "Remove from wishlist": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar de la lista"
           }
         }
       }
@@ -5261,6 +5401,16 @@
         }
       }
     },
+    "That's more than what's left to refund (%@).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es más de lo que falta por reembolsar (%@)."
+          }
+        }
+      }
+    },
     "The account couldn't be saved.": {
       "localizations": {
         "es": {
@@ -5407,6 +5557,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se pudo registrar la compra. No se cambió nada."
+          }
+        }
+      }
+    },
+    "The purchase stays in your history. The refund adds the money back on its own date.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La compra queda en tu historial. El reembolso devuelve el dinero en su propia fecha."
+          }
+        }
+      }
+    },
+    "The refund couldn't be recorded. Nothing was changed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo registrar el reembolso. No se cambió nada."
+          }
+        }
+      }
+    },
+    "The refund was recorded, but the wishlist item couldn't be updated.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El reembolso se registró, pero no se pudo actualizar el artículo de la lista de deseos."
           }
         }
       }
@@ -5657,6 +5837,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Esta ocurrencia se marcará como omitida. La serie sigue a menos que la desactives."
+          }
+        }
+      }
+    },
+    "This purchase has refunds. Delete its refunds first.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta compra tiene reembolsos. Elimina primero sus reembolsos."
+          }
+        }
+      }
+    },
+    "This purchase has refunds: it keeps its type and account, can't be cancelled, and its amount can't go below what was refunded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta compra tiene reembolsos: conserva su tipo y su cuenta, no se puede cancelar y su importe no puede ser menor que lo reembolsado."
+          }
+        }
+      }
+    },
+    "This purchase is fully refunded. Keep the item on your wishlist to buy it again, or remove it.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta compra está reembolsada por completo. Mantén el artículo en tu lista de deseos para comprarlo de nuevo, o quítalo."
           }
         }
       }

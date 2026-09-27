@@ -178,6 +178,8 @@ private struct FilteredTransactions: View {
             do {
                 try await services?.transactions.deleteTransaction(id, alsoDisableSeries: disableSeries, now: .now)
                 errorMessage = nil
+            } catch LedgerError.purchaseHasRefunds {
+                errorMessage = String(localized: "This purchase has refunds. Delete its refunds first.")
             } catch {
                 errorMessage = String(localized: "That transaction couldn't be deleted. Nothing was changed.")
             }
@@ -221,6 +223,15 @@ struct TransactionRow: View {
     var accounts: [Account] = []
     @Environment(\.dynamicTypeSize) private var typeSize
 
+    /// Transfers and refunds show what they are; everything else shows its category's icon.
+    static func badgeIcon(_ type: TransactionType) -> String? {
+        switch type {
+        case .transfer: "arrow.left.arrow.right"
+        case .refund: "arrow.uturn.backward"
+        case .income, .expense: nil
+        }
+    }
+
     private func accountName(_ id: UUID?) -> String? {
         accounts.first { $0.id == id }?.name
     }
@@ -235,6 +246,9 @@ struct TransactionRow: View {
 
     private var subtitle: String {
         var parts: [String] = []
+        if record.type == .refund {
+            parts.append(String(localized: "Refund"))
+        }
         if record.type == .transfer {
             let source = accountName(record.accountID) ?? String(localized: "another account")
             let destination = accountName(record.transferAccountID) ?? String(localized: "another account")
@@ -254,7 +268,7 @@ struct TransactionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             CategoryBadge(
-                icon: record.type == .transfer ? "arrow.left.arrow.right" : category?.icon ?? "questionmark",
+                icon: Self.badgeIcon(record.type) ?? category?.icon ?? "questionmark",
                 color: category?.color)
             rowLayout {
                 details
