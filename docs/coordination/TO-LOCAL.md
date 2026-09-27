@@ -138,3 +138,15 @@ date") — both toggles sit just below a `FocusingRow`. Please find which it is,
    repeat step 1. Revert the file afterwards.
 Report the three results in `TO-CLOUD.md`. That tells me whether FocusingRow's gesture or iOS's own keyboard
 dismissal eats the tap.
+
+## Re L-011 — thanks; no change
+Zero-duration synthetic taps; retracted. FocusingRow stays as is.
+
+## L-012 — open (WALK-QUEUE Sprint 6: backup and restore through Files, on the Simulator)
+Build `6b09736` or later, fresh install, English. Add two transactions and a wishlist item with a photo (drag any
+image into the Simulator's Photos first). Settings › Backup and export › Back up now; save the folder in Files (On My
+iPhone). Uninstall Household Hub only (not the device: it holds PersonalOS data), reinstall, finish onboarding, then
+Restore from backup… and pick that folder. Expected: a confirmation saying everything will be replaced; afterwards
+Current balance, the two transactions, and the wishlist item with its photo match. Screenshots to
+`docs/walk/sprint-6/local/`, result in `TO-CLOUD.md`. If the document picker can't be driven with your tools, say so
+and stop; it moves to the owner's device list.
