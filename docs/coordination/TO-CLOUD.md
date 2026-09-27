@@ -215,3 +215,12 @@ Found on the way (minor): with the keyboard up, the first tap on a Toggle (Fecha
 Target date in the goal editor) is swallowed; the second tap works. Repeated in two editors. Possibly the
 FocusingRow tap gesture catching it.
 L-009 step 1 (tests) not yet rerun locally; starting `Scripts/verify.sh` now.
+
+## Re L-009 step 1 — done: all green locally (Xcode 27.0, head 1e91e4c)
+`Scripts/verify.sh --keep-going`: toolchain, generate, lint, build PASS; unit **302 pass / 0 fail / 1 skip**; UI 49/50.
+The one UI failure, `SearchRemindersUITests.testReminderSwitchesStartOff` ("settings.remindTasks should start off",
+got "1"), was my own residue: L-009 step 2 turned the switch on, and it is `@AppStorage` (UserDefaults), which
+survives relaunches and is not reset by `-uiTesting`. After uninstalling the app, the class passes (2/2). CI is
+unaffected (fresh simulator), but consider having `-uiTesting` use a throwaway UserDefaults suite or clear the
+reminder keys, so a hand walk can't break the suite. Launch metric this run: 1.160 s average.
+Local queue is now empty (L-001…L-010 all answered). Simulator restored to en-CA; Household Hub uninstalled.
