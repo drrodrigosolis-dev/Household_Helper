@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-extension SchemaV1 {
+extension SchemaV2 {
     /// A financial event (spec §7.2). Named `TransactionRecord` because `Transaction` collides with SwiftUI's type.
     /// The amount is a positive magnitude; `type` gives the sign.
     @Model
@@ -27,6 +27,8 @@ extension SchemaV1 {
         public var accountID: UUID?
         /// A transfer's destination account; nil for income and expenses.
         public var transferAccountID: UUID?
+        /// Sprint 20 (SchemaV2): the expense this refund gives money back for; nil for every other transaction.
+        public var refundOfTransactionID: UUID?
         public var createdAt: Date
         public var updatedAt: Date
 
@@ -82,4 +84,4 @@ extension SchemaV1 {
     }
 }
 
-public typealias TransactionRecord = SchemaV1.TransactionRecord
+public typealias TransactionRecord = SchemaV2.TransactionRecord

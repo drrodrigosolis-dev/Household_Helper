@@ -76,14 +76,74 @@ struct PersistenceTests {
         #expect(try context.fetchCount(descriptor) == 2)
     }
 
-    @Test func migrationPlanStartsAtSchemaV1() {
-        #expect(HouseholdMigrationPlan.schemas.count == 1)
-        #expect(HouseholdMigrationPlan.stages.isEmpty)
-        #expect(CurrentSchema.versionIdentifier == Schema.Version(1, 0, 0))
+    /// Sprint 20: SchemaV1 (frozen at the first iPhone install) then SchemaV2, one lightweight stage between them.
+    @Test func migrationPlanGoesFromSchemaV1ToSchemaV2() {
+        #expect(HouseholdMigrationPlan.schemas.count == 2)
+        #expect(HouseholdMigrationPlan.schemas.first == SchemaV1.self)
+        #expect(HouseholdMigrationPlan.stages.count == 1)
+        #expect(CurrentSchema.versionIdentifier == Schema.Version(2, 0, 0))
+        #expect(SchemaV1.models.count == SchemaV2.models.count)
+    }
+
+    /// Sprint 20, the owner's real data: a store written by SchemaV1 (as installed at `063a510`) opens through the
+    /// app's factory and migration plan with every record and field intact, and new refund links empty.
+    @Test func aSchemaV1StoreOnDiskMigratesToSchemaV2WithEveryRecord() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(
+            path: "v1-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "Household.store")
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        let coffee = UUID()
+        let rent = UUID()
+        let bike = UUID()
+        let account = UUID()
+        do {
+            let schema = Schema(versionedSchema: SchemaV1.self)
+            let v1 = try ModelContainer(
+                for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none))
+            let context = ModelContext(v1)
+            let spent = SchemaV1.TransactionRecord(
+                id: coffee, amount: Money(minorUnits: 4_750, currencyCode: "CAD"), type: .expense, status: .posted,
+                source: .manual, occurredAt: now, now: now)
+            spent.notes = "coffee"
+            spent.accountID = account
+            let paid = SchemaV1.TransactionRecord(
+                id: rent, amount: Money(minorUnits: 120_000, currencyCode: "CAD"), type: .expense, status: .pending,
+                source: .recurring, occurredAt: now, now: now)
+            paid.scheduledOccurrence = now
+            context.insert(spent)
+            context.insert(paid)
+            context.insert(
+                SchemaV1.WishlistItem(
+                    id: bike, name: "bike", estimatedPrice: Money(minorUnits: 25_000, currencyCode: "CAD"),
+                    priority: .medium, now: now))
+            context.insert(SchemaV1.BoardColumn(name: "To Do", sortOrder: 0, isSystem: true, now: now))
+            try context.save()
+        }
+
+        let onDisk = PersistenceConfiguration(storeURL: url)
+        let migrated = try HouseholdContainerFactory().makeContainer(configuration: onDisk)
+        let context = ModelContext(migrated)
+        let byAmount = FetchDescriptor<TransactionRecord>(sortBy: [SortDescriptor(\.amountMinorUnits)])
+        let records = try context.fetch(byAmount)
+        #expect(records.map(\.id) == [coffee, rent])
+        #expect(records.map(\.amountMinorUnits) == [4_750, 120_000])
+        #expect(records.map(\.status) == [.posted, .pending])
+        #expect(records.first?.notes == "coffee")
+        #expect(records.first?.accountID == account)
+        #expect(records.last?.scheduledOccurrence == now)
+        #expect(records.allSatisfy { $0.refundOfTransactionID == nil })
+        #expect(try context.fetch(FetchDescriptor<WishlistItem>()).map(\.id) == [bike])
+        #expect(try context.fetchCount(FetchDescriptor<BoardColumn>()) == 1)
+
+        // Opening the migrated store again is a no-op.
+        let reopened = try HouseholdContainerFactory().makeContainer(configuration: onDisk)
+        #expect(try ModelContext(reopened).fetchCount(FetchDescriptor<TransactionRecord>()) == 2)
     }
 
     /// Phase 10 migration check: a store written to disk opens again through the factory and its migration plan
-    /// with every record intact. When SchemaV2 arrives, this test gains a V1 store to migrate.
+    /// with every record intact. The V1 → V2 migration has its own test above.
     @Test func onDiskStoreReopensThroughTheMigrationPlan() async throws {
         let directory = FileManager.default.temporaryDirectory.appending(
             path: "store-\(UUID().uuidString)", directoryHint: .isDirectory)
