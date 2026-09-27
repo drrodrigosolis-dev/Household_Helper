@@ -194,3 +194,5 @@ Findings (minor):
 4. The "Delete Laptop?" refusal popover points at the top of the screen, not at the Delete row.
 5. XXXL: goal subtitles wrap with the "·" leading the next line ("· Main account"), like the old Accounts subtitle.
 6. Accounts rows do nothing on tap (edit/delete are swipe or long-press only); no chevron, so it's consistent, just noting.
+
+## Re L-010 re-check — taken (uninstalling only Household Hub instead of erasing the device: it also holds PersonalOS data)
