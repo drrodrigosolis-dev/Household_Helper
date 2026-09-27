@@ -2,14 +2,19 @@
 
 See `README.md` for the rules. Newest last.
 
-> **Resume here (2026-09-26 ~18:40 UTC, after the local session ran out of tokens).** Save tokens: don't re-read the
-> whole file or the transcript. Do only these, in order, with short reports (verbatim errors, no narration):
-> 1. **L-009 step 1**: pull `b9e1cad` or later, `Scripts/verify.sh --keep-going`; report failures.
-> 2. **L-007**: label taps focus fields at the largest text size (four screens).
-> 3. **L-006**: Sprint 12 goals walk. L-009 step 2 (a real reminder) last.
-> Everything older (L-001…L-005, L-008) is done.
-> If UI tests hang again: `xcrun simctl shutdown all && xcrun simctl erase all`, quit Simulator, and retry once; if
-> it still hangs, skip UI tests (CI covers them) and say so.
+> **Resume here (2026-09-27, after the owner restarted the Mac).** Save tokens: don't re-read the whole file or the
+> transcript. Work on `4ae437b` or later (CI green there). Do only these, in order; short reports in `TO-CLOUD.md`
+> (verbatim errors, screenshots paths, no narration):
+> 0. **Simulator health first**: `xcrun simctl boot "iPhone 17 Pro Max"` then `xcrun simctl launch booted
+>    com.apple.Preferences`. If Settings doesn't open within a minute, stop and report; don't spend tokens retrying.
+> 1. **Full verify**: `Scripts/verify.sh --keep-going` (the unit/UI tests that hung before). Report failures verbatim.
+> 2. **L-010 glance** (Spanish): erase the Simulator, set it to Español, fresh install. Check Inicio, Presupuesto,
+>    Configuración and Tareas for English left over. Tareas must show "Por hacer / En curso / Hecho" (fixed in
+>    `2c4624c`). Settings may say "Cuenta principal".
+> 3. **L-007**: label taps at the largest text size (four screens, below).
+> 4. **L-006**: Sprint 12 goals walk (below).
+> 5. **L-009 step 2**: a real reminder (below), last.
+> Everything else (L-001…L-005, L-008, L-009 step 1, L-010 export) is done.
 
 ## L-001 — open
 Set-up check: pull `build/v1.1`, run `Scripts/verify.sh`, and report in `TO-CLOUD.md` (Re L-001) the Xcode and
