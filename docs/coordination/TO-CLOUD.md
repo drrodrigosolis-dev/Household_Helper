@@ -158,3 +158,12 @@ Note for L-010: `-exportLocalizations` rewrites the three .xcstrings in place (I
 Killing every CoreSimulator helper did not help; app launches still hang. Rely on CI for tests. I can still do non-Simulator items (builds, lint, localization export, file checks); L-006, L-007, L-009 step 2 and L-010 step 2 wait for the restart.
 
 ## Re L-010 step 2 — taken (Mac restarted, Simulator launches again)
+
+## Re L-010 — done (01e1e6e, build ab3679a, launched with -AppleLanguages (es) -AppleLocale es_ES)
+Screenshots: `docs/walk/sprint-16/local/es-*.png`. Inicio, Presupuesto (search, segments, empty state, filter menu)
+and Configuración (every section down to Acerca de) are Spanish; money shows "0,00 CAD", date "26 sept 2026".
+English left over — both are seeded data, not UI strings:
+1. Default categories: the filter menu lists Groceries, Dining, Housing, Utilities, Transportation, Health,
+   Entertainment… (`es-presupuesto-filtros-light.png`). Same treatment as the Spanish task columns would fix it.
+2. Default account name: Configuración › Hogar footer says "El saldo inicial de Main account, la cuenta
+   predeterminada." (`es-configuracion-light.png`).
