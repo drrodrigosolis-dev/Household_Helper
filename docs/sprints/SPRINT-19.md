@@ -45,6 +45,13 @@ plus gentle ambient animation.
    the last column), buying a wishlist item, a goal on screen becoming reached. UI tests start from Off; `-funTheme`
    picks a theme for the screenshot tour.
 
+9. **Wording (owner request, same day):** each theme renames a few things, playful but plain: the three default
+   columns (Airplanes: Ready for takeoff, Flying, Landed), the empty column, the empty wishlist, and a cheer with
+   each celebration (also announced to VoiceOver). Display only: stored names are never rewritten, and a column
+   the user created or renamed keeps its name (the Columns sheet says "Shown as … in this style" where they
+   differ). Never themed: money words (balance, pending, projected, §9), tab names, screen titles, the filtered
+   "Nothing matches" message. Spanish for every phrase.
+
 ## Items
 | # | Item | Built (CI green) | Walked |
 |---|---|---|---|
@@ -53,6 +60,7 @@ plus gentle ambient animation.
 | 3 | App: themed icons and pictures on every tab, empty states, onboarding | ☐ | ☐ |
 | 4 | App: ambient animations (5) and celebration overlay; Reduce Motion | ☐ | ☐ |
 | 5 | UI tests: every theme × light/dark/largest text on each tab; screenshots | ☐ | ☐ |
+| 6 | Themed wording (decision 9), with tests | ☐ | ☐ |
 
 ## Close-out
 ☐ CI green · ☐ walk (`docs/walk/sprint-19/`) · ☐ accessibility audit (contrast, Dynamic Type, Reduce Motion) ·

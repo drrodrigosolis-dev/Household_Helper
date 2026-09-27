@@ -5,6 +5,7 @@ import SwiftUI
 /// Column management (spec §7.10, §8.5): add, rename, reorder, and delete a custom column after choosing where its
 /// tasks go. The last column is the "done" column (Sprint 4 default 2), which the footer says plainly.
 struct ColumnsView: View {
+    @Environment(\.funTheme) private var theme
     @Environment(\.services) private var services
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \BoardColumn.sortOrder) private var columns: [BoardColumn]
@@ -93,6 +94,13 @@ struct ColumnsView: View {
             // Name first: at large text it wraps between words rather than being squeezed by the count and controls.
             VStack(alignment: .leading, spacing: 2) {
                 Text(column.name)
+                // The board shows the theme's words for a default column; say so where it is renamed.
+                let shown = column.displayName(theme: theme)
+                if shown != column.name {
+                    Text("Shown as “\(shown)” in this style")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 let count = tasks.filter { $0.columnID == column.id && $0.archivedAt == nil }.count
                 Text("^[\(count) task](inflect: true)")
                     .font(.caption)

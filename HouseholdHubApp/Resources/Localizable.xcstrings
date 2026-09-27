@@ -931,6 +931,16 @@
         }
       }
     },
+    "Bundling up": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrigándose"
+          }
+        }
+      }
+    },
     "CSV not saved.": {
       "localizations": {
         "es": {
@@ -1151,6 +1161,16 @@
         }
       }
     },
+    "Clear skies": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cielo despejado"
+          }
+        }
+      }
+    },
     "Clothing": {
       "localizations": {
         "es": {
@@ -1247,6 +1267,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Al completarla se agrega la siguiente, con vencimiento en la próxima fecha después de esta."
+          }
+        }
+      }
+    },
+    "Cozy by the fire": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Junto a la chimenea"
           }
         }
       }
@@ -1641,6 +1671,16 @@
         }
       }
     },
+    "Done with love": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hecho con amor"
+          }
+        }
+      }
+    },
     "Due": {
       "localizations": {
         "es": {
@@ -2021,6 +2061,26 @@
         }
       }
     },
+    "Flying": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volando"
+          }
+        }
+      }
+    },
+    "Fresh snow, no tracks": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nieve fresca, sin huellas"
+          }
+        }
+      }
+    },
     "From": {
       "localizations": {
         "es": {
@@ -2121,6 +2181,26 @@
         }
       }
     },
+    "Hatched!": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Eclosionado!"
+          }
+        }
+      }
+    },
+    "Hatching": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eclosionando"
+          }
+        }
+      }
+    },
     "Heart": {
       "localizations": {
         "es": {
@@ -2137,6 +2217,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Alta"
+          }
+        }
+      }
+    },
+    "Hooray!": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Hurra!"
           }
         }
       }
@@ -2317,6 +2407,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Se importaron %lld movimientos."
+          }
+        }
+      }
+    },
+    "In the nest": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En el nido"
+          }
+        }
+      }
+    },
+    "In the works": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En marcha"
           }
         }
       }
@@ -2547,6 +2657,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tipo"
+          }
+        }
+      }
+    },
+    "Landed": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aterrizado"
           }
         }
       }
@@ -3111,6 +3231,26 @@
         }
       }
     },
+    "No destinations yet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay destinos"
+          }
+        }
+      }
+    },
+    "No eggs here": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay huevos aquí"
+          }
+        }
+      }
+    },
     "No matching transactions": {
       "localizations": {
         "es": {
@@ -3171,6 +3311,26 @@
         }
       }
     },
+    "No treasures dug up yet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no has desenterrado tesoros"
+          }
+        }
+      }
+    },
+    "No wishes yet, love": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay deseos, cariño"
+          }
+        }
+      }
+    },
     "No wishlist items yet": {
       "localizations": {
         "es": {
@@ -3217,6 +3377,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nada por vencer"
+          }
+        }
+      }
+    },
+    "Nothing here, sweetheart": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada por aquí, cariño"
           }
         }
       }
@@ -3481,6 +3651,16 @@
         }
       }
     },
+    "Out in the snow": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En la nieve"
+          }
+        }
+      }
+    },
     "Owed": {
       "localizations": {
         "es": {
@@ -3617,6 +3797,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rosa"
+          }
+        }
+      }
+    },
+    "Playing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jugando"
           }
         }
       }
@@ -3811,6 +4001,16 @@
         }
       }
     },
+    "Proud of you!": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Qué orgullo!"
+          }
+        }
+      }
+    },
     "Purchased": {
       "localizations": {
         "es": {
@@ -3827,6 +4027,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Morado"
+          }
+        }
+      }
+    },
+    "Put away": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardado"
           }
         }
       }
@@ -3877,6 +4087,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Alcanzada"
+          }
+        }
+      }
+    },
+    "Ready for takeoff": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listo para despegar"
           }
         }
       }
@@ -4231,6 +4451,16 @@
         }
       }
     },
+    "Roar!": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Roar!"
+          }
+        }
+      }
+    },
     "Roll over": {
       "localizations": {
         "es": {
@@ -4431,6 +4661,16 @@
         }
       }
     },
+    "Shown as “%@” in this style": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se muestra como «%@» en este estilo"
+          }
+        }
+      }
+    },
     "Shows these transactions in Budget": {
       "localizations": {
         "es": {
@@ -4497,6 +4737,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pizarra"
+          }
+        }
+      }
+    },
+    "Smooth landing!": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Aterrizaje perfecto!"
+          }
+        }
+      }
+    },
+    "Snow much fun!": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Nieve y alegría!"
           }
         }
       }
@@ -4647,6 +4907,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Resumen"
+          }
+        }
+      }
+    },
+    "Sweet to-dos": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pendientes con cariño"
           }
         }
       }
@@ -5501,6 +5771,16 @@
         }
       }
     },
+    "Toy box is empty": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La caja de juguetes está vacía"
+          }
+        }
+      }
+    },
     "Transaction": {
       "localizations": {
         "es": {
@@ -5697,6 +5977,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vista"
+          }
+        }
+      }
+    },
+    "Waiting to play": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esperando para jugar"
           }
         }
       }
@@ -5997,6 +6287,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tus datos están a salvo; no se pudo calcular el resumen."
+          }
+        }
+      }
+    },
+    "Your stocking is empty": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu calcetín de regalos está vacío"
+          }
+        }
+      }
+    },
+    "Your wish box is empty": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu caja de deseos está vacía"
           }
         }
       }

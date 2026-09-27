@@ -14,8 +14,9 @@ final class Celebration {
     }
 }
 
-/// A burst of the theme's pictures rising from the bottom of the screen. Nothing with themes off, Theme animations
-/// off, or Reduce Motion (`themeAnimates`). Decorative: hidden from VoiceOver, never takes a tap.
+/// A burst of the theme's pictures rising from the bottom of the screen, with a short cheer. Nothing with themes off,
+/// Theme animations off, or Reduce Motion (`themeAnimates`). Hidden from VoiceOver (the cheer is announced), never
+/// takes a tap.
 struct CelebrationOverlay: View {
     @Environment(\.funTheme) private var theme
     @Environment(\.themeAnimates) private var animates
@@ -37,6 +38,17 @@ struct CelebrationOverlay: View {
                         .opacity(launched ? 0 : 1)
                 }
                 .id(burst)
+                if let caption = theme.theme.celebrationText {
+                    Text(caption)
+                        .themedFont(.title, weight: .bold)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(.regularMaterial, in: Capsule())
+                        .position(x: proxy.size.width / 2, y: proxy.size.height * 0.4)
+                        .opacity(launched ? 0 : 1)
+                        .animation(.easeIn(duration: 0.5).delay(0.9), value: launched)
+                        .id(burst)
+                }
             }
         }
         .allowsHitTesting(false)
@@ -45,6 +57,10 @@ struct CelebrationOverlay: View {
             guard animates, theme != nil else { return }
             launched = false
             burst = count
+            // The burst is decorative and hidden from VoiceOver; its words are announced instead.
+            if let caption = theme?.theme.celebrationText {
+                AccessibilityNotification.Announcement(caption).post()
+            }
             Task {
                 // One frame at the start position, then fly.
                 try? await Task.sleep(for: .milliseconds(20))

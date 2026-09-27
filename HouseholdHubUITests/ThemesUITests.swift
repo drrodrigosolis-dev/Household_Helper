@@ -57,6 +57,10 @@ final class ThemesUITests: XCTestCase {
                 XCTAssertTrue(button.waitForExistence(timeout: 30), "\(theme): tab bar never appeared")
                 button.tap()
                 XCTAssertTrue(app.navigationBars[tab].waitForExistence(timeout: 10), "\(theme): \(tab) did not open")
+                if theme == "airplanes", tab == "Tasks" {
+                    let header = columnHeader(app, "Ready for takeoff")
+                    XCTAssertTrue(header.waitForExistence(timeout: 5), "Airplanes renames To Do on the board")
+                }
                 captureScreen(app, named: "sprint19-\(theme)-\(tab.lowercased())-\(variant.rawValue)")
             }
             app.terminate()

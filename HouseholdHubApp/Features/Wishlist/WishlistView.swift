@@ -51,6 +51,7 @@ struct WishlistView: View {
     /// A per-device display preference, deliberately outside the store and backups (spec §7.11).
     @AppStorage("wishlist.layout") private var layout = Layout.list
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.funTheme) private var theme
     @State private var priority: Priority?
     @State private var status = StatusFilter.active
     @State private var isAdding = false
@@ -146,7 +147,8 @@ struct WishlistView: View {
     private var gridMinimum: CGFloat { typeSize.isAccessibilitySize ? 300 : 150 }
 
     private var emptyTitle: String {
-        items.isEmpty ? String(localized: "No wishlist items yet") : String(localized: "Nothing matches these filters")
+        guard items.isEmpty else { return String(localized: "Nothing matches these filters") }
+        return theme?.theme.emptyWishlistTitle ?? String(localized: "No wishlist items yet")
     }
 
     /// Two chips side by side, stacked when they don't fit (large text). A horizontal ScrollView here left a ~90 pt gap

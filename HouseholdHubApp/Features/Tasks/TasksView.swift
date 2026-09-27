@@ -27,6 +27,7 @@ struct TasksView: View {
     @State private var dropTargets: [UUID: UUID] = [:]
     @State private var springTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.funTheme) private var theme
 
     private var query: SearchQuery { SearchQuery(searchText) }
 
@@ -135,7 +136,7 @@ struct TasksView: View {
         let cards = tasks.filter { $0.columnID == column.id && matches($0, query) }
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(column.name).themedFont(.headline)
+                Text(column.displayName(theme: theme)).themedFont(.headline)
                 Spacer()
                 Text("\(cards.count)")
                     .font(.subheadline.monospacedDigit())
@@ -150,7 +151,7 @@ struct TasksView: View {
                         card(task, index: index, in: column, count: cards.count)
                     }
                     if cards.isEmpty {
-                        Text("No tasks")
+                        Text(theme?.theme.emptyColumnText ?? String(localized: "No tasks"))
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, minHeight: 80)
                     }
@@ -195,7 +196,7 @@ struct TasksView: View {
         }
         Menu("Move to…") {
             ForEach(columns.filter { $0.id != column.id }) { target in
-                Button(target.name) { move(task, to: target.id, at: Int.max) }
+                Button(target.displayName(theme: theme)) { move(task, to: target.id, at: Int.max) }
             }
         }
         if index > 0 {
@@ -216,7 +217,7 @@ struct TasksView: View {
             Button("Reopen") { setCompleted(false, task) }
         }
         ForEach(columns.filter { $0.id != column.id }) { target in
-            Button("Move to \(target.name)") { move(task, to: target.id, at: Int.max) }
+            Button("Move to \(target.displayName(theme: theme))") { move(task, to: target.id, at: Int.max) }
         }
         if index > 0 {
             Button("Move up") { move(task, to: column.id, at: index - 1) }

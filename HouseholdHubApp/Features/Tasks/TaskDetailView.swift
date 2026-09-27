@@ -6,6 +6,7 @@ import SwiftUI
 /// edit, and delete.
 struct TaskDetailView: View {
     @Environment(\.services) private var services
+    @Environment(\.funTheme) private var theme
     @Environment(\.dismiss) private var dismiss
     @Query private var matches: [TaskItem]
     @Query private var subtasks: [SubtaskItem]
@@ -36,7 +37,8 @@ struct TaskDetailView: View {
     private func details(_ task: TaskItem) -> some View {
         List {
             Section {
-                LabeledContent("Column", value: columns.first { $0.id == task.columnID }?.name ?? "")
+                let column = columns.first { $0.id == task.columnID }
+                LabeledContent("Column", value: column?.displayName(theme: theme) ?? "")
                     .accessibilityIdentifier("task.column")
                 LabeledContent("Priority", value: WishlistFormat.priorityText(task.priority))
                 if let due = task.dueDate {
@@ -91,7 +93,7 @@ struct TaskDetailView: View {
                 // default label is only as wide as its text (run 36209505191).
                 Menu {
                     ForEach(columns.filter { $0.id != task.columnID }) { column in
-                        Button(column.name) { move(task, to: column.id) }
+                        Button(column.displayName(theme: theme)) { move(task, to: column.id) }
                     }
                 } label: {
                     Label("Move to…", systemImage: "arrow.right.circle")
