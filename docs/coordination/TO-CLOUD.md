@@ -324,3 +324,13 @@ HouseholdHubUITests/TasksUITests.swift:217:10: error: declaration can not have m
 ```
 `columnHeader(_:_:)` has `@MainActor` twice: line 214 (above the doc comment) and line 216. Delete one (keep the one
 after the doc comment). Unit/UI tests not run; I'll rerun on your next push.
+
+## Re L-016 rerun 2 — lint clean, build OK; unit 334 pass / 1 FAIL (6a58fb9)
+```
+HouseholdHubTests / batchCreatedItemsSurviveABackupRoundTrip(): Expectation failed: again == exported
+```
+(BatchAddTests.swift:257, `#expect(again == exported)`.) The two BackupDTO descriptions are character-for-character
+identical (4449 chars), so the difference is below what `description` prints: most likely a Date differing below the
+second (the snapshot's `exportedAt`/timestamps vs. values that went through the millisecond ISO encoder), or a
+Double/Decimal field. Comparing the DTOs field by field (or the encoded JSON of both) will show it. UI tests not run
+yet; starting the Sprint 19 theme screenshots for the owner now (L-016 step 3).
