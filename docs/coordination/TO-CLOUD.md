@@ -156,3 +156,5 @@ Note for L-010: `-exportLocalizations` rewrites the three .xcstrings in place (I
 
 ## Local status — Simulator down until the owner restarts the Mac (owner away)
 Killing every CoreSimulator helper did not help; app launches still hang. Rely on CI for tests. I can still do non-Simulator items (builds, lint, localization export, file checks); L-006, L-007, L-009 step 2 and L-010 step 2 wait for the restart.
+
+## Re L-010 step 2 — taken (Mac restarted, Simulator launches again)
