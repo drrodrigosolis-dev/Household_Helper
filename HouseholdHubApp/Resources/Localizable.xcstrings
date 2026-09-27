@@ -221,6 +221,26 @@
         }
       }
     },
+    "A day word sets the due date: today, tomorrow, or a weekday. Example: call plumber friday": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una palabra de día fija la fecha límite: hoy, mañana o un día de la semana. Ejemplo: llamar al plomero viernes"
+          }
+        }
+      }
+    },
+    "A number is the price, #tag picks a category. Example: 250 new bike #home": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un número es el precio y #etiqueta elige una categoría. Ejemplo: 250 bicicleta nueva #hogar"
+          }
+        }
+      }
+    },
     "A recurring bill is due tomorrow.": {
       "localizations": {
         "es": {
@@ -477,6 +497,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Agrega la renta, el salario o las suscripciones para verlos en tu proyección."
+          }
+        }
+      }
+    },
+    "Add several": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar varios"
           }
         }
       }
@@ -1601,6 +1631,16 @@
         }
       }
     },
+    "Due %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vence %@"
+          }
+        }
+      }
+    },
     "Due date": {
       "localizations": {
         "es": {
@@ -2571,6 +2611,16 @@
         }
       }
     },
+    "List": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lista"
+          }
+        }
+      }
+    },
     "Log Transaction": {
       "localizations": {
         "es": {
@@ -3181,6 +3231,16 @@
         }
       }
     },
+    "Nothing was added. Check the list and try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se agregó nada. Revisa la lista e inténtalo de nuevo."
+          }
+        }
+      }
+    },
     "Nothing was imported: a category changed meanwhile. Try again.": {
       "localizations": {
         "es": {
@@ -3257,6 +3317,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Activado"
+          }
+        }
+      }
+    },
+    "One per line": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uno por línea"
           }
         }
       }
@@ -3617,6 +3687,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vista previa"
+          }
+        }
+      }
+    },
+    "Preview · %lld to add": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vista previa · %lld por agregar"
           }
         }
       }
@@ -4337,6 +4417,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Muestra cuánto ahorrar cada mes para llegar a tiempo."
+          }
+        }
+      }
+    },
+    "Skipped: nothing left to add": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Omitido: no queda nada que agregar"
+          }
+        }
+      }
+    },
+    "Skipped: over the %lld-item limit": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Omitido: supera el límite de %lld elementos"
+          }
+        }
+      }
+    },
+    "Skipped: the price is too large": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Omitido: el precio es demasiado alto"
           }
         }
       }

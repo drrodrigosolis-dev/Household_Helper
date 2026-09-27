@@ -54,6 +54,7 @@ struct WishlistView: View {
     @State private var priority: Priority?
     @State private var status = StatusFilter.active
     @State private var isAdding = false
+    @State private var isAddingSeveral = false
     /// Sprint 14: name, notes and price.
     @State private var searchText = ""
 
@@ -79,6 +80,10 @@ struct WishlistView: View {
                         .toolbar {
                             ToolbarItem(placement: .topBarTrailing) { layoutToggle }
                             ToolbarItem(placement: .topBarTrailing) {
+                                Button("Add several", systemImage: "text.badge.plus") { isAddingSeveral = true }
+                                    .accessibilityIdentifier("wishlist.addSeveral")
+                            }
+                            ToolbarItem(placement: .topBarTrailing) {
                                 Button("Add item", systemImage: "plus") { isAdding = true }
                                     .accessibilityIdentifier("wishlist.add")
                             }
@@ -103,6 +108,9 @@ struct WishlistView: View {
             }
             .sheet(isPresented: $isAdding) {
                 NavigationStack { WishlistEditorView(item: nil) }
+            }
+            .sheet(isPresented: $isAddingSeveral) {
+                NavigationStack { BatchAddView(kind: .wishlist) }
             }
         }
     }

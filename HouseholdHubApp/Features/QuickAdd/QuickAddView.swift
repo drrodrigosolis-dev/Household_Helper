@@ -158,9 +158,13 @@ struct QuickAddView: View {
             }
             .onChange(of: text) { applyParse() }
             // A suggestion computed for one segment is never applied to another.
-            .onChange(of: entry) {
-                if entry != suggestionEntry {
+            .onChange(of: entry) { old, new in
+                if new != suggestionEntry {
                     suggestionTask?.cancel()
+                }
+                // Tasks read the line with their own grammar (Sprint 17), so switching to or from Task re-reads it.
+                if old == .task || new == .task {
+                    applyParse()
                 }
             }
             .onAppear {
@@ -241,10 +245,13 @@ struct QuickAddView: View {
         let options = categories.filter { !$0.isArchived }.map {
             QuickAddCategoryOption(id: $0.id, name: $0.name, kind: $0.kind)
         }
-        let parser = QuickAddParser(
-            currency: currency, categories: options, calendar: HouseholdCalendar(timeZone: .current))
+        let calendar = HouseholdCalendar(timeZone: .current)
+        let parser = QuickAddParser(currency: currency, categories: options, calendar: calendar)
         let now = Date.now
         let parsed = parser.parse(text, now: now)
+        // A task reads its line with the task grammar (Sprint 17): the due date looks forward ("friday" is the next
+        // one, not the last) and numbers stay in the title ("buy 2 lightbulbs").
+        let taskLine = entry == .task ? TaskLineParser(calendar: calendar).parse(text, now: now) : nil
         // Wishlist and Task are explicit choices; a leading "+" only switches between Expense and Income.
         if parsed.type == .income, entry == .expense || entry == .income {
             entry = .income
@@ -253,7 +260,7 @@ struct QuickAddView: View {
             entry = .expense
             typeFromText = false
         }
-        if let parsedAmount = parsed.amount {
+        if let parsedAmount = parsed.amount, taskLine == nil {
             amountText = LedgerFormat.editableAmount(parsedAmount)
             amountFromText = true
             showDetails = true
@@ -268,19 +275,20 @@ struct QuickAddView: View {
             categoryID = nil
             categoryFromText = false
         }
-        occurredAt = parsed.occurredAt
+        occurredAt = taskLine?.dueDate ?? parsed.occurredAt
         // A date word moved the date away from now: for a task that is the due date.
-        if parsed.occurredAt != now {
+        if taskLine.map({ $0.dueDate != nil }) ?? (parsed.occurredAt != now) {
             hasDueDate = true
             dueFromText = true
         } else if dueFromText {
             hasDueDate = false
             dueFromText = false
         }
+        let description = taskLine?.title ?? parsed.description
         if notes == notesFromText {
-            notes = parsed.description
+            notes = description
         }
-        notesFromText = parsed.description
+        notesFromText = description
         suggestedFields = []
         modelCategoryID = nil
         scheduleSuggestions(for: text, parsed: parsed, currency: currency, options: options, now: now)

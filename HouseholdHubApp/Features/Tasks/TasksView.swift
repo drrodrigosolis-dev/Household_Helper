@@ -12,6 +12,8 @@ struct TasksView: View {
     @Query private var subtasks: [SubtaskItem]
 
     @State private var isAdding = false
+
+    @State private var isAddingSeveral = false
     @State private var isManagingColumns = false
     @State private var pendingDelete: TaskItem?
     @State private var errorMessage: String?
@@ -41,12 +43,19 @@ struct TasksView: View {
                             .accessibilityIdentifier("tasks.columns")
                     }
                     ToolbarItem(placement: .topBarTrailing) {
+                        Button("Add several", systemImage: "text.badge.plus") { isAddingSeveral = true }
+                            .accessibilityIdentifier("tasks.addSeveral")
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
                         Button("Add task", systemImage: "plus") { isAdding = true }
                             .accessibilityIdentifier("tasks.add")
                     }
                 }
                 .sheet(isPresented: $isAdding) {
                     NavigationStack { TaskEditorView(task: nil) }
+                }
+                .sheet(isPresented: $isAddingSeveral) {
+                    NavigationStack { BatchAddView(kind: .tasks) }
                 }
                 .sheet(isPresented: $isManagingColumns) {
                     NavigationStack { ColumnsView() }
