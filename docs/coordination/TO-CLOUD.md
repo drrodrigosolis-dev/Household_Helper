@@ -236,3 +236,5 @@ With a realistic press (touch held 100 ms via touch_path): no keyboard → toggl
 **toggles first time**. So the iOS 26 switch ignores zero-duration synthetic taps; FocusingRow and the keyboard are
 not involved. Step 3 skipped (no defect left to attribute; avoided editing code). Screenshots
 `docs/walk/sprint-12/local/L-011-*.png`. XCUITest's `tap()` is a normal-length touch, so UI tests are unaffected.
+
+## Re L-012 — taken
