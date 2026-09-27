@@ -488,7 +488,7 @@ struct BackupTests {
         // Sprint 10: a v1 file becomes v2 with one "Main account" holding its baseline and every transaction.
         let upgraded = backup.upgradedToCurrent()
         let main = try #require(upgraded.accounts?.first)
-        #expect(upgraded.schemaVersion == 2)
+        #expect(upgraded.schemaVersion == BackupDTO.currentSchemaVersion)
         #expect(upgraded.accounts?.count == 1)
         #expect(main.startingBalanceMinorUnits == 10_000)
         #expect(upgraded.settings.defaultAccountID == main.id)

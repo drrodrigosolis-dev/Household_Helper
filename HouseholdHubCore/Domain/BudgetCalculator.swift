@@ -106,7 +106,9 @@ public struct BudgetCalculator: Sendable {
     ) throws -> Money {
         let end = calendar.endOfMonth(for: monthStart)
         let inMonth = lines.filter { $0.occurredAt >= monthStart && $0.occurredAt < end }
-        return try Money.sum(inMonth.map(\.amount), currencyCode: currencyCode)
+        // Refunds are negative lines (Sprint 20); a month where they exceed spending counts as nothing spent.
+        let net = try Money.sum(inMonth.map(\.amount), currencyCode: currencyCode)
+        return net.minorUnits < 0 ? .zero(currencyCode) : net
     }
 }
 

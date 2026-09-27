@@ -8,7 +8,7 @@ enum LedgerFormat {
         switch type {
         case .expense:
             return ((try? money.negated()) ?? money).formatted()
-        case .income:
+        case .income, .refund:
             return money.decimalValue.formatted(.currency(code: money.currencyCode).sign(strategy: .always()))
         case .transfer:
             return money.formatted()
@@ -54,6 +54,7 @@ enum LedgerFormat {
         case .income: return "Income"
         case .expense: return "Expense"
         case .transfer: return "Transfer"
+        case .refund: return "Refund"
         }
     }
 

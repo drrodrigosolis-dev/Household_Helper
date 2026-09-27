@@ -280,6 +280,8 @@ public actor TransactionService {
     public func update(_ id: UUID, with draft: TransactionDraft, now: Date) throws {
         begin()
         let record = try requireTransaction(id)
+        // A refund is edited with `updateRefund`, which keeps it tied to its purchase (Sprint 20).
+        guard record.type != .refund else { throw LedgerError.refundNeedsPurchase }
         try requirePurchaseInvariant(record, type: draft.type, status: draft.status)
         var checked = draft
         checked.source = .manual
@@ -292,6 +294,8 @@ public actor TransactionService {
         }
         let accounts = try resolveAccounts(
             draft, settings: settings, current: (record.accountID, record.transferAccountID), now: now)
+        try requireRefundsStillFit(
+            record, type: draft.type, status: draft.status, amount: draft.amount, accountID: accounts.source)
         // Fetched before the first edit (the merchant insert below), so a failed fetch leaves nothing pending.
         let linkedItem = try record.wishlistItemID.flatMap { try wishlistItem($0) }
         var merchantID: UUID?
@@ -328,6 +332,11 @@ public actor TransactionService {
         begin()
         let record = try requireTransaction(id)
         try requirePurchaseInvariant(record, type: record.type, status: status)
+        try requireRefundsStillFit(
+            record, type: record.type, status: status, amount: record.amount, accountID: record.accountID)
+        if record.type == .refund, status != .cancelled {
+            try requireRefundFits(record)
+        }
         record.status = status
         record.updatedAt = now
         try commit()
@@ -339,6 +348,8 @@ public actor TransactionService {
     public func deleteTransaction(_ id: UUID, alsoDisableSeries: Bool, now: Date) throws {
         begin()
         let record = try requireTransaction(id)
+        // Its refunds depend on it (Sprint 20); they are deleted first, one by one, each confirmed.
+        guard try !hasAnyRefund(record) else { throw LedgerError.purchaseHasRefunds }
         let series = try record.recurringSeriesID.flatMap { try recurringSeries($0) }
         // Fetched before the first edit. A deleted transaction must not leave a task pointing at it: a dangling id
         // would make every later backup fail validation.
@@ -504,14 +515,20 @@ public actor TransactionService {
 
         let weekStart = calendar.startOfWeek(for: now)
         let expense = TransactionType.expense.rawValue
+        let refund = TransactionType.refund.rawValue
         let posted = TransactionStatus.posted.rawValue
         let thisWeek = FetchDescriptor<TransactionRecord>(
             predicate: #Predicate {
-                $0.occurredAt >= weekStart && $0.occurredAt <= now && $0.typeRawValue == expense
-                    && $0.statusRawValue == posted
+                $0.occurredAt >= weekStart && $0.occurredAt <= now
+                    && ($0.typeRawValue == expense || $0.typeRawValue == refund) && $0.statusRawValue == posted
             })
-        let weekLines = try modelContext.fetch(thisWeek).map { try $0.ledgerLine().amount }
-        let spent = try Money.sum(weekLines, currencyCode: settings.currencyCode)
+        // Refunds this week count against this week's spending (Sprint 20), never below zero.
+        let weekLines = try modelContext.fetch(thisWeek).map { record in
+            let line = try record.ledgerLine()
+            return line.type == .refund ? try line.amount.negated() : line.amount
+        }
+        let netSpent = try Money.sum(weekLines, currencyCode: settings.currencyCode)
+        let spent = netSpent.minorUnits < 0 ? .zero(settings.currencyCode) : netSpent
 
         let upcoming = try upcomingOccurrences(now: now, calendar: calendar, days: days)
         return DashboardSummary(balance: balance, spentThisWeek: spent, upcoming: upcoming, accounts: all.accounts)

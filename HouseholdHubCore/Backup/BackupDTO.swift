@@ -1,14 +1,15 @@
 import Foundation
 
-/// The portable backup format, v2 (spec §26; v2 adds accounts and transfers, Sprint 10). v1 files still read:
-/// `upgradedToCurrent()` turns one into v2 before anything validates or restores it. Plain Codable values with every
-/// stored field of every model; money in integer minor units, dates ISO 8601, enums as their raw strings, recurrence
-/// rules as JSON objects. Image bytes are never inline: `mediaManifest` lists the files that travel next to
-/// `backup.json` (§26.1).
+/// The portable backup format, v3 (spec §26; v2 adds accounts and transfers, Sprint 10; v3 adds refunds, Sprint 20).
+/// v1 and v2 files still read: `upgradedToCurrent()` turns one into v3 before anything validates or restores it.
+/// Plain Codable values with every stored field of every model; money in integer minor units, dates ISO 8601, enums
+/// as their raw strings, recurrence rules as JSON objects. Image bytes are never inline: `mediaManifest` lists the
+/// files that travel next to `backup.json` (§26.1).
 public struct BackupDTO: Codable, Equatable, Sendable {
-    public static let currentSchemaVersion = 2
-    /// Versions this app reads; older ones are upgraded on the way in.
-    public static let readableSchemaVersions: ClosedRange<Int> = 1...2
+    public static let currentSchemaVersion = 3
+    /// Versions this app reads; older ones are upgraded on the way in. An older app refuses a v3 file with its
+    /// "made by a newer version" message rather than restore it without its refunds.
+    public static let readableSchemaVersions: ClosedRange<Int> = 1...3
 
     public var schemaVersion: Int
     public var exportedAt: Date
@@ -99,6 +100,8 @@ public struct BackupDTO: Codable, Equatable, Sendable {
         /// v2; required once upgraded.
         public var accountID: UUID?
         public var transferAccountID: UUID?
+        /// v3: the expense a refund belongs to; absent in older files and for every other transaction.
+        public var refundOfTransactionID: UUID? = nil
         public var createdAt: Date
         public var updatedAt: Date
     }
@@ -258,9 +261,15 @@ public struct BackupDTO: Codable, Equatable, Sendable {
 extension BackupDTO {
     /// The same backup in the current format. A v1 file had one household baseline in its settings; it becomes the
     /// first account, "Main account", which gets the settings row's id (so every read of the same file produces the
-    /// same account) and holds every transaction and recurring item. A v2 file is returned as it is.
+    /// same account) and holds every transaction and recurring item. A v2 file only changes its version: v3 adds
+    /// refund links, which an older file has none of. A v3 file is returned as it is.
     public func upgradedToCurrent() -> BackupDTO {
-        guard schemaVersion == 1 else { return self }
+        guard schemaVersion < Self.currentSchemaVersion else { return self }
+        guard schemaVersion == 1 else {
+            var upgraded = self
+            upgraded.schemaVersion = Self.currentSchemaVersion
+            return upgraded
+        }
         var upgraded = self
         let main = AccountDTO(
             id: settings.id, name: TransactionService.mainAccountName, kind: AccountKind.bank.rawValue,
@@ -268,7 +277,7 @@ extension BackupDTO {
             startingBalanceMinorUnits: settings.startingBalanceMinorUnits ?? 0,
             startingBalanceDate: settings.startingBalanceDate ?? settings.createdAt, sortOrder: 0, isArchived: false,
             createdAt: settings.createdAt, updatedAt: settings.updatedAt)
-        upgraded.schemaVersion = 2
+        upgraded.schemaVersion = Self.currentSchemaVersion
         upgraded.accounts = [main]
         upgraded.settings.defaultAccountID = main.id
         upgraded.settings.startingBalanceMinorUnits = nil

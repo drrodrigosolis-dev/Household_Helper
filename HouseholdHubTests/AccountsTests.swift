@@ -272,7 +272,7 @@ struct AccountsTests {
             now: now)
         let backupService = BackupService.make(container: fixture.container)
         let backup = try await backupService.snapshot(now: now, appVersion: "1") { _ in nil }
-        #expect(backup.schemaVersion == 2)
+        #expect(backup.schemaVersion == BackupDTO.currentSchemaVersion)
         #expect(backup.accounts?.count == 2)
         #expect(backup.settings.defaultAccountID == fixture.main)
         try BackupValidator.validate(backup)

@@ -39,6 +39,18 @@ public enum LedgerError: Error, Equatable, Sendable {
     case purchaseMustStayExpense
     /// Cancelling would leave the item "purchased" with nothing spent; deleting the transaction reverts the item.
     case purchaseCannotBeCancelled
+    /// Sprint 20. A refund is made only from its purchase (`refundTransaction`), never from a draft or a series.
+    case refundNeedsPurchase
+    /// Only a posted or pending expense can be refunded.
+    case notRefundable
+    /// More than what is left to refund on the purchase (its price less earlier refunds).
+    case refundExceedsRemaining(remaining: Money)
+    case refundBeforePurchase
+    /// A refund counts only while posted or pending; record it as one of those.
+    case refundMustBeLive
+    /// A purchase with refunds keeps its type, account, currency and at least the refunded amount, and cannot be
+    /// cancelled or deleted until its refunds are deleted (never rewrite history).
+    case purchaseHasRefunds
     case systemCategoryIsPermanent
     case emptyCategoryName
 }
@@ -119,5 +131,6 @@ public struct TransactionDraft: Equatable, Sendable {
         guard source != .recurring, source != .wishlistPurchase else {
             throw LedgerError.sourceRequiresDedicatedPath(source)
         }
+        guard type != .refund else { throw LedgerError.refundNeedsPurchase }
     }
 }

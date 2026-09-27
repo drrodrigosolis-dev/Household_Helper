@@ -6,6 +6,13 @@ public enum TransactionType: String, Codable, Sendable, CaseIterable {
     /// Money moved between two of the household's accounts (Sprint 10): out of one, into the other. Never income or
     /// spending, and neutral to the household total.
     case transfer
+    /// Money given back for one expense (Sprint 20), linked by `refundOfTransactionID`, in the expense's account and
+    /// category. It raises the balance like income but is not income: it lowers its category's spending instead.
+    /// Only `refundTransaction` creates one.
+    case refund
+
+    /// The types a person picks when recording a transaction; a refund is only made from its purchase.
+    public static let recordable: [TransactionType] = [.expense, .income, .transfer]
 }
 
 /// Explicit accounting state (spec §7.2); never a set of booleans.
@@ -35,7 +42,9 @@ public enum CategoryKind: String, Codable, Sendable, CaseIterable {
     /// Whether a category of this kind may classify a transaction of `type` (spec §7.3).
     public func allows(_ type: TransactionType) -> Bool {
         guard type != .transfer else { return false }
-        return self == .both || rawValue == type.rawValue
+        // A refund keeps its purchase's expense category.
+        let classified: TransactionType = type == .refund ? .expense : type
+        return self == .both || rawValue == classified.rawValue
     }
 }
 

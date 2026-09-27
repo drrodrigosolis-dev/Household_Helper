@@ -153,6 +153,7 @@ private struct RecurringRow: View {
         case .income: return "arrow.down.circle"
         case .expense: return "arrow.up.circle"
         case .transfer: return "arrow.left.arrow.right.circle"
+        case .refund: return "arrow.uturn.backward.circle"
         }
     }
 

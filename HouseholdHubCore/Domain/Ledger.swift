@@ -36,10 +36,10 @@ public struct LedgerLine: Hashable, Sendable {
             amount: amount, type: type, accountID: accountID, transferAccountID: transferAccountID, on: id)
     }
 
-    /// Signed effect on the single household balance: income adds, expense subtracts, transfer is neutral.
+    /// Signed effect on the single household balance: income and refunds add, expense subtracts, transfer is neutral.
     public func balanceEffect() throws -> Money {
         switch type {
-        case .income: return amount
+        case .income, .refund: return amount
         case .expense: return try amount.negated()
         case .transfer: return .zero(amount.currencyCode)
         }
@@ -103,7 +103,7 @@ enum AccountEffect {
         amount: Money, type: TransactionType, accountID: UUID?, transferAccountID: UUID?, on id: UUID
     ) throws -> Money {
         switch type {
-        case .income: return accountID == id ? amount : .zero(amount.currencyCode)
+        case .income, .refund: return accountID == id ? amount : .zero(amount.currencyCode)
         case .expense: return accountID == id ? try amount.negated() : .zero(amount.currencyCode)
         case .transfer:
             if accountID == id, transferAccountID != id {

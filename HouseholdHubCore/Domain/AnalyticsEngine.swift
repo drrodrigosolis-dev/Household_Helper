@@ -62,6 +62,16 @@ public struct AnalyticsEntry: Sendable, Hashable {
     }
 }
 
+extension AnalyticsEntry {
+    /// A refund as spending: the same category and merchant, a negative amount.
+    func asNegativeSpending() throws -> AnalyticsEntry {
+        var entry = self
+        entry.amount = try amount.negated()
+        entry.type = .expense
+        return entry
+    }
+}
+
 public struct CategorySpend: Sendable, Hashable, Identifiable {
     /// Nil is the "Uncategorized" bucket.
     public let categoryID: UUID?
@@ -93,8 +103,11 @@ public struct MerchantSpend: Sendable, Hashable, Identifiable {
 public struct AnalyticsReport: Sendable, Hashable {
     public let interval: DateInterval
     public let income: Money
+    /// Spending after refunds (Sprint 20); zero when refunds in the period exceed what was spent in it.
     public let expense: Money
-    /// Income minus expense; negative when the household spent more than it earned.
+    /// Money given back for purchases in the period. Not income: it lowers spending instead.
+    public let refunds: Money
+    /// Income minus spending after refunds; negative when the household spent more than it earned.
     public let net: Money
     public let byCategory: [CategorySpend]
     public let trend: [TrendPoint]
@@ -123,26 +136,36 @@ public struct AnalyticsEngine: Sendable {
             throw LedgerError.currencyMismatch(expected: currencyCode, actual: entry.amount.currencyCode)
         }
         let incomes = counted.filter { $0.type == .income }
-        let expenses = counted.filter { $0.type == .expense }
+        let refundEntries = counted.filter { $0.type == .refund }
+        // Spending as signed amounts: an expense counts up, a refund counts down in its category and merchant.
+        let spending = try counted.filter { $0.type == .expense } + refundEntries.map { try $0.asNegativeSpending() }
         let income = try Money.sum(incomes.map(\.amount), currencyCode: currencyCode)
-        let expense = try Money.sum(expenses.map(\.amount), currencyCode: currencyCode)
-        let spent = try expense.negated()
-        let net = try income.adding(spent)
-        let byCategory = try categories(expenses, total: expense, currencyCode: currencyCode)
+        let refunds = try Money.sum(refundEntries.map(\.amount), currencyCode: currencyCode)
+        let netSpending = try Money.sum(spending.map(\.amount), currencyCode: currencyCode)
+        let net = try income.subtracting(netSpending)
+        let expense = Self.atLeastZero(netSpending)
+        let byCategory = try categories(spending, currencyCode: currencyCode)
         let points = try trend(
-            counted, interval: interval, bucket: period.bucket, calendar: calendar, currencyCode: currencyCode)
-        let top = try merchants(expenses, currencyCode: currencyCode)
+            incomes + spending, interval: interval, bucket: period.bucket, calendar: calendar,
+            currencyCode: currencyCode)
+        let top = try merchants(spending, currencyCode: currencyCode)
         return AnalyticsReport(
-            interval: interval, income: income, expense: expense, net: net, byCategory: byCategory, trend: points,
-            topMerchants: top)
+            interval: interval, income: income, expense: expense, refunds: refunds, net: net, byCategory: byCategory,
+            trend: points, topMerchants: top)
     }
 
-    private func categories(
-        _ expenses: [AnalyticsEntry], total: Money, currencyCode: String
-    ) throws -> [CategorySpend] {
-        let groups = Dictionary(grouping: expenses, by: \.categoryID)
-        return try groups.map { categoryID, entries in
-            let sum = try Money.sum(entries.map(\.amount), currencyCode: currencyCode)
+    /// Spending shown for a group whose refunds exceed its purchases in the period (a return in a later month).
+    static func atLeastZero(_ money: Money) -> Money {
+        money.minorUnits < 0 ? .zero(money.currencyCode) : money
+    }
+
+    private func categories(_ expenses: [AnalyticsEntry], currencyCode: String) throws -> [CategorySpend] {
+        let groups = try Dictionary(grouping: expenses, by: \.categoryID).mapValues { entries in
+            Self.atLeastZero(try Money.sum(entries.map(\.amount), currencyCode: currencyCode))
+        }
+        .filter { $0.value.minorUnits > 0 }
+        let total = try Money.sum(Array(groups.values), currencyCode: currencyCode)
+        return try groups.map { categoryID, sum in
             // Computed exactly by the Money module; converted to Double only for display.
             let percent = try Money.percentage(sum, of: total) ?? 0
             let share = NSDecimalNumber(decimal: percent / 100).doubleValue
@@ -184,7 +207,7 @@ public struct AnalyticsEngine: Sendable {
             let incomes = entries.filter { $0.type == .income }.map(\.amount)
             let expenses = entries.filter { $0.type == .expense }.map(\.amount)
             let income = try Money.sum(incomes, currencyCode: currencyCode)
-            let expense = try Money.sum(expenses, currencyCode: currencyCode)
+            let expense = Self.atLeastZero(try Money.sum(expenses, currencyCode: currencyCode))
             return TrendPoint(start: start, income: income, expense: expense)
         }
     }
@@ -206,7 +229,7 @@ public struct AnalyticsEngine: Sendable {
             let name = latest?.merchantName ?? String(localized: "Unnamed merchant")
             return MerchantSpend(key: key, name: name, total: sum, count: entries.count)
         }
-        let sorted = totals.sorted { lhs, rhs in
+        let sorted = totals.filter { $0.total.minorUnits > 0 }.sorted { lhs, rhs in
             if lhs.total.minorUnits != rhs.total.minorUnits { return lhs.total.minorUnits > rhs.total.minorUnits }
             return lhs.key < rhs.key
         }

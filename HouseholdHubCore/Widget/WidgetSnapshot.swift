@@ -82,8 +82,8 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
         let upcoming = summary.upcoming.prefix(2).map { item in
             Upcoming(
                 title: showAmounts ? item.title : nil, date: item.date,
-                amountMinorUnits: showAmounts ? abs(item.amount.minorUnits) : nil, isIncome: item.type == .income,
-                isTransfer: item.type == .transfer)
+                amountMinorUnits: showAmounts ? abs(item.amount.minorUnits) : nil,
+                isIncome: item.type == .income || item.type == .refund, isTransfer: item.type == .transfer)
         }
         return WidgetSnapshot(
             generatedAt: now, currencyCode: balance.current.currencyCode,

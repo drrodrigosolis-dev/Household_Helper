@@ -243,8 +243,14 @@ public enum BackupValidator {
             if let wishID = record.wishlistItemID, wishes[wishID]?.purchasedTransactionID != record.id {
                 throw BackupError.inconsistentLink(entity: "transactions", field: "wishlistItemID")
             }
+            try refundShape(record, purchases: transactions)
         }
+        try refundTotals(backup.transactions, purchases: transactions)
         for item in backup.recurringTransactions {
+            // Refunds are only ever made from a purchase, never from a series (Sprint 20).
+            guard item.type != TransactionType.refund.rawValue else {
+                throw BackupError.invalidValue(entity: "recurringTransactions", field: "type", value: item.type)
+            }
             try allows(item.categoryID, item.type, "recurringTransactions")
             try transferShape(
                 item.type, item.accountID, item.transferAccountID, item.categoryID, "recurringTransactions")
@@ -300,6 +306,41 @@ public enum BackupValidator {
 
     /// Largest budget limit or goal target a backup may carry; the same bound the services enforce.
     static let maxBudgetMinorUnits = Money.maxPlanMinorUnits
+
+    /// A refund belongs to one expense in the same account and currency; nothing else names one (Sprint 20).
+    private static func refundShape(
+        _ record: BackupDTO.Transaction, purchases: [UUID: BackupDTO.Transaction]
+    ) throws {
+        guard record.type == TransactionType.refund.rawValue else {
+            guard record.refundOfTransactionID == nil else {
+                throw BackupError.inconsistentLink(entity: "transactions", field: "refundOfTransactionID")
+            }
+            return
+        }
+        guard let purchaseID = record.refundOfTransactionID, let purchase = purchases[purchaseID],
+            purchase.type == TransactionType.expense.rawValue, purchase.currencyCode == record.currencyCode,
+            purchase.accountID == record.accountID
+        else { throw BackupError.inconsistentLink(entity: "transactions", field: "refundOfTransactionID") }
+    }
+
+    /// A purchase's posted and pending refunds never add up to more than it cost.
+    private static func refundTotals(
+        _ records: [BackupDTO.Transaction], purchases: [UUID: BackupDTO.Transaction]
+    ) throws {
+        let cancelled = TransactionStatus.cancelled.rawValue
+        let live = records.filter { $0.type == TransactionType.refund.rawValue && $0.status != cancelled }
+        for (purchaseID, refunds) in Dictionary(grouping: live, by: { $0.refundOfTransactionID }) {
+            guard let purchaseID, let purchase = purchases[purchaseID] else { continue }
+            var total: Int64 = 0
+            for refund in refunds {
+                let (sum, overflow) = total.addingReportingOverflow(refund.amountMinorUnits)
+                guard !overflow, sum <= purchase.amountMinorUnits else {
+                    throw BackupError.inconsistentLink(entity: "transactions", field: "refundOfTransactionID")
+                }
+                total = sum
+            }
+        }
+    }
 
     /// A transfer names two different accounts and no category; nothing else names a destination (Sprint 10).
     private static func transferShape(
