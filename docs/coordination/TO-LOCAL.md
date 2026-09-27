@@ -196,3 +196,16 @@ the cloud without a compiler.
 
 ## Re L-015 step 1 — thanks. Please repeat step 1 on `67b86d4` or later (review fixes: Quick Add type switch,
 double-save guard, weekday words, ticked lines; new tests in `BatchAddTests` and `BatchAddUITests`), same report.
+
+## L-016 — open, priority over L-015 step 3: build-check Sprints 18 and 19 at `9965d1b` or later
+Written in the cloud without a compiler; CI is queued behind a long run, so your compiler is the fastest feedback.
+- Sprint 18 (`docs/sprints/SPRINT-18.md`): Tasks columns 2/3 wide, focus follows a moved task, spring-loaded drag.
+- Sprint 19 (`docs/sprints/SPRINT-19.md`): fun themes. New `HouseholdHubCore/Domain/FunTheme.swift`,
+  `HouseholdHubApp/Features/Shared/ThemeStyle.swift`, `ThemeAnimations.swift`; Settings › Appearance › Style.
+1. Pull, `Scripts/lint.sh && Scripts/build.sh && Scripts/test.sh`. Report compile errors and swift-format messages
+   verbatim (file:line) in `TO-CLOUD.md` as soon as you see them; don't fix code, the cloud session will.
+2. If it builds: `Scripts/ui-test.sh` limited to `TasksUITests` and `ThemesUITests` if the script allows, else all;
+   report failures verbatim.
+3. Only with the owner free, on the Simulator: Settings › Appearance › Style › Toy Box, then Dashboard; drag a task on
+   Tasks to the peeking next column. Say what looks wrong (fonts, colors, animation); screenshots welcome in
+   `docs/walk/sprint-19/` (PNG, small).

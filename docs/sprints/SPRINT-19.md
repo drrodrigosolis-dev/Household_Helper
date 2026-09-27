@@ -37,6 +37,13 @@ plus gentle ambient animation.
    is purchased, and a savings goal is reached. None with Reduce Motion, or with Theme animations off.
 6. **Spanish names:** Caja de juguetes, Aviones, Dinosaurios, Te quiero, mamá; Especial de invierno.
 7. **Widget:** unchanged (it shows sample figures under the free team).
+8. **How it is built:** the catalog is data in Core (`FunTheme`, `ThemeSpec`); the app reads it through the
+   environment (`\.funTheme`, `\.themeAnimates`). Screens get the theme background from `.themedScreen()` next to each
+   navigation title; with a theme on, list backgrounds are hidden at the root so it shows through. Navigation-bar and
+   tab titles use UIKit appearance (SwiftUI has no font for them), applied at launch and to bars already on screen.
+   Tab icons change for Dashboard, Wishlist and Tasks only. Celebrations: completing a task (button, or a move into
+   the last column), buying a wishlist item, a goal on screen becoming reached. UI tests start from Off; `-funTheme`
+   picks a theme for the screenshot tour.
 
 ## Items
 | # | Item | Built (CI green) | Walked |
