@@ -109,8 +109,8 @@ public struct QuickAddParser: Sendable {
     private static let incomeWords: Set<String> = ["income", "received", "ingreso", "recibido", "recibi"]
     /// Expense is the default; these words only say so explicitly and are left out of the description.
     private static let expenseWords: Set<String> = ["gasto"]
-    private static let weekdays = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
-    private static let spanishWeekdays = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"]
+    static let weekdays = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+    static let spanishWeekdays = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"]
 
     /// Lowercased without accents, so "Miércoles" and "miercoles" read the same.
     static func fold(_ word: String) -> String {

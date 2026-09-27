@@ -122,6 +122,37 @@ public actor TaskBoardService {
         return task.id
     }
 
+    /// Adds every draft to the first column, in order, with one save (Sprint 17 batch add): all of them or none.
+    /// Every draft is validated before anything is inserted.
+    @discardableResult
+    public func createTasks(_ drafts: [TaskDraft], now: Date) throws -> [UUID] {
+        begin()
+        guard !drafts.isEmpty else { return [] }
+        for draft in drafts {
+            try draft.validate()
+        }
+        let ordered = try columns()
+        guard let column = ordered.first else { throw TaskBoardError.unknownColumn }
+        var last = try tasks(in: column.id, includingArchived: true).last?.sortOrder
+        var ids: [UUID] = []
+        for original in drafts {
+            var draft = original
+            draft.linkedWishlistItemID = try existingWishlistLink(draft.linkedWishlistItemID)
+            draft.linkedTransactionID = try existingTransactionLink(draft.linkedTransactionID)
+            let key = SortKey.between(last, nil) ?? 1
+            let task = TaskItem(
+                title: draft.trimmedTitle, columnID: column.id, priority: draft.priority, sortOrder: key, now: now)
+            try apply(draft, to: task)
+            modelContext.insert(task)
+            try settleCompletion(of: task, columns: ordered, returnTo: nil, now: now)
+            try linkBack(draft.linkedWishlistItemID, to: task.id, now: now)
+            last = key
+            ids.append(task.id)
+        }
+        try commit()
+        return ids
+    }
+
     public func updateTask(_ id: UUID, with draft: TaskDraft, now: Date) throws {
         begin()
         try draft.validate()

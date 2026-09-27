@@ -22,6 +22,34 @@ extension TransactionService {
         return item.id
     }
 
+    /// Adds every draft with one save (Sprint 17 batch add): all of them or none. Each is checked before anything is
+    /// inserted. Creation times step back a millisecond per line so the newest-first list shows them in paste order.
+    @discardableResult
+    public func createWishlistItems(_ drafts: [WishlistDraft], now: Date) throws -> [UUID] {
+        begin()
+        guard !drafts.isEmpty else { return [] }
+        let settings = try requireSettings()
+        for draft in drafts {
+            try draft.validate()
+            try requireCurrency(draft.estimatedPrice, settings)
+            if let categoryID = draft.categoryID {
+                try requireUsableCategory(categoryID, for: .expense)
+            }
+        }
+        var ids: [UUID] = []
+        for (index, draft) in drafts.enumerated() {
+            let created = now.addingTimeInterval(-Double(index) / 1000)
+            let item = WishlistItem(
+                name: draft.trimmedName, estimatedPrice: draft.estimatedPrice, priority: draft.priority, now: created)
+            apply(draft, to: item)
+            item.status = draft.status
+            modelContext.insert(item)
+            ids.append(item.id)
+        }
+        try commit()
+        return ids
+    }
+
     /// Edits the user-facing fields. A purchased or archived item keeps its status; only its details change.
     public func updateWishlistItem(_ id: UUID, with draft: WishlistDraft, now: Date) throws {
         begin()
