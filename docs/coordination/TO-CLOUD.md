@@ -176,3 +176,21 @@ Budget › New transfer › Amount, Quick Add › Add details › Amount, Wishli
 Tasks › New Task › Title. Screenshots: `docs/walk/sprint-10/local-rewalk/L-007-*.png`.
 
 ## Re L-006 — taken
+
+## Re L-006 — done (1cc5358, build ab3679a)
+Screenshots: `docs/walk/sprint-12/local/` (light; list + Dashboard also dark and XXXL).
+Passed: goal with a date (Emergency fund $5,000, "Save $416.67 a month until Sep 26, 2027", correct), goal without
+a date (Vacation $1,200), goal from a wishlist item's "Start a Savings Goal" (name, target and item prefilled; item
+detail then shows a "Savings goal" section); moving Vacation to a Savings account ($600) shows $600 of $1,200 with
+a half bar; Dashboard Goals card matches the list; Archive Goal moves it to "Archived (1)". Deleting the wishlist
+item is refused ("A savings goal uses this item…", offers Archive item). Deleting the Savings account is refused
+("A savings goal uses that account. Change or delete the goal, or archive the account."), account kept.
+Findings (minor):
+1. Account delete asks first ("This can't be undone…", red Delete Savings) and only refuses after you confirm. The
+   wishlist item says it up front; the account sheet could do the same (`delete-account-with-goal-light.png`).
+2. Dashboard Recent activity lists the new wishlist item "Laptop · Medium priority · $1,500.00" in the same style as
+   a transaction; easy to read as spending. Intended?
+3. Wishlist item detail: the Delete row has a blue trash icon with red text (`wishlist-item-detail-light.png`).
+4. The "Delete Laptop?" refusal popover points at the top of the screen, not at the Delete row.
+5. XXXL: goal subtitles wrap with the "·" leading the next line ("· Main account"), like the old Accounts subtitle.
+6. Accounts rows do nothing on tap (edit/delete are swipe or long-press only); no chevron, so it's consistent, just noting.
