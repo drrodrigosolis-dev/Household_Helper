@@ -174,3 +174,5 @@ English left over — both are seeded data, not UI strings:
 Tapping the label (not the field) brings up the keyboard in that field and typed text lands there, for all four:
 Budget › New transfer › Amount, Quick Add › Add details › Amount, Wishlist › New Item › Estimated price,
 Tasks › New Task › Title. Screenshots: `docs/walk/sprint-10/local-rewalk/L-007-*.png`.
+
+## Re L-006 — taken
