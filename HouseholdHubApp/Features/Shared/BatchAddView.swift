@@ -74,7 +74,7 @@ struct BatchAddView: View {
                 Button("Cancel") { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Add") { Task { await save(lines) } }
+                Button("Add") { Task { await save() } }
                     .disabled(count == 0 || isSaving)
                     .accessibilityIdentifier("batch.save")
             }
@@ -94,8 +94,10 @@ struct BatchAddView: View {
         Dictionary(categories.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
     }
 
-    private func save(_ lines: [BatchLine]) async {
-        guard let services else { return }
+    /// Plans again at the tap, so "today" and "tomorrow" mean the day the batch is added, not when the preview drew.
+    private func save() async {
+        guard let services, !isSaving else { return }
+        let lines = self.lines
         isSaving = true
         defer { isSaving = false }
         do {
@@ -157,6 +159,7 @@ private struct BatchLineRow: View {
     private func reasonText(_ reason: BatchSkipReason) -> String {
         switch reason {
         case .noText: String(localized: "Skipped: nothing left to add")
+        case .checkedOff: String(localized: "Skipped: already checked off")
         case .priceTooLarge: String(localized: "Skipped: the price is too large")
         case .overLimit: String(localized: "Skipped: over the \(BatchAddPlanner.maxItems)-item limit")
         }

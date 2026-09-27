@@ -14,15 +14,28 @@ actions and wishlist items I have so far". Owner answers: paste a list, one type
 2. **Lines:** one item per line; blank lines ignored; list markers stripped (`-`, `*`, `•`, `–`, `[ ]`, `☐`, `1.`,
    `1)`), so a list pasted from Notes works as is. At most 200 items per batch.
 3. **Task line:** the title is the line; one date word sets the due date and is removed: `today`/`hoy`,
-   `tomorrow`/`mañana`, a weekday (`friday`, `fri`, `viernes`, `vie`) = its **next** occurrence (today counts).
+   `tomorrow`/`mañana`, a weekday = its **next** occurrence (today counts). Weekdays are full names (English or
+   Spanish) plus `tue`, `thu`, `fri`; other short forms are too often ordinary words ("sun cream", "ir al mar").
    Numbers stay in the title ("buy 2 lightbulbs"). New tasks go to the first column, medium priority, in paste order.
 4. **Wishlist line:** the first plain number is the price ("250 new bike", "$1,200 sofa"); no number = price unknown;
    a `#tag` picks an expense category like Quick Add; the rest is the name. Status wanted, medium priority.
 5. **Preview:** every line is listed before saving: what it becomes (title and due date, or name, price and
-   category) or why it's skipped (no text left, name too long, price over the limit). The button says "Add N tasks"
-   and adds only the valid lines. The preview follows the text as it is edited; no per-row editing.
+   category) or why it's skipped (nothing left, price over the limit, ticked in the pasted checklist, over 200). The
+   header counts what will be added; "Add" adds only those, planned again at the tap so "today" is the day it's
+   added. The preview follows the text as it is edited; no per-row editing. A `#tag` that names no category stays
+   in the name.
 6. **Quick Add task mode** reads dates with the same task grammar. Before, "call plumber friday" was due *last*
-   Friday (the expense grammar looks back) and "buy 2 lightbulbs" lost the 2.
+   Friday (the expense grammar looks back) and "buy 2 lightbulbs" lost the 2. This deviates from spec §25.2
+   ("nearest past occurrence") for tasks only; transactions keep the past-looking grammar. The due date has its own
+   field, so switching the type never moves a transaction date or amount.
+
+## Data-safety review (2026-09-27)
+No schema change; all-or-nothing saves, money rules and backup compatibility hold. Fixed: switching Quick Add's
+type re-read the line and reset hand-edited dates and amounts (F1, a Sprint 17 regression, UI test added); a double
+tap on Add could save twice (F2); three-letter words read as weekdays (F3); unmatched tags removed and ticked lines
+added (F5); dates planned at render, not at the tap (F8). Tests added for the price cap boundary, a backup round
+trip of batch-created records, and a refused wishlist batch followed by a working save. Kept by decision: the first
+number on a wishlist line is the price ("iPhone 17 Pro" → 17.00, visible in the preview) (F4).
 
 ## Items
 | # | Item | Built (CI green) | Walked |

@@ -30,7 +30,9 @@ struct BatchAddTests {
         ("water plants today", "water plants", 0),
         ("email Sam fri.", "email Sam", 5),
         ("renovar pasaporte miércoles", "renovar pasaporte", 3),
-        ("mon standup notes", "standup notes", 1),
+        ("monday standup notes", "standup notes", 1),
+        ("dentist thu", "dentist", 4),
+        ("tue book club", "book club", 2),
     ])
     func taskLineReadsAForwardDueDate(text: String, title: String, daysAhead: Int) {
         let line = TaskLineParser(calendar: Self.calendar).parse(text, now: now)
@@ -38,7 +40,11 @@ struct BatchAddTests {
         #expect(line.dueDate == day(daysAhead))
     }
 
-    @Test(arguments: ["buy 2 lightbulbs", "friday", "fix 3rd step", "read chapter 12"])
+    @Test(arguments: [
+        "buy 2 lightbulbs", "friday", "fix 3rd step", "read chapter 12",
+        // Three-letter words that are only sometimes weekdays stay in the title (review F3).
+        "buy sun cream", "ir al mar", "wed plans", "sat exam prep", "mon ami visit",
+    ])
     func taskLineKeepsNumbersAndALoneDateWord(text: String) {
         let line = TaskLineParser(calendar: Self.calendar).parse(text, now: now)
         #expect(line.title == text)
@@ -98,13 +104,46 @@ struct BatchAddTests {
 
     @Test func plannerSkipsLinesWithNothingLeftAndLinesPastTheLimit() {
         let wishes = planner(.wishlist).plan("250\n#home\nlamp 30", now: now)
-        #expect(wishes.map(\.result.skipReason) == [.noText, .noText, nil])
-        #expect(wishes.wishlistDrafts.map(\.name) == ["lamp"])
+        #expect(wishes.map(\.result.skipReason) == [.noText, nil, nil])
+        // A tag that names no category is the user's text, so it stays (review F5).
+        #expect(wishes.wishlistDrafts.map(\.name) == ["#home", "lamp"])
 
         let many = (1...(BatchAddPlanner.maxItems + 3)).map { "task \($0)" }.joined(separator: "\n")
         let lines = planner(.tasks).plan(many, now: now)
         #expect(lines.taskDrafts.count == BatchAddPlanner.maxItems)
         #expect(lines.suffix(3).allSatisfy { $0.result.skipReason == .overLimit })
+    }
+
+    @Test func plannerSkipsTickedChecklistLines() {
+        let lines = planner(.tasks).plan("- [x] buy milk\n[X] call mom\n☑ eggs\n✅ bread\n- [ ] still to do", now: now)
+        #expect(lines.map(\.result.skipReason) == [.checkedOff, .checkedOff, .checkedOff, .checkedOff, nil])
+        #expect(lines.taskDrafts.map(\.title) == ["still to do"])
+    }
+
+    @Test func wishlistLineKeepsATagThatNamesNoCategory() {
+        let home = QuickAddCategoryOption(id: UUID(), name: "Home", kind: .expense)
+        let line = WishlistLineParser(currency: cad, categories: [home]).parse("lamp #vintage")
+        #expect(line.name == "lamp #vintage")
+        #expect(line.categoryID == nil)
+    }
+
+    /// The cap is `Money.maxPlanMinorUnits`, inclusive (review checklist item 8a).
+    @Test(arguments: [
+        ("1000000000 island", Int64?(100_000_000_000), false),
+        ("1000000000.01 island", Int64?.none, true),
+        ("0 thing", Int64?.none, false),
+        ("0.004 thing", Int64?.none, false),
+    ])
+    func wishlistPriceBoundaries(text: String, minorUnits: Int64?, tooLarge: Bool) {
+        let line = WishlistLineParser(currency: cad, categories: []).parse(text)
+        #expect(line.price?.minorUnits == minorUnits)
+        #expect(line.priceTooLarge == tooLarge)
+    }
+
+    @Test func aMinusSignIsNotAPrice() {
+        let line = WishlistLineParser(currency: cad, categories: []).parse("-5 coupon book")
+        #expect(line.price == nil)
+        #expect(line.name == "-5 coupon book")
     }
 
     @Test func plannerMakesWishlistDraftsWithUnknownPriceAsZero() throws {
@@ -181,6 +220,50 @@ struct BatchAddTests {
             try await ledger.createWishlistItems(drafts, now: now)
         }
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<WishlistItem>()) == 0)
+    }
+
+    @Test func aWishlistBatchWithAnArchivedCategorySavesNothingAndTheNextSaveWorks() async throws {
+        let (container, _, ledger) = try await services()
+        let categories = CategoryService.make(container: container)
+        let old = try await categories.create(name: "Old", icon: "tag", color: .black, kind: .expense, now: now)
+        try await categories.setArchived(true, category: old, now: now)
+        let drafts = [
+            WishlistDraft(name: "bike", estimatedPrice: Money(minorUnits: 1_000, currencyCode: "CAD")),
+            WishlistDraft(name: "lamp", estimatedPrice: .zero("CAD"), categoryID: old),
+        ]
+        await #expect(throws: (any Error).self) {
+            try await ledger.createWishlistItems(drafts, now: now)
+        }
+        #expect(try ModelContext(container).fetchCount(FetchDescriptor<WishlistItem>()) == 0)
+        try await ledger.createWishlistItems([drafts[0]], now: now)
+        #expect(try ModelContext(container).fetchCount(FetchDescriptor<WishlistItem>()) == 1)
+    }
+
+    /// Batch-created records export, validate and restore, paste order included (review checklist item 8b).
+    @Test func batchCreatedItemsSurviveABackupRoundTrip() async throws {
+        let (container, board, ledger) = try await services()
+        let backup = BackupService.make(container: container)
+        let tasks = planner(.tasks).plan("one\ntwo friday\nthree", now: now)
+        let wishes = planner(.wishlist).plan("250 bike\nheadphones\n$1,200 sofa", now: now)
+        try await board.createTasks(tasks.taskDrafts, now: now)
+        try await ledger.createWishlistItems(wishes.wishlistDrafts, now: now)
+
+        let exported = try await backup.snapshot(now: now, appVersion: "1.1") { _ in nil }
+        let json = try BackupDTO.encoder().encode(exported)
+        let decoded = try BackupDTO.decoder().decode(BackupDTO.self, from: json)
+
+        let target = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
+        _ = try await BackupService.make(container: target).restore(decoded, availableMedia: [], now: now)
+        let again = try await BackupService.make(container: target).snapshot(now: now, appVersion: "1.1") { _ in nil }
+        #expect(again == exported)
+
+        let names = try ModelContext(target).fetch(
+            FetchDescriptor<WishlistItem>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
+        ).map(\.name)
+        #expect(names == ["bike", "headphones", "sofa"])
+        let titles = try ModelContext(target).fetch(FetchDescriptor<TaskItem>(sortBy: [SortDescriptor(\.sortOrder)]))
+            .map(\.title)
+        #expect(titles == ["one", "two", "three"])
     }
 
     @Test func emptyBatchesSaveNothing() async throws {

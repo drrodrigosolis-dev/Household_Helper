@@ -4421,6 +4421,16 @@
         }
       }
     },
+    "Skipped: already checked off": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Omitido: ya estaba marcado"
+          }
+        }
+      }
+    },
     "Skipped: nothing left to add": {
       "localizations": {
         "es": {

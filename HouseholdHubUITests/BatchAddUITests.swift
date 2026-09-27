@@ -47,6 +47,22 @@ final class BatchAddUITests: XCTestCase {
         XCTAssertFalse(taskCard(app, containing: "book dentist").waitForExistence(timeout: 2), "Cancel adds nothing")
     }
 
+    /// Review F1: switching Quick Add to Task and back must not reset an amount the user corrected by hand.
+    @MainActor
+    func testQuickAddKeepsAnEditedAmountAcrossTypeSwitches() {
+        let app = launchApp()
+        let field = openQuickAdd(app)
+        typeIntoQuickAdd(field, "47.50 coffee")
+        let amount = app.textFields["quickadd.amount"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 10), "The parsed amount should open the details")
+        replaceText(in: amount, with: "45.00")
+        let types = app.segmentedControls["quickadd.type"]
+        types.buttons["Task"].tap()
+        types.buttons["Expense"].tap()
+        XCTAssertTrue(amount.waitForExistence(timeout: 5))
+        XCTAssertEqual(amount.value as? String, "45.00", "Switching types reset the edited amount")
+    }
+
     // MARK: Helpers
 
     @MainActor

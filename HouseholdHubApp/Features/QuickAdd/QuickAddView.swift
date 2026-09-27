@@ -70,6 +70,8 @@ struct QuickAddView: View {
     @State private var amountText = ""
     @State private var categoryID: UUID?
     @State private var occurredAt = Date.now
+    /// A task's due date, kept apart from the transaction date so switching the type never moves either one.
+    @State private var dueDate = Date.now
     @State private var hasDueDate = false
     @State private var dueFromText = false
     @State private var notes = ""
@@ -162,9 +164,14 @@ struct QuickAddView: View {
                 if new != suggestionEntry {
                     suggestionTask?.cancel()
                 }
-                // Tasks read the line with their own grammar (Sprint 17), so switching to or from Task re-reads it.
+                // Tasks read the line with their own grammar (Sprint 17). Switching to or from Task only swaps the
+                // text the line produced, and only if it wasn't edited; dates and amounts are left alone.
                 if old == .task || new == .task {
-                    applyParse()
+                    let description = lineDescription(for: new)
+                    if notes == notesFromText {
+                        notes = description
+                    }
+                    notesFromText = description
                 }
             }
             .onAppear {
@@ -188,7 +195,7 @@ struct QuickAddView: View {
             if entry == .task {
                 Toggle("Due date", isOn: $hasDueDate)
                 if hasDueDate {
-                    DatePicker("Due", selection: $occurredAt, displayedComponents: .date)
+                    DatePicker("Due", selection: $dueDate, displayedComponents: .date)
                 }
             } else {
                 FocusingRow(amountLabel) {
@@ -239,6 +246,18 @@ struct QuickAddView: View {
         categories.filter { !$0.isArchived && $0.kind.allows(type) }
     }
 
+    /// The title or notes text the quick line gives for `entry`: tasks keep numbers and drop a forward date word;
+    /// the others use the transaction grammar.
+    private func lineDescription(for entry: Entry) -> String {
+        let calendar = HouseholdCalendar(timeZone: .current)
+        if entry == .task {
+            return TaskLineParser(calendar: calendar).parse(text, now: .now).title
+        }
+        guard let currency = try? Currency(code: currencyCode) else { return notesFromText }
+        let parser = QuickAddParser(currency: currency, categories: [], calendar: calendar)
+        return parser.parse(text, now: .now).description
+    }
+
     /// Mirrors the parse into the structured fields; the fields stay editable afterwards (§25.4).
     private func applyParse() {
         guard let currency = try? Currency(code: currencyCode) else { return }
@@ -251,7 +270,7 @@ struct QuickAddView: View {
         let parsed = parser.parse(text, now: now)
         // A task reads its line with the task grammar (Sprint 17): the due date looks forward ("friday" is the next
         // one, not the last) and numbers stay in the title ("buy 2 lightbulbs").
-        let taskLine = entry == .task ? TaskLineParser(calendar: calendar).parse(text, now: now) : nil
+        let taskLine = TaskLineParser(calendar: calendar).parse(text, now: now)
         // Wishlist and Task are explicit choices; a leading "+" only switches between Expense and Income.
         if parsed.type == .income, entry == .expense || entry == .income {
             entry = .income
@@ -260,7 +279,7 @@ struct QuickAddView: View {
             entry = .expense
             typeFromText = false
         }
-        if let parsedAmount = parsed.amount, taskLine == nil {
+        if let parsedAmount = parsed.amount {
             amountText = LedgerFormat.editableAmount(parsedAmount)
             amountFromText = true
             showDetails = true
@@ -275,16 +294,16 @@ struct QuickAddView: View {
             categoryID = nil
             categoryFromText = false
         }
-        occurredAt = taskLine?.dueDate ?? parsed.occurredAt
-        // A date word moved the date away from now: for a task that is the due date.
-        if taskLine.map({ $0.dueDate != nil }) ?? (parsed.occurredAt != now) {
+        occurredAt = parsed.occurredAt
+        if let due = taskLine.dueDate {
+            dueDate = due
             hasDueDate = true
             dueFromText = true
         } else if dueFromText {
             hasDueDate = false
             dueFromText = false
         }
-        let description = taskLine?.title ?? parsed.description
+        let description = entry == .task ? taskLine.title : parsed.description
         if notes == notesFromText {
             notes = description
         }
@@ -419,7 +438,7 @@ struct QuickAddView: View {
     }
 
     private func saveTask(_ services: AppServices) async {
-        let due = hasDueDate ? HouseholdCalendar(timeZone: .current).startOfDay(for: occurredAt) : nil
+        let due = hasDueDate ? HouseholdCalendar(timeZone: .current).startOfDay(for: dueDate) : nil
         let draft = TaskDraft(title: trimmedNotes, dueDate: due)
         do {
             try await services.board.createTask(draft, now: .now)

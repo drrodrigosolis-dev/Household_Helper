@@ -1,8 +1,9 @@
 import Foundation
 
 /// Reads one task line (Sprint 17, decision 3). One date word becomes the due date and looks forward: `today`/`hoy`,
-/// `tomorrow`/`mañana`, or a weekday (full or three letters, English or Spanish) meaning its next occurrence, today
-/// included. Everything else, numbers too, stays in the title ("buy 2 lightbulbs"). A line that is only a date word
+/// `tomorrow`/`mañana`, or a weekday meaning its next occurrence, today included. Weekdays are full names (English or
+/// Spanish) or the English `tue`, `thu`, `fri`; other three-letter forms are ordinary words too often ("sun cream",
+/// "ir al mar"), so they stay in the title. Everything else, numbers too, stays in the title ("buy 2 lightbulbs"). A line that is only a date word
 /// keeps it as the title.
 public struct TaskLineParser: Sendable {
     public let calendar: HouseholdCalendar
@@ -10,6 +11,9 @@ public struct TaskLineParser: Sendable {
     public init(calendar: HouseholdCalendar) {
         self.calendar = calendar
     }
+
+    /// Unambiguous short forms, as indexes into `QuickAddParser.weekdays`.
+    static let shortWeekdays = ["tue": 2, "thu": 4, "fri": 5]
 
     public struct Result: Equatable, Sendable {
         public var title: String
@@ -35,10 +39,10 @@ public struct TaskLineParser: Sendable {
         let word = QuickAddParser.fold(token.trimmingCharacters(in: CharacterSet(charactersIn: ".,;:!?")))
         if word == "today" || word == "hoy" { return 0 }
         if word == "tomorrow" || word == "manana" { return 1 }
-        let matches: (String) -> Bool = { $0 == word || ($0.prefix(3) == word && word.count == 3) }
         guard
-            let index = QuickAddParser.weekdays.firstIndex(where: matches)
-                ?? QuickAddParser.spanishWeekdays.firstIndex(where: matches)
+            let index = QuickAddParser.weekdays.firstIndex(of: word)
+                ?? QuickAddParser.spanishWeekdays.firstIndex(of: word)
+                ?? Self.shortWeekdays[word]
         else { return nil }
         let today = calendar.calendar.component(.weekday, from: now)
         return (index + 1 - today + 7) % 7
@@ -83,11 +87,17 @@ public struct WishlistLineParser: Sendable {
                 }
             }
         }
-        let tags = tokens.filter { $0.hasPrefix("#") && $0.count > 1 }.map { String($0.dropFirst()) }
-        tokens.removeAll { $0.hasPrefix("#") && $0.count > 1 }
-        let categoryID = tags.first.flatMap { tag in
-            categories.first { $0.kind.allows(.expense) && $0.name.range(of: tag, options: .caseInsensitive) != nil }?
-                .id
+        // The first #tag that names an expense category picks it and is removed; any other tag stays in the name.
+        var categoryID: UUID?
+        if let index = tokens.firstIndex(where: { $0.hasPrefix("#") && $0.count > 1 }) {
+            let tag = String(tokens[index].dropFirst())
+            categoryID =
+                categories.first {
+                    $0.kind.allows(.expense) && $0.name.range(of: tag, options: .caseInsensitive) != nil
+                }?.id
+            if categoryID != nil {
+                tokens.remove(at: index)
+            }
         }
         return Result(
             name: tokens.joined(separator: " "), price: price, priceTooLarge: tooLarge, categoryID: categoryID)
@@ -104,6 +114,8 @@ public enum BatchAddKind: String, CaseIterable, Sendable {
 public enum BatchSkipReason: Equatable, Sendable {
     /// Nothing is left once the date word, price, or tag is read.
     case noText
+    /// Ticked in the pasted checklist ("- [x] milk"): already done, so not added as a new item.
+    case checkedOff
     case priceTooLarge
     /// Past `BatchAddPlanner.maxItems`.
     case overLimit
@@ -168,6 +180,8 @@ public struct BatchAddPlanner: Sendable {
             let result: BatchLineResult
             if accepted >= Self.maxItems {
                 result = .skipped(.overLimit)
+            } else if Self.isCheckedOff(raw) {
+                result = .skipped(.checkedOff)
             } else {
                 result = read(body, now: now)
             }
@@ -194,11 +208,17 @@ public struct BatchAddPlanner: Sendable {
         }
     }
 
+    /// A ticked checklist line: "[x] milk", "- [X] milk", "☑ milk", "✅ milk".
+    static func isCheckedOff(_ line: String) -> Bool {
+        let body = line.trimmingCharacters(in: .whitespaces)
+        return body.prefixMatch(of: /(?:[-*•–]\s+)?(?:\[[xX]\]|☑|✅)\s*/) != nil
+    }
+
     /// Removes up to two leading list markers ("- [ ] milk" → "milk") and surrounding whitespace.
     static func stripMarkers(_ line: String) -> String {
         var body = line.trimmingCharacters(in: .whitespaces)
         for _ in 0..<2 {
-            guard let match = body.prefixMatch(of: /(?:[-*•–]|\[[ xX]?\]|☐|☑|\d{1,3}[.)])\s+/) else { break }
+            guard let match = body.prefixMatch(of: /(?:[-*•–]|\[[ xX]?\]|☐|☑|✅|\d{1,3}[.)])\s+/) else { break }
             body = String(body[match.range.upperBound...]).trimmingCharacters(in: .whitespaces)
         }
         return body
