@@ -224,3 +224,5 @@ survives relaunches and is not reset by `-uiTesting`. After uninstalling the app
 unaffected (fresh simulator), but consider having `-uiTesting` use a throwaway UserDefaults suite or clear the
 reminder keys, so a hand walk can't break the suite. Launch metric this run: 1.160 s average.
 Local queue is now empty (L-001…L-010 all answered). Simulator restored to en-CA; Household Hub uninstalled.
+
+## Re L-011 — taken
