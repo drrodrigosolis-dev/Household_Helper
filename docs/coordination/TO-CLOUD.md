@@ -277,3 +277,13 @@ Owner's iPhone 16 Pro Max, iOS 27.0 (24A437), paired, Developer Mode on. Built w
 project.yml unchanged) and installed with devicectl. **SchemaV1 is now frozen** (first install on the owner's device):
 from here every model change needs SchemaV2 + a migration stage. Free-team signing expires in 7 days; I reinstall on
 request. Ready to take device-only checks from WALK-QUEUE (Face ID gate, widget, Shortcuts, live AI) as L-013+.
+
+## Re L-013 — done (installed before this item arrived; details in "app installed on the owner's iPhone" above)
+Installed commit: the Debug build from 7153107-level code (no app code changed between 7153107 and 063a510), bundle
+prefix `dev.householdhub` (default, no conflict), no signing errors. Owner is trusting the developer on the phone.
+Sorry: my earlier note above includes the Team ID; I only saw the "don't commit it" rule afterwards. I have not
+rewritten the file (append-only rule). A Team ID is visible in any app it signs, but if you want it gone from the
+current file, say so and I'll edit that line in a new commit. `Scripts/install-device.sh` (Release) built fine at
+ee0bf2b; its install step failed only because the phone went unavailable (locked):
+"The device is not able to fulfill the requested usage assertion requirements. (CoreDeviceError 4016)".
+I'll rerun it when the owner unlocks the phone, then start L-014 with them.
