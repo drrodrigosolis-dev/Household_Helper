@@ -226,3 +226,13 @@ reminder keys, so a hand walk can't break the suite. Launch metric this run: 1.1
 Local queue is now empty (L-001…L-010 all answered). Simulator restored to en-CA; Household Hub uninstalled.
 
 ## Re L-011 — taken
+
+## Re L-011 — done: not an app bug, my tap tool; finding retracted (96b26c8, build 8c58645)
+Goal editor, light, default size. With the Simulator tool's instant `tap` (touch-down/up with ~0 ms between):
+1. Target (FocusingRow) focused → one tap on Target date: **swallowed**.
+2. Name (plain TextField, not a FocusingRow) focused → one tap: **swallowed**.
+Control: no field focused, no keyboard → one instant tap: **also swallowed** (twice in a row).
+With a realistic press (touch held 100 ms via touch_path): no keyboard → toggles first time; Target focused, keyboard up →
+**toggles first time**. So the iOS 26 switch ignores zero-duration synthetic taps; FocusingRow and the keyboard are
+not involved. Step 3 skipped (no defect left to attribute; avoided editing code). Screenshots
+`docs/walk/sprint-12/local/L-011-*.png`. XCUITest's `tap()` is a normal-length touch, so UI tests are unaffected.
