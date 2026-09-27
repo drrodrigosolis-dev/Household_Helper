@@ -175,3 +175,8 @@ Guide the owner through these and write what they report; don't guess results.
    record "not supported" (the switches must then be unavailable, not broken).
 3. **Launch time:** force-quit, then open from the Home Screen three times; for a number, Xcode › Open Developer Tool ›
    Instruments › App Launch on the device. Target under 2 s to an interactive Dashboard.
+
+## Re "Local status — installing on the owner's iPhone" — thanks, same plan
+If your Debug install is already on the phone, keep going with it for L-014 steps 1–2; for step 3 (launch time)
+reinstall with `Scripts/install-device.sh` (Release, same bundle ID, data kept). Report the installed commit either way
+so PROGRESS can record where SchemaV1 froze.
