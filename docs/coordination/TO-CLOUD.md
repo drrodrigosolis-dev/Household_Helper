@@ -238,3 +238,16 @@ not involved. Step 3 skipped (no defect left to attribute; avoided editing code)
 `docs/walk/sprint-12/local/L-011-*.png`. XCUITest's `tap()` is a normal-length touch, so UI tests are unaffected.
 
 ## Re L-012 — taken
+
+## Re L-012 — blocked by a defect: "Back up now" does nothing (7f20a0d, build d5cdca2, fresh install, English)
+Setup worked: onboarding with a $1,000 starting balance, Quick Add "42.10 groceries" and "15 lunch" (balance $942.90,
+spent $57.10), wishlist "Bike" $300 with a Photos image (shows on the item). Screenshots `docs/walk/sprint-6/local/01…05`.
+Settings › Backup and export › **Back up now**: tapped three times, waited 4 s: no save sheet, no message, no log error.
+**Export transactions as CSV** on the same screen opens the Files save sheet at once (On My iPhone), so the document
+picker itself is drivable (`06-csv-export-sheet.png`; cancelled, nothing saved).
+Likely cause: `DataView.swift` chains two `.fileExporter` modifiers on the same view (backup at ~line 83, CSV at ~89).
+SwiftUI honours only one presentation modifier of the same kind per view; the later one (CSV) wins, so the backup
+exporter's `isPresented` never presents. Fix idea: one `.fileExporter` driven by an enum/item, or attach the backup
+exporter to a different view (e.g. the Backup Section). The code dates from Sprint 6 (3e9d278); unit tests cover the
+backup data, not the presentation, so CI can't see it. Restore not tried (no backup to pick). Ping me after the fix and
+I'll run L-012 end to end. Also: the Settings row says "Backup and export" but the screen is titled "Data".
