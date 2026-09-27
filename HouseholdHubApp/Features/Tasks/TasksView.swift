@@ -19,8 +19,8 @@ struct TasksView: View {
     @State private var errorMessage: String?
     /// Sprint 14: narrows every column to the tasks whose title, notes or subtasks match.
     @State private var searchText = ""
-    /// Sprint 18: the column centered on the board. Follows swipes, and moves to a column a task is moved or
-    /// dragged into.
+    /// Sprint 18: the column in focus, at the left edge of the board. Follows swipes, and moves to a column a task
+    /// is moved or dragged into.
     @State private var focusedColumn: UUID?
     /// Drop targets under a drag right now (a column, or a card), each mapped to its column. Kept as a set rather
     /// than one value because entering a card and leaving its column arrive in no fixed order.
@@ -81,7 +81,7 @@ struct TasksView: View {
         }
     }
 
-    /// Each column is 2/3 of the board's width, centered, with its neighbors peeking in on both sides (Sprint 18).
+    /// Each column is 2/3 of the board's width, at the left edge, with the next one peeking in (Sprint 18).
     private var board: some View {
         GeometryReader { proxy in
             let columnWidth = (proxy.size.width * 2 / 3).rounded()
@@ -94,9 +94,13 @@ struct TasksView: View {
                 }
                 .scrollTargetLayout()
             }
-            .contentMargins(.horizontal, (proxy.size.width - columnWidth) / 2, for: .scrollContent)
+            // Owner decision (Sprint 18 walk): columns line up with the left edge and the next one peeks in on the
+            // right. The trailing margin lets the last column reach the left edge too.
+            .contentMargins(.leading, Self.edge, for: .scrollContent)
+            .contentMargins(.trailing, proxy.size.width - columnWidth - Self.edge, for: .scrollContent)
             .scrollTargetBehavior(.viewAligned)
-            .scrollPosition(id: $focusedColumn, anchor: .center)
+            .scrollPosition(id: $focusedColumn, anchor: .leading)
+            .overlay(alignment: .leading) { previousColumnStrip }
         }
         .onChange(of: hoveredColumn) { _, column in springLoad(column) }
         .safeAreaInset(edge: .bottom) {
@@ -106,10 +110,42 @@ struct TasksView: View {
         }
     }
 
+    /// Space before the column in focus.
+    private static let edge: CGFloat = 16
+    /// The drop strip along the left edge stands for the previous column, which no longer peeks in.
+    private static let previousStripKey = UUID()
+
+    /// The column before the one in focus, if any.
+    private var previousColumn: UUID? {
+        guard let index = columns.firstIndex(where: { $0.id == (focusedColumn ?? columns.first?.id) }), index > 0
+        else { return nil }
+        return columns[index - 1].id
+    }
+
+    /// With columns at the left edge the previous one is out of sight, so a drag resting on the left edge slides
+    /// back to it (spring-loading, like the peeking column on the right), and a drop there moves the task into it.
+    @ViewBuilder
+    private var previousColumnStrip: some View {
+        if let previous = previousColumn {
+            // Only the margin before the column, so it never covers a card's tap area.
+            Color.clear
+                .frame(width: Self.edge)
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .dropDestination(for: String.self) { items, _ in
+                    drop(items, into: previous, at: Int.max)
+                } isTargeted: {
+                    dropTargeted($0, key: Self.previousStripKey, column: previous)
+                }
+                .accessibilityHidden(true)
+        }
+    }
+
     /// The column a drag is over, if any.
     private var hoveredColumn: UUID? { dropTargets.values.first }
 
-    /// Spring-loading (Sprint 18): a drag that rests on a peeking column for 0.6 s centers it, so a task can travel
+    /// Spring-loading (Sprint 18): a drag that rests on a peeking column (or the left edge, for the previous one) for
+    /// 0.6 s brings it into focus, so a task can travel
     /// across several columns in one drag. SwiftUI has no edge auto-scroll while dragging. The slide moves the next
     /// column under a finger that stays still, so the column a drop would land in is outlined (`columnView`).
     private func springLoad(_ column: UUID?) {
@@ -246,7 +282,7 @@ struct TasksView: View {
         return true
     }
 
-    /// A move into another column centers that column; a move within a column leaves the board where it is.
+    /// A move into another column brings that column into focus; a move within a column leaves the board where it is.
     private func move(_ task: TaskItem, to columnID: UUID, at index: Int) {
         let id = task.id
         if task.columnID != columnID { focus(columnID) }

@@ -4,12 +4,14 @@ Owner request 2026-09-27 (decision 27): columns "use only 2/3 of the screen", an
 brings that column into focus. Owner answer: also auto-scroll while dragging.
 
 ## Decisions (defaults set by the cloud session; owner may overrule)
-1. **Width:** every column is 2/3 of the board's width, centered; the neighbors peek in on both sides (about 1/6
-   each, less the spacing). The first and last columns center too (blank margin beside them). Same at every text size.
+1. **Width:** every column is 2/3 of the board's width. **Owner decision (walk, 2026-09-27): aligned with the left
+   edge** (16 pt margin), the next column peeking in on the right; centering left an empty strip beside the first
+   column. The previous column is then out of sight, so the left-edge margin is a drop strip: resting a dragged task
+   there brings the previous column back, and dropping there moves the task into it. Same at every text size.
 2. **Focus after a move:** after a drop into another column, and after "Move to…" from the task menu, the board
-   slides to center that column. Moving within a column doesn't scroll.
-3. **Auto-scroll while dragging (spring-loading):** hovering a dragged task over a peeking column for 0.6 s centers
-   that column, so a task can travel across several columns in one drag, in either direction. SwiftUI has no edge
+   slides that column to the left edge. Moving within a column doesn't scroll.
+3. **Auto-scroll while dragging (spring-loading):** hovering a dragged task over a peeking column for 0.6 s brings it
+   into focus (the left edge does the same for the previous column), so a task can travel across several columns in one drag, in either direction. SwiftUI has no edge
    auto-scroll; spring-loading on the peeking column is the reliable equivalent (like the Home Screen). Known
    trade-off: the slide puts the *next* column under a finger that stays still, so the column a drop would land in
    is outlined in the accent color; releasing late on the far edge drops one column further (device walk item).
@@ -19,7 +21,7 @@ brings that column into focus. Owner answer: also auto-scroll while dragging.
 ## Items
 | # | Item | Built (CI green) | Walked |
 |---|---|---|---|
-| 1 | Board: 2/3-width centered columns with scroll position | ☐ | ☐ |
+| 1 | Board: 2/3-width columns at the left edge (owner decision), scroll position | ☐ | ☐ |
 | 2 | Focus the destination after a drop or Move to… | ☐ | ☐ |
 | 3 | Spring-loaded hover while dragging | ☐ | ☐ (drag feel: device) |
 | 4 | UI test: column width, drag to the next column focuses it; screenshots | ☐ | ☐ |
