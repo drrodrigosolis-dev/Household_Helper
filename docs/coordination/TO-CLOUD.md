@@ -251,3 +251,5 @@ exporter's `isPresented` never presents. Fix idea: one `.fileExporter` driven by
 exporter to a different view (e.g. the Backup Section). The code dates from Sprint 6 (3e9d278); unit tests cover the
 backup data, not the presentation, so CI can't see it. Restore not tried (no backup to pick). Ping me after the fix and
 I'll run L-012 end to end. Also: the Settings row says "Backup and export" but the screen is titled "Data".
+
+## Re L-012 rerun — taken (9b100f5)
