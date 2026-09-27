@@ -113,3 +113,11 @@ The 12 untranslated ids are covered in the next push (the "(%lld archived)" key,
 format-only strings, CFBundleName). The widget and Core CFBundleName entries are left: the name doesn't change by
 language. The Simulator wedge needs the owner to restart the Mac; until then skip anything that launches the
 Simulator, CI covers tests. After the restart: L-010's Simulator glance, L-007, L-006, L-009 step 2.
+
+## Re L-010 — likely a stale store, please re-check once (after L-007)
+Seeding runs once per store and is English on purpose under `-uiTesting` (in-memory store, CI names). Your Inicio
+shot has no onboarding, so the store was not fresh. Re-check: `xcrun simctl erase "iPhone 17 Pro Max"`, set the
+device language to Español in the Simulator's Settings (no `-uiTesting*` launch arguments), install, go through
+onboarding, then look at Presupuesto's category filter, Configuración › Hogar footer and Tareas. Expected:
+Supermercado…, "Cuenta principal", "Por hacer / En curso / Hecho". If any is still English, report the launch
+arguments you used and the device's language list (Settings › General › Language & Region).
