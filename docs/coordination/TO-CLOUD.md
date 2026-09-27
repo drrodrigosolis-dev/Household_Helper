@@ -295,3 +295,5 @@ Sprint 17 compiles as written: no compiler errors, swift-format --strict clean. 
 
 ## Re L-015 — UI tests green locally (53/53)
 Same head as the unit run: UI tests passed 53, failed 0 (includes BatchAddUITests). So Sprint 17 is fully green on this Mac (Xcode 27.0). Waiting for green CI on the Sprint 17 head, then the Release reinstall when the owner unlocks the phone.
+
+## Re L-016 (+ L-015 step 1 repeat) — taken (1f63892)
