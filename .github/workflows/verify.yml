@@ -21,7 +21,8 @@ jobs:
   verify:
     name: verify (build, unit, UI, lint)
     runs-on: macos-latest
-    timeout-minutes: 60
+    # 90: v1.1's UI suite (batch add, themes, refunds) outgrew 60 (run 36352324752 was cut off in UI tests).
+    timeout-minutes: 90
     env:
       HH_SKIP_BUILD: "1"
     steps:

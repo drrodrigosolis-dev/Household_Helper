@@ -55,9 +55,12 @@ final class RefundUITests: XCTestCase {
         let save = app.buttons["refund.save"]
         XCTAssertTrue(save.waitForExistence(timeout: 5), "Refund sheet did not open")
         save.tap()
-        let keep = app.buttons["Keep on wishlist"]
-        XCTAssertTrue(keep.waitForExistence(timeout: 10), "A full refund of a wishlist purchase should ask")
-        XCTAssertTrue(app.buttons["Remove from wishlist"].exists)
+        // The alert's buttons: the purchase's editor behind it offers the same choice (review S5).
+        let alert = app.alerts["Keep it on your wishlist?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 10), "A full refund of a wishlist purchase should ask")
+        let keep = alert.buttons["Keep on wishlist"]
+        XCTAssertTrue(keep.exists)
+        XCTAssertTrue(alert.buttons["Remove from wishlist"].exists)
         captureScreen(app, named: "sprint20-wishlist-keep-or-remove-dark")
         keep.tap()
 

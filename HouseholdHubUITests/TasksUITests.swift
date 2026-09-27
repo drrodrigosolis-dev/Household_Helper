@@ -60,8 +60,8 @@ final class TasksUITests: XCTestCase {
         XCTAssertTrue(taskCard(app, containing: "call plumber").waitForExistence(timeout: 10), "Task missing")
     }
 
-    /// Sprint 18: each column is 2/3 of the screen, centered with its neighbors peeking in, and a task dropped on
-    /// the next column brings that column to the center.
+    /// Sprint 18: each column is 2/3 of the screen at the left edge with the next one peeking in (owner decision),
+    /// and a task dropped on the next column brings that column into focus at the left edge.
     @MainActor
     func testColumnsAreTwoThirdsWideAndADropFocusesTheNextColumn() {
         let app = launchApp()
@@ -72,7 +72,9 @@ final class TasksUITests: XCTestCase {
         // The header sits inside the column's 12 pt padding on each side.
         let share = (toDo.frame.width + 24) / window.width
         XCTAssertEqual(share, 2.0 / 3.0, accuracy: 0.04, "A column should be 2/3 of the screen wide")
-        XCTAssertEqual(toDo.frame.midX, window.midX, accuracy: 8, "The first column should start centered")
+        // The header sits 12 pt inside its column, which starts 16 pt from the edge.
+        let leftEdge = window.minX + 28
+        XCTAssertEqual(toDo.frame.minX, leftEdge, accuracy: 8, "The first column should start at the left edge")
         captureScreen(app, named: "sprint18-board-light")
 
         let card = taskCard(app, containing: "Water plants")
@@ -82,11 +84,11 @@ final class TasksUITests: XCTestCase {
         let inProgress = columnHeader(app, "In Progress")
         // Frames are read on the main actor, so this polls instead of using a predicate expectation.
         let deadline = Date.now.addingTimeInterval(10)
-        while abs(inProgress.frame.midX - window.midX) >= 8, Date.now < deadline {
+        while abs(inProgress.frame.minX - leftEdge) >= 8, Date.now < deadline {
             Thread.sleep(forTimeInterval: 0.25)
         }
-        XCTAssertEqual(inProgress.frame.midX, window.midX, accuracy: 8, "In Progress was not focused")
-        XCTAssertEqual(card.frame.midX, window.midX, accuracy: 8, "The card should be in the focused column")
+        XCTAssertEqual(inProgress.frame.minX, leftEdge, accuracy: 8, "In Progress was not focused")
+        XCTAssertEqual(card.frame.minX, leftEdge, accuracy: 8, "The card should be in the focused column")
         captureScreen(app, named: "sprint18-board-after-drop-light")
         card.tap()
         XCTAssertTrue(waitForRow(app, identifier: "task.column", toRead: "In Progress"), "The drop did not move it")

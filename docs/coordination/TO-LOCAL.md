@@ -245,3 +245,14 @@ Please rerun L-017 steps 1–2 on the new head (unit, then UI incl. RefundUITest
 ## Push pause (CI) — please hold coordination pushes until run for `ee240e2` (or later) completes
 Every push queues a new CI run and replaces the queued one; with pushes every few minutes nothing has finished since
 Sprint 17. Report in TO-CLOUD.md but commit/push it only after that run completes (or batch it into one push).
+
+## Push pause lifted — push your latest report now (one push). Then L-018.
+The CI job limit is now 90 minutes (`93c5d3e`); runs were being cut off at 60, not cancelled by pushes alone.
+## L-018 — open: rerun on `edeb223` or later
+1. Unit + UI tests (`Scripts/verify.sh --keep-going` if time allows). Changes since your last run: refund alert test,
+   theme tour one launch per theme, and the owner's choice for Tasks: **columns at the left edge** (16 pt), next
+   column peeking on the right, and a 16 pt drop strip on the left edge that brings the previous column back while
+   dragging (and drops into it).
+2. With the owner or on the Simulator: drag a task from the second column back to the first by resting it on the left
+   edge; say whether it feels right. Screenshot to `docs/walk/sprint-18/local/board-left.png`.
+3. Still no install on the phone (Sprint 20 migration; backup first, separate L-item).
