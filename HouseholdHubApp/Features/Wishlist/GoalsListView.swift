@@ -104,7 +104,7 @@ struct GoalRow: View {
             rowLayout {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(status.rule.name)
-                    Text(GoalFormat.savedLine(status, accountName: accountName))
+                    Text(GoalFormat.savedLine(status, accountName: accountName, stacked: typeSize.isAccessibilitySize))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -142,10 +142,11 @@ struct GoalRow: View {
 
 /// Goal wording (Sprint 12 decisions 3 and 4): words and colour, never colour alone.
 enum GoalFormat {
-    static func savedLine(_ status: GoalStatus, accountName: String?) -> String {
+    /// `stacked` puts the account on its own line, so a wrapped "·" never starts a line (local Sprint 12 walk).
+    static func savedLine(_ status: GoalStatus, accountName: String?, stacked: Bool = false) -> String {
         let saved = String(localized: "\(status.saved.formatted()) of \(status.rule.target.formatted())")
         guard let accountName else { return saved }
-        return saved + " · " + accountName
+        return saved + (stacked ? "\n" : " · ") + accountName
     }
 
     static func leftText(_ status: GoalStatus) -> String {

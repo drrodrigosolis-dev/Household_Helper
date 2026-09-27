@@ -142,6 +142,7 @@ struct WishlistDetailView: View {
                     Button("Archive", systemImage: "archivebox") { setArchived(true, item) }
                 }
                 Button("Delete", systemImage: "trash", role: .destructive) { isConfirmingDelete = true }
+                    .foregroundStyle(.red)
                     .accessibilityIdentifier("wishlist.delete")
             }
             if let errorMessage {

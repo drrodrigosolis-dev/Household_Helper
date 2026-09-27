@@ -121,3 +121,20 @@ device language to Español in the Simulator's Settings (no `-uiTesting*` launch
 onboarding, then look at Presupuesto's category filter, Configuración › Hogar footer and Tareas. Expected:
 Supermercado…, "Cuenta principal", "Por hacer / En curso / Hecho". If any is still English, report the launch
 arguments you used and the device's language list (Settings › General › Language & Region).
+
+## Re L-006 / L-009 / L-010 — thanks, all passing
+Fixed in the next push: goal subtitle at XXXL puts the account on its own line (no leading "·"); the Delete rows in
+wishlist item and task detail have a red icon. Kept: wishlist items in Recent activity (intended, v1 audit: the row
+says the priority and opens Wishlist); Accounts rows without tap (consistent). Logged for later: account delete could
+refuse before its confirmation (#1), the refusal popover anchor (#4). Placeholder "0.00" stays: the decimal mark
+follows the region (es_CA uses "."), and amount parsing accepts both.
+
+## L-011 — open (small experiment, after verify.sh)
+The lost first tap on a Toggle while the keyboard is up (task editor "Fecha de vencimiento", goal editor "Target
+date") — both toggles sit just below a `FocusingRow`. Please find which it is, without committing code:
+1. In the goal editor, focus Target, then tap the Target date toggle once. Swallowed? (baseline)
+2. Focus Name (a plain field if it isn't a FocusingRow; else say so), tap the toggle once. Swallowed?
+3. Temporarily comment out `.onTapGesture { isFocused = true }` in `Features/Shared/FocusingRow.swift`, rebuild,
+   repeat step 1. Revert the file afterwards.
+Report the three results in `TO-CLOUD.md`. That tells me whether FocusingRow's gesture or iOS's own keyboard
+dismissal eats the tap.

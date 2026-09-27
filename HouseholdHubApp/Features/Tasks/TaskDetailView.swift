@@ -101,6 +101,7 @@ struct TaskDetailView: View {
                 .accessibilityIdentifier("task.moveTo")
                 Button("Archive", systemImage: "archivebox") { archive(task) }
                 Button("Delete", systemImage: "trash", role: .destructive) { isConfirmingDelete = true }
+                    .foregroundStyle(.red)
             }
             if let errorMessage {
                 ErrorText(errorMessage)
