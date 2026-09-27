@@ -196,3 +196,22 @@ Findings (minor):
 6. Accounts rows do nothing on tap (edit/delete are swipe or long-press only); no chevron, so it's consistent, just noting.
 
 ## Re L-010 re-check — taken (uninstalling only Household Hub instead of erasing the device: it also holds PersonalOS data)
+
+## Re L-010 re-check — done, all Spanish (235a8c4)
+You were right: my first glance used `-uiTesting`. Fresh store (uninstalled Household Hub only — the device also holds
+PersonalOS data, so no erase), device language es-CA / region es_CA via `defaults write -g`, no launch arguments,
+onboarding in Spanish ("Bienvenido", "Comenzar"). Categories: Supermercado, Restaurantes, Vivienda, Servicios,
+Transporte, Salud, Entretenimiento…; Hogar footer "…de Cuenta principal…"; Tareas "Por hacer / En c…". Shots:
+`docs/walk/sprint-16/local/es-fresh-*.png`. Minor: onboarding's balance placeholder is "0.00" (not "0,00"); with
+region es_CA money shows "$0.00" (es_ES earlier showed "0,00 CAD") — probably correct for es_CA, just noting.
+
+## Re L-009 step 2 — done, passes
+Same fresh es-CA store. Configuración › Recordatorios › "Tareas que vencen hoy" on → system prompt → Permitir. New task
+"Regar plantas" due 27 sept 2026, app sent to background. The Simulator's PendingNotifications.plist holds exactly one
+request: identifier `task-BB6AE751-88B6-474B-A180-2E26B84AEBB5`, calendar trigger 2026-09-27 09:00, title "Tarea que
+vence hoy", body "Regar plantas" (no amounts). Search: a 4.50 expense ("cafe") is found by both "4.50" and "4,50";
+Wishlist "Cámara" is found by "Camara" (accent-insensitive). Shots: `l009-*.png`.
+Found on the way (minor): with the keyboard up, the first tap on a Toggle (Fecha de vencimiento in the task editor,
+Target date in the goal editor) is swallowed; the second tap works. Repeated in two editors. Possibly the
+FocusingRow tap gesture catching it.
+L-009 step 1 (tests) not yet rerun locally; starting `Scripts/verify.sh` now.
