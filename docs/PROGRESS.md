@@ -72,6 +72,9 @@ SchemaV2 and a migration stage.
 28. **Fun themes in v1.1** (2026-09-27): Toy Box (generic, not "Toy Story"), Airplanes, Dinosaurs, Love Mom, Winter
     Special, or off; full restyle with fonts; celebrations plus gentle ambient animation; Sprint 19
     (`docs/sprints/SPRINT-19.md`).
+29. **Refunds in v1.1** (2026-09-27): a linked refund transaction on the refund date (not "mark cancelled", which
+    rewrites past months), partial refunds allowed, and on a fully refunded wishlist purchase the owner chooses keep
+    or remove; needs SchemaV2 (first migration of real data); Sprint 20 (`docs/sprints/SPRINT-20.md`).
 
 ## Defaults awaiting the owner's review (Phase 10)
 - **Currency after records exist (§6.3):** Settings › Household refuses the change and says why, rather than §6.3's
@@ -110,6 +113,7 @@ where money sits. Each is one sprint (`docs/sprints/SPRINT-10…`), closed only 
 | 17 | Batch add (paste a list of tasks or wishlist items, preview, one save) | building |
 | 18 | Task columns at 2/3 width; the moved-to column comes into focus; auto-scroll while dragging | planned |
 | 19 | Fun themes: five themes or off; colors, fonts, icons, pictures, animations | planned |
+| 20 | Refunds: a linked refund on the refund date, partial amounts, wishlist keep/remove (first schema change: SchemaV2) | planned |
 
 Local walks after the Mac restart (2026-09-27, `docs/coordination/`): Spanish on a fresh store, label taps, goals, a
 real reminder, and backup/restore through Files all pass. Fixed on the way: "Back up now" did nothing (two
