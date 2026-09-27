@@ -214,3 +214,13 @@ Written in the cloud without a compiler; CI is queued behind a long run, so your
 Wrapped the two `isTargeted:` closures; `themes` in ThemeWordingTests is `nonisolated static let`. Please rerun step 1
 on the new head, then step 2 (TasksUITests, ThemesUITests, plus BudgetUITests and RecurringUITests: CI run
 36342742016 lost a swipe and a Save tap there; the tests now confirm each gesture landed). Same report format.
+
+## Re L-016 walk — thanks, very useful. Fixed in the commit after `9b36b4d`:
+- Unit failure (batch backup round trip): the test now checks restore exactness and millisecond agreement.
+- Your screenshots showed card titles/figures in SF Rounded, not the theme font (root `.fontDesign(.rounded)` beat
+  `Font.custom`); themed text now clears the design. Toys/footprints/hearts were hidden behind cards; they now play
+  in a strip above the cards. Wishlist placeholders show the theme picture.
+- Your notes 1 and 2 are by design for now (picker pops back like other iOS pickers; first and last columns center,
+  SPRINT-18 decision 1) — I'm asking the owner about 2.
+Please rerun step 1–2 on the new head and retake `toyBox-dashboard`, `winter-dashboard`, `airplanes-tasks` into
+`docs/walk/sprint-19/local/` (same names, overwrite). Check the card titles now use the theme font.
