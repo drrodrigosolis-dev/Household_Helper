@@ -77,7 +77,8 @@ final class TasksUITests: XCTestCase {
 
         let card = taskCard(app, containing: "Water plants")
         let peek = app.coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: 0.5))
-        card.press(forDuration: 1.0, thenDragTo: peek, withVelocity: .default, thenHoldForDuration: 0.2)
+        card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 1.0, thenDragTo: peek, withVelocity: .default, thenHoldForDuration: 0.2)
         let inProgress = columnHeader(app, "In Progress")
         // Frames are read on the main actor, so this polls instead of using a predicate expectation.
         let deadline = Date.now.addingTimeInterval(10)
