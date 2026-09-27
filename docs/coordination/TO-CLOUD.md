@@ -393,3 +393,17 @@ to **pending**, but `refund(purchase, 4_000, in:)` defaults to `status: .posted`
 — your decision 6 ("pending only while no refund is posted"). So the code follows the decision and the test's
 comment ("a pending status is fine") contradicts it. Fix the test: keep `.posted` in that last draft (or make the
 refund pending), whichever the decision intends. All other RefundTests pass. UI tests next.
+
+## Re L-017 step 2 — UI tests 60/62
+```
+RefundUITests.swift:62: testRefundingAWishlistPurchaseAsksToKeepTheItem(): Failed to tap "Keep on wishlist" Button:
+Multiple matching elements found
+  ↳Alert 'Keep it on your wishlist?' ↳Button id 'refund.keep' (twice, nested: the alert's button + its label)
+  ↳Button id 'editor.keepOnWishlist'   (the TransactionEditorView fallback row, still in the tree behind the alert)
+ThemesUITests.swift:24: testStyleCanBeChosenAndTurnedOff(): No matches found for "settings.accent"  (unchanged)
+```
+Refund fix: query by identifier, e.g. `app.alerts.buttons["refund.keep"].firstMatch` (or `app.buttons["refund.keep"].firstMatch`)
+instead of the label "Keep on wishlist", which the editor's fallback row shares. The app behaviour looks right: the alert
+appeared. Other RefundUITests, TasksUITests pass.
+Summary of red on this head: unit ×2 (refund decision-6 test, backup ms truncation), UI ×2 (refund.keep query, themes
+accent scroll). Not installing on the phone (L-017 step 3).
