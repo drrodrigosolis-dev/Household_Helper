@@ -4,13 +4,6 @@ Only items no automation can reach from the current environment. Each entry: spr
 result, and why it could not be walked automatically. Emptied at the next walk on the owner's Mac.
 
 ## Pending
-- **Sprint 6 (Phase 7) — backup and restore through the Files app.** On the Simulator or a device: add a few
-  transactions and a wishlist item with a photo; Settings › Backup and export › Back up now; save the folder in
-  Files. Delete the app's data (reinstall), finish onboarding, then Restore from backup… and pick the folder.
-  Expected: a confirmation that says everything will be replaced; afterwards balances, wishlist (with photo), and
-  tasks match the original. Why queued: the system document picker cannot be driven reliably by UI tests; the
-  backup format, validation, and restore are covered by unit tests.
-
 - **Sprint 7 (Phase 8) — on-device AI on a device with Apple Intelligence.** Settings › Intelligence: turn on all
   three switches. Quick Add: type "twelve dollars lunch" (amount and Dining should be suggested and labelled), then
   "47.50 coffee" (nothing from the model may override the parsed amount). Analytics › Summary › Write summary: the
@@ -38,6 +31,10 @@ result, and why it could not be walked automatically. Emptied at the next walk o
   no passcode, so the switch is unavailable there.
 
 ## Done
+- **Sprint 6 (Phase 7) — backup and restore through the Files app** (local Simulator, L-012, 2026-09-27). The first
+  try found "Back up now" did nothing: two `fileExporter`s on one view, only the last presented; fixed in `9b100f5`.
+  Rerun on `774d0c4`: backup saved to Files, app reinstalled, restore replaced everything; balances, both
+  transactions and the wishlist photo matched. Screenshots `docs/walk/sprint-6/local/rerun-*`.
 - ~~Cold-launch 22 s blank screen (run 36209505191).~~ Not reproduced: the launch metric in run 36216543703 measured 2.8–3.6 s; the slow UI-test starts were simulator warm-up and automation setup. The 2 s target itself is tracked under Launch baseline.
 - ~~Owner decision — Google Sheets export.~~ Dropped from v1 (owner, 2026-09-26); CSV covers it.
 - ~~Sprint 0/1 (Phases 0–1) — visual pass of the tab shell.~~ Covered by the automated screenshot walks from Sprint 2
