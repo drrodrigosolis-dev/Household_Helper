@@ -8,7 +8,8 @@ import Testing
 /// keeps its name.
 @MainActor
 struct ThemeWordingTests {
-    static let themes = FunTheme.allCases.filter { $0 != .off }
+    /// Nonisolated: `@Test(arguments:)` reads it outside the main actor.
+    nonisolated static let themes = FunTheme.allCases.filter { $0 != .off }
 
     private func column(_ name: String, system: Bool = true) -> BoardColumn {
         BoardColumn(name: name, sortOrder: 0, isSystem: system, now: .now)

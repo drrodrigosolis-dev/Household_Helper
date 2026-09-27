@@ -169,7 +169,9 @@ struct TasksView: View {
         }
         .dropDestination(for: String.self) { items, _ in
             drop(items, into: column.id, at: cards.count)
-        } isTargeted: { dropTargeted($0, key: column.id, column: column.id) }
+        } isTargeted: {
+            dropTargeted($0, key: column.id, column: column.id)
+        }
         .accessibilityIdentifier("tasks.column")
     }
 
@@ -181,7 +183,9 @@ struct TasksView: View {
         .draggable(task.id.uuidString)
         .dropDestination(for: String.self) { items, _ in
             drop(items, into: column.id, at: index)
-        } isTargeted: { dropTargeted($0, key: task.id, column: column.id) }
+        } isTargeted: {
+            dropTargeted($0, key: task.id, column: column.id)
+        }
         .contextMenu { menu(for: task, index: index, in: column, count: count) }
         .accessibilityActions { accessibilityMenu(for: task, index: index, in: column, count: count) }
     }
