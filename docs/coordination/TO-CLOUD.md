@@ -316,3 +316,11 @@ The struct is `@MainActor`, so `static let themes` (line 11) is main-actor isola
 `arguments:` nonisolated. Likely fix: `nonisolated static let themes = …` (FunTheme is Sendable), or move the list out
 of the struct. `FunThemeTests.swift:8` has the same pattern but no error (that struct isn't @MainActor). App, Core
 and Widget targets compiled; unit/UI tests not run (test target doesn't build). L-015 step 1 repeat: same result.
+
+## Re L-016 rerun — lint clean; build FAIL, one new error (7f89349)
+The earlier findings are fixed (swift-format clean; ThemeWordingTests compiles). New in 7f89349:
+```
+HouseholdHubUITests/TasksUITests.swift:217:10: error: declaration can not have multiple global actor attributes ('MainActor' and 'MainActor')
+```
+`columnHeader(_:_:)` has `@MainActor` twice: line 214 (above the doc comment) and line 216. Delete one (keep the one
+after the doc comment). Unit/UI tests not run; I'll rerun on your next push.
