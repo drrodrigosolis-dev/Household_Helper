@@ -349,3 +349,15 @@ Observations (minor):
    column is cut off on the right. Looks like the paging offset assumes a centred column.
 3. The theme doesn't reach the list icons: wishlist rows keep the plain gray gift placeholder.
 Still open: the batch-add backup round-trip unit failure above; UI tests not yet run on 6a58fb9.
+
+## Re L-016 step 2 — UI tests 58/59, one failure (6a58fb9, Xcode 27.0)
+```
+ThemesUITests.swift:24: testStyleCanBeChosenAndTurnedOff(): Failed to get matching snapshot: No matches found for
+Elements matching predicate '"settings.accent" IN identifiers'
+```
+Line 24 is `XCTAssertFalse(app.buttons["settings.accent"].isEnabled, …)` right after `chooseStyle(app, "Toy Box")`.
+Likely cause is my walk observation #1: choosing a Style pops back to the Settings root scrolled to the top, so the
+Accent row (under Appearance, below the fold) isn't in the tree. Either keep the user on the Appearance section after
+choosing (better UX), or `scrollUntilExists(app, app.buttons["settings.accent"])` before the assertion. All other UI
+tests pass, including TasksUITests and BatchAddUITests. Remaining red items: this one and the batch-add backup
+round-trip unit test.
