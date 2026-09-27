@@ -19,6 +19,14 @@ struct TasksView: View {
     @State private var errorMessage: String?
     /// Sprint 14: narrows every column to the tasks whose title, notes or subtasks match.
     @State private var searchText = ""
+    /// Sprint 18: the column centered on the board. Follows swipes, and moves to a column a task is moved or
+    /// dragged into.
+    @State private var focusedColumn: UUID?
+    /// Drop targets under a drag right now (a column, or a card), each mapped to its column. Kept as a set rather
+    /// than one value because entering a card and leaving its column arrive in no fixed order.
+    @State private var dropTargets: [UUID: UUID] = [:]
+    @State private var springTask: Task<Void, Never>?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var query: SearchQuery { SearchQuery(searchText) }
 
@@ -71,23 +79,54 @@ struct TasksView: View {
         }
     }
 
+    /// Each column is 2/3 of the board's width, centered, with its neighbors peeking in on both sides (Sprint 18).
     private var board: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(alignment: .top, spacing: 12) {
-                ForEach(columns) { column in
-                    columnView(column)
-                        .containerRelativeFrame(.horizontal) { width, _ in width * 0.85 }
+        GeometryReader { proxy in
+            let columnWidth = (proxy.size.width * 2 / 3).rounded()
+            ScrollView(.horizontal) {
+                LazyHStack(alignment: .top, spacing: 12) {
+                    ForEach(columns) { column in
+                        columnView(column)
+                            .frame(width: columnWidth)
+                    }
                 }
+                .scrollTargetLayout()
             }
-            .scrollTargetLayout()
-            .padding(.horizontal)
+            .contentMargins(.horizontal, (proxy.size.width - columnWidth) / 2, for: .scrollContent)
+            .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $focusedColumn, anchor: .center)
         }
-        .scrollTargetBehavior(.viewAligned)
+        .onChange(of: hoveredColumn) { _, column in springLoad(column) }
         .safeAreaInset(edge: .bottom) {
             if let errorMessage {
                 ErrorText(errorMessage).padding()
             }
         }
+    }
+
+    /// The column a drag is over, if any.
+    private var hoveredColumn: UUID? { dropTargets.values.first }
+
+    /// Spring-loading (Sprint 18): a drag that rests on a peeking column for 0.6 s centers it, so a task can travel
+    /// across several columns in one drag. SwiftUI has no edge auto-scroll while dragging. The slide moves the next
+    /// column under a finger that stays still, so the column a drop would land in is outlined (`columnView`).
+    private func springLoad(_ column: UUID?) {
+        springTask?.cancel()
+        springTask = nil
+        guard let column, column != focusedColumn else { return }
+        springTask = Task {
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled, hoveredColumn == column else { return }
+            focus(column)
+        }
+    }
+
+    private func focus(_ column: UUID) {
+        withAnimation(reduceMotion ? nil : .snappy) { focusedColumn = column }
+    }
+
+    private func dropTargeted(_ targeted: Bool, key: UUID, column: UUID) {
+        dropTargets[key] = targeted ? column : nil
     }
 
     private func columnView(_ column: BoardColumn) -> some View {
@@ -121,9 +160,14 @@ struct TasksView: View {
         .padding(12)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(RoundedRectangle(cornerRadius: 16).fill(Color(uiColor: .secondarySystemBackground)))
+        .overlay {
+            if hoveredColumn == column.id {
+                RoundedRectangle(cornerRadius: 16).strokeBorder(.tint, lineWidth: 3)
+            }
+        }
         .dropDestination(for: String.self) { items, _ in
             drop(items, into: column.id, at: cards.count)
-        }
+        } isTargeted: { dropTargeted($0, key: column.id, column: column.id) }
         .accessibilityIdentifier("tasks.column")
     }
 
@@ -135,7 +179,7 @@ struct TasksView: View {
         .draggable(task.id.uuidString)
         .dropDestination(for: String.self) { items, _ in
             drop(items, into: column.id, at: index)
-        }
+        } isTargeted: { dropTargeted($0, key: task.id, column: column.id) }
         .contextMenu { menu(for: task, index: index, in: column, count: count) }
         .accessibilityActions { accessibilityMenu(for: task, index: index, in: column, count: count) }
     }
@@ -186,17 +230,20 @@ struct TasksView: View {
         Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } })
     }
 
-    /// Returns whether the drop was handled; the current `dropDestination` action ignores it, so it is discardable.
-    @discardableResult
+    /// Returns whether the drop was handled. Uses the `isTargeted:` drop API (deprecated only from iOS 27.2) because
+    /// the iOS 26 session API reports hovering only from iOS 27.
     private func drop(_ items: [String], into columnID: UUID, at index: Int) -> Bool {
+        dropTargets = [:]
         guard let id = items.first.flatMap(UUID.init(uuidString:)), let task = tasks.first(where: { $0.id == id })
         else { return false }
         move(task, to: columnID, at: index)
         return true
     }
 
+    /// A move into another column centers that column; a move within a column leaves the board where it is.
     private func move(_ task: TaskItem, to columnID: UUID, at index: Int) {
         let id = task.id
+        if task.columnID != columnID { focus(columnID) }
         run { try await $0.board.moveTask(id, to: columnID, at: index, now: .now) }
     }
 

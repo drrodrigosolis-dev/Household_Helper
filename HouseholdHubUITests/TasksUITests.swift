@@ -60,6 +60,37 @@ final class TasksUITests: XCTestCase {
         XCTAssertTrue(taskCard(app, containing: "call plumber").waitForExistence(timeout: 10), "Task missing")
     }
 
+    /// Sprint 18: each column is 2/3 of the screen, centered with its neighbors peeking in, and a task dropped on
+    /// the next column brings that column to the center.
+    @MainActor
+    func testColumnsAreTwoThirdsWideAndADropFocusesTheNextColumn() {
+        let app = launchApp()
+        addTask(app, title: "Water plants")
+        let window = app.windows.firstMatch.frame
+        let toDo = columnHeader(app, "To Do")
+        XCTAssertTrue(toDo.waitForExistence(timeout: 5), "No To Do column")
+        // The header sits inside the column's 12 pt padding on each side.
+        let share = (toDo.frame.width + 24) / window.width
+        XCTAssertEqual(share, 2.0 / 3.0, accuracy: 0.04, "A column should be 2/3 of the screen wide")
+        XCTAssertEqual(toDo.frame.midX, window.midX, accuracy: 8, "The first column should start centered")
+        captureScreen(app, named: "sprint18-board-light")
+
+        let card = taskCard(app, containing: "Water plants")
+        let peek = app.coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: 0.5))
+        card.press(forDuration: 1.0, thenDragTo: peek, withVelocity: .default, thenHoldForDuration: 0.2)
+        let inProgress = columnHeader(app, "In Progress")
+        // Frames are read on the main actor, so this polls instead of using a predicate expectation.
+        let deadline = Date.now.addingTimeInterval(10)
+        while abs(inProgress.frame.midX - window.midX) >= 8, Date.now < deadline {
+            Thread.sleep(forTimeInterval: 0.25)
+        }
+        XCTAssertEqual(inProgress.frame.midX, window.midX, accuracy: 8, "In Progress was not focused")
+        XCTAssertEqual(card.frame.midX, window.midX, accuracy: 8, "The card should be in the focused column")
+        captureScreen(app, named: "sprint18-board-after-drop-light")
+        card.tap()
+        XCTAssertTrue(waitForRow(app, identifier: "task.column", toRead: "In Progress"), "The drop did not move it")
+    }
+
     /// Spec §7.10, §8.5: a custom column can be added, renamed, and deleted after choosing where its tasks go.
     /// Each row's actions menu is labeled "Actions for <name>", which is how the rows are found.
     @MainActor
@@ -180,6 +211,12 @@ extension XCTestCase {
     }
 
     @MainActor
+    /// A column's header reads "<name>, <n> tasks".
+    func columnHeader(_ app: XCUIApplication, _ name: String) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH %@ AND label ENDSWITH %@", "\(name),", "tasks")).firstMatch
+    }
+
     func taskCard(_ app: XCUIApplication, containing text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: "task.card")
             .matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch

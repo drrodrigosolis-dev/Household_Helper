@@ -8,9 +8,11 @@ brings that column into focus. Owner answer: also auto-scroll while dragging.
    each, less the spacing). The first and last columns center too (blank margin beside them). Same at every text size.
 2. **Focus after a move:** after a drop into another column, and after "Move to…" from the task menu, the board
    slides to center that column. Moving within a column doesn't scroll.
-3. **Auto-scroll while dragging (spring-loading):** hovering a dragged task over a peeking column for 0.45 s centers
+3. **Auto-scroll while dragging (spring-loading):** hovering a dragged task over a peeking column for 0.6 s centers
    that column, so a task can travel across several columns in one drag, in either direction. SwiftUI has no edge
-   auto-scroll; spring-loading on the peeking column is the reliable equivalent (like the Home Screen).
+   auto-scroll; spring-loading on the peeking column is the reliable equivalent (like the Home Screen). Known
+   trade-off: the slide puts the *next* column under a finger that stays still, so the column a drop would land in
+   is outlined in the accent color; releasing late on the far edge drops one column further (device walk item).
 4. **Reduce Motion:** the board jumps instead of sliding.
 5. No data change: this is layout only (SchemaV1 frozen).
 
