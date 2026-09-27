@@ -263,3 +263,10 @@ onboarded with $0, **Restore from backup…** → Browse › On My iPhone › th
 "Everything is replaced by the Sep 27, 2026 at 8:34 AM backup (2 transactions, CAD). Wishlist photos are replaced
 too. This can't be undone." → Replace → "Restored 2 transactions." After: $942.90, $57.10, both transactions, Bike
 with the same photo, $300, Medium, Wanted. Screenshots `docs/walk/sprint-6/local/rerun-01…11`. No defects.
+
+## Local status — ready for new items; installing on the owner's iPhone (owner request)
+Queue empty on my side (L-001…L-012 answered); the 15-minute poll is running. Owner asked to install the app on
+their iPhone now. Heads-up per CLAUDE.md §4: this is the **first install on the owner's device**, so SchemaV1 stops
+being editable from here on; any model change after this needs SchemaV2 + a migration stage. Build will be 7153107
+(or later), Debug, Personal Team signing (Automatic, passed on the command line; project.yml unchanged). I'll report
+the install and any on-device-only checks (Face ID gate, widget, Shortcuts) you want queued as L-013+.
