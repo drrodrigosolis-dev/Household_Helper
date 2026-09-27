@@ -36,25 +36,14 @@ final class ThemesUITests: XCTestCase {
         XCTAssertTrue(accent.isEnabled, "Off gives the accent back")
     }
 
+    /// Every theme once, the appearances taken in turn (light, dark, largest text), with a screenshot of each tab
+    /// that changes with it. One launch per theme: three per theme ran the UI suite past CI's 60-minute limit
+    /// (run 36352324752); contrast in both appearances is covered for every theme by `FunThemeTests`.
     @MainActor
-    func testEveryThemeInLight() {
-        tour(.light)
-    }
-
-    @MainActor
-    func testEveryThemeInDark() {
-        tour(.dark)
-    }
-
-    @MainActor
-    func testEveryThemeAtTheLargestTextSize() {
-        tour(.largeText)
-    }
-
-    /// Launches with each theme and keeps a screenshot of every tab that changes with it.
-    @MainActor
-    private func tour(_ variant: WalkVariant) {
-        for theme in Self.themes {
+    func testEveryThemeOnItsTabs() {
+        let variants: [WalkVariant] = [.light, .dark, .largeText]
+        for (index, theme) in Self.themes.enumerated() {
+            let variant = variants[index % variants.count]
             let app = launchApp(variant: variant, theme: theme)
             for tab in ["Dashboard", "Wishlist", "Tasks"] {
                 let button = app.tabBars.buttons[tab]
