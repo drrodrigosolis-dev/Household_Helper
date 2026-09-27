@@ -195,8 +195,11 @@ struct RefundTests {
         await #expect(throws: LedgerError.purchaseHasRefunds) {
             try await fixture.ledger.update(purchase, with: draft(10_000, .income), now: now)
         }
-        // Down to the refunded amount, a new note or a pending status is fine.
-        try await fixture.ledger.update(purchase, with: draft(4_000, .expense, .pending), now: now)
+        // Down to the refunded amount is fine; pending is not while a refund is posted (decision 12).
+        await #expect(throws: LedgerError.purchaseHasRefunds) {
+            try await fixture.ledger.update(purchase, with: draft(4_000, .expense, .pending), now: now)
+        }
+        try await fixture.ledger.update(purchase, with: draft(4_000), now: now)
         #expect(try fixture.record(purchase).amountMinorUnits == 4_000)
     }
 

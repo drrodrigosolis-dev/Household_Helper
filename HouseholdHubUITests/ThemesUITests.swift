@@ -21,7 +21,10 @@ final class ThemesUITests: XCTestCase {
         chooseStyle(app, "Toy Box")
         let animations = app.switches["settings.themeAnimations"]
         XCTAssertTrue(animations.waitForExistence(timeout: 5), "A style brings the Theme animations switch")
-        XCTAssertFalse(app.buttons["settings.accent"].isEnabled, "The style sets the accent")
+        // Choosing a style returns to Settings at the top; the accent row is further down.
+        let accent = app.buttons["settings.accent"]
+        XCTAssertTrue(scrollUntilExists(app, accent), "Accent row missing")
+        XCTAssertFalse(accent.isEnabled, "The style sets the accent")
         captureScreen(app, named: "sprint19-settings-toyBox-light")
         app.tabBars.buttons["Dashboard"].tap()
         captureScreen(app, named: "sprint19-dashboard-after-choosing-light")
@@ -29,7 +32,8 @@ final class ThemesUITests: XCTestCase {
         app.tabBars.buttons["More"].tap()
         chooseStyle(app, "Off")
         XCTAssertFalse(animations.waitForExistence(timeout: 2), "Off hides the animations switch")
-        XCTAssertTrue(app.buttons["settings.accent"].isEnabled, "Off gives the accent back")
+        XCTAssertTrue(scrollUntilExists(app, accent), "Accent row missing")
+        XCTAssertTrue(accent.isEnabled, "Off gives the accent back")
     }
 
     @MainActor

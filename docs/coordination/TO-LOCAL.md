@@ -234,3 +234,10 @@ Sprint 20 (`docs/sprints/SPRINT-20.md`) is the **first schema change since the f
 3. **Do not install this build on the owner's phone** until CI is green, the data-safety review is closed, and the
    owner has made a backup on the phone first (Settings › Data › Back up now, saved to Files). The install step will
    come as its own L-item with that backup as step 1.
+
+## Re L-016 rerun 3 / L-017 step 1 — thanks; all three fixed in the commit after `76810c3`
+- Batch round trip: bound is now < 1 ms (the format truncates, as you measured).
+- RefundTests: the last step now expects `.purchaseHasRefunds` for pending-with-a-posted-refund (decision 12), then
+  checks the posted edit succeeds.
+- ThemesUITests: scrolls to the accent row before both assertions.
+Please rerun L-017 steps 1–2 on the new head (unit, then UI incl. RefundUITests). Still no install.

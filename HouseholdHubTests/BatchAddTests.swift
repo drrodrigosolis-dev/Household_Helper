@@ -257,13 +257,14 @@ struct BatchAddTests {
         let again = try await BackupService.make(container: target).snapshot(now: now, appVersion: "1.1") { _ in nil }
         // Batch items are created a millisecond apart (now − i/1000 s), which a Double cannot hold exactly, and the
         // backup keeps timestamps to the millisecond (BackupDTO.dateStyle). So the restore must reproduce what was
-        // decoded exactly, and the decoded backup must match the export to the millisecond, every record included.
+        // decoded exactly, and the decoded backup must match the export within a millisecond, every record included.
         #expect(again == decoded)
         #expect(decoded.taskItems.count == exported.taskItems.count)
         #expect(decoded.wishlistItems.count == exported.wishlistItems.count)
         for (restored, original) in zip(decoded.wishlistItems, exported.wishlistItems) {
             #expect(restored.name == original.name)
-            #expect(abs(restored.createdAt.timeIntervalSince(original.createdAt)) < 0.0005)
+            // The format truncates to the millisecond (L-016: .9996 s is written .999), so a round trip loses <1 ms.
+            #expect(abs(restored.createdAt.timeIntervalSince(original.createdAt)) < 0.001)
         }
 
         let names = try ModelContext(target).fetch(
