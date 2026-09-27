@@ -82,11 +82,14 @@ public struct BudgetCalculator: Sendable {
         return try rules.map { rule in
             let code = rule.limit.currencyCode
             let own = lines.filter { $0.categoryID == rule.categoryID }
-            let spent = try spending(own, from: monthStart, calendar: calendar, currencyCode: code)
+            // A month whose refunds exceed its spending shows nothing spent; rollover uses the true net (below).
+            let net = try spending(own, from: monthStart, calendar: calendar, currencyCode: code)
+            let spent = net.minorUnits < 0 ? .zero(code) : net
             var carried = Money.zero(code)
             if rule.rollsOver {
                 // Every whole month from the budget's first month up to the one reported: limit minus spending,
-                // both ways (a leftover adds, an overspend takes).
+                // both ways (a leftover adds, an overspend takes). Net of refunds and not floored, so a return in a
+                // later month gives back all it gave (Sprint 20).
                 var cursor = rule.start.start(in: calendar)
                 while cursor < monthStart {
                     let used = try spending(own, from: cursor, calendar: calendar, currencyCode: code)
@@ -106,9 +109,8 @@ public struct BudgetCalculator: Sendable {
     ) throws -> Money {
         let end = calendar.endOfMonth(for: monthStart)
         let inMonth = lines.filter { $0.occurredAt >= monthStart && $0.occurredAt < end }
-        // Refunds are negative lines (Sprint 20); a month where they exceed spending counts as nothing spent.
-        let net = try Money.sum(inMonth.map(\.amount), currencyCode: currencyCode)
-        return net.minorUnits < 0 ? .zero(currencyCode) : net
+        // Refunds are negative lines (Sprint 20), so this net can be below zero.
+        return try Money.sum(inMonth.map(\.amount), currencyCode: currencyCode)
     }
 }
 

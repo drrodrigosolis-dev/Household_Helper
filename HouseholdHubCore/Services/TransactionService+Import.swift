@@ -15,9 +15,11 @@ extension TransactionService {
         let descriptor = FetchDescriptor<TransactionRecord>(
             predicate: #Predicate { $0.occurredAt >= start && $0.occurredAt < end && $0.accountID == account })
         return try modelContext.fetch(descriptor).filter { $0.statusRawValue != cancelled }.map { record in
+            // A bank lists a refund as money in, which the import reads as income (Sprint 20): matched as such, so
+            // a refund already recorded here is flagged as a likely duplicate.
             CSVExistingTransaction(
-                occurredAt: record.occurredAt, amount: record.amount, type: record.type,
-                text: record.notes ?? record.merchantNameSnapshot)
+                occurredAt: record.occurredAt, amount: record.amount,
+                type: record.type == .refund ? .income : record.type, text: record.notes ?? record.merchantNameSnapshot)
         }
     }
 

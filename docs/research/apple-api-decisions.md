@@ -122,3 +122,22 @@ availability conditions, deprecations, fallback. Verified against official Apple
 - **Fallback:** without permission nothing is scheduled; the app works the same.
 - **Tests:** the plan is pure Core logic (`ReminderPlanner`, unit-tested); UI tests never touch notifications
   (`ReminderSync` returns early under `-uiTesting`).
+
+## SwiftData schema versioning — SchemaV1 → SchemaV2 (Sprint 20, 2026-09-27)
+- **API:** `VersionedSchema` (`SchemaV1` 1.0.0, `SchemaV2` 2.0.0), `SchemaMigrationPlan` (`HouseholdMigrationPlan`)
+  with one `MigrationStage.lightweight(fromVersion: SchemaV1.self, toVersion: SchemaV2.self)`, passed to
+  `ModelContainer(for:migrationPlan:configurations:)` by the single factory. iOS 17+; project floor iOS 26, Xcode 27.
+- **Change:** `TransactionRecord` gains one optional stored property, `refundOfTransactionID: UUID?`. Adding an
+  optional attribute is a lightweight migration: existing rows get nil; nothing is renamed, retyped or dropped.
+- **How the V1 hash is kept:** `SchemaV1.TransactionRecord` is a frozen copy (stored properties and attributes only)
+  of the class installed on the owner's iPhone at `063a510`, checked against that commit with git (no persistence file
+  changed between `063a510` and the Sprint 20 plan; `versionIdentifier` was 1.0.0). The eleven unchanged models are
+  the same classes in both schemas; their entity hashes are equal and `TransactionRecord`'s differ, so the two
+  versions' checksums are distinct.
+- **Evidence:** `PersistenceTests.aSchemaV1StoreOnDiskMigratesToSchemaV2WithEveryRecord` writes one row of every
+  model through SchemaV1 to a store on disk, opens it through the app's factory and plan, and reads every row back.
+- **Fallback:** if a store ever failed to open, the app shows `StoreUnavailableView` and deletes nothing. The owner
+  makes a backup (Settings › Data › Back up now) before installing a build with a new schema version; a restore
+  into a fresh install is the way back.
+- **Rule from here:** every stored change is a new version: freeze the current class as `SchemaVn.<Model>` (stored
+  properties only), add the next version and a stage, and extend the on-disk migration test.

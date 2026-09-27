@@ -48,6 +48,9 @@ public enum LedgerError: Error, Equatable, Sendable {
     case refundBeforePurchase
     /// A refund counts only while posted or pending; record it as one of those.
     case refundMustBeLive
+    /// While its purchase is pending, a refund is pending too: a posted refund would add to the current balance
+    /// money that has not left it yet (§9).
+    case refundOfPendingPurchase
     /// A purchase with refunds keeps its type, account, currency and at least the refunded amount, and cannot be
     /// cancelled or deleted until its refunds are deleted (never rewrite history).
     case purchaseHasRefunds

@@ -22,6 +22,7 @@ struct RefundView: View {
         self.purchase = purchase
         self.summary = summary
         _amountText = State(initialValue: LedgerFormat.editableAmount(summary.remaining))
+        _status = State(initialValue: purchase.status == .pending ? .pending : .posted)
     }
 
     private var amount: Money? { LedgerFormat.parseAmount(amountText, currencyCode: purchase.currencyCode) }
@@ -47,9 +48,14 @@ struct RefundView: View {
                         .accessibilityIdentifier("refund.amount")
                 }
                 DatePicker("Date", selection: $occurredAt, in: earliest..., displayedComponents: [.date])
-                Picker("Status", selection: $status) {
-                    Text(LedgerFormat.statusLabel(.posted)).tag(TransactionStatus.posted)
-                    Text(LedgerFormat.statusLabel(.pending)).tag(TransactionStatus.pending)
+                // While the purchase is pending, so is its refund: posting it would add money that hasn't left yet.
+                if purchase.status == .pending {
+                    LabeledContent("Status") { Text(LedgerFormat.statusLabel(.pending)) }
+                } else {
+                    Picker("Status", selection: $status) {
+                        Text(LedgerFormat.statusLabel(.posted)).tag(TransactionStatus.posted)
+                        Text(LedgerFormat.statusLabel(.pending)).tag(TransactionStatus.pending)
+                    }
                 }
                 FocusingRow("Notes") {
                     TextField("Optional", text: $notes, axis: .vertical)
@@ -126,6 +132,8 @@ struct RefundView: View {
             return String(localized: "That's more than what's left to refund (\(remaining.formatted())).")
         case .refundBeforePurchase:
             return String(localized: "A refund can't be dated before the purchase.")
+        case .refundOfPendingPurchase:
+            return String(localized: "The purchase is still pending, so its refund stays pending until it posts.")
         case .notRefundable:
             return String(localized: "Only a posted or pending expense can be refunded.")
         default:

@@ -2691,6 +2691,16 @@
         }
       }
     },
+    "Keep %@ on your wishlist?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Mantener %@ en tu lista de deseos?"
+          }
+        }
+      }
+    },
     "Keep it on your wishlist?": {
       "localizations": {
         "es": {
@@ -5561,6 +5571,16 @@
         }
       }
     },
+    "The purchase is still pending, so its refund stays pending until it posts.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La compra sigue pendiente, así que su reembolso queda pendiente hasta que se registre."
+          }
+        }
+      }
+    },
     "The purchase stays in your history. The refund adds the money back on its own date.": {
       "localizations": {
         "es": {
@@ -5647,6 +5667,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se pudo guardar la transferencia. Revisa el monto y las cuentas."
+          }
+        }
+      }
+    },
+    "The wishlist item couldn't be updated.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo actualizar el artículo de la lista de deseos."
           }
         }
       }

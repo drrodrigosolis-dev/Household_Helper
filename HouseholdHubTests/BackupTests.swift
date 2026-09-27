@@ -164,8 +164,9 @@ struct BackupTests {
         let source = try makeServices()
         try await populate(source)
         let good = try await snapshot(source)
+        // A file from a newer app than this one is refused before anything is written.
         var newer = good
-        newer.schemaVersion = 3
+        newer.schemaVersion = BackupDTO.currentSchemaVersion + 1
         var dangling = good
         dangling.subtaskItems[0].taskID = UUID()
         var duplicate = good
@@ -179,7 +180,7 @@ struct BackupTests {
         var escaping = good
         escaping.wishlistItems[0].mediaReference = "../../secret.jpg"
         let cases: [(BackupDTO, BackupError)] = [
-            (newer, .unsupportedSchemaVersion(3)),
+            (newer, .unsupportedSchemaVersion(BackupDTO.currentSchemaVersion + 1)),
             (dangling, .missingReference(entity: "subtaskItems", field: "taskID")),
             (duplicate, .duplicateID(entity: "categories")),
             (foreign, .currencyMismatch(entity: "transactions")),

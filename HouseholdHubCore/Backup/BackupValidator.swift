@@ -29,6 +29,15 @@ public enum BackupValidator {
         {
             throw BackupError.missingReference(entity: "settings", field: "startingBalance")
         }
+        // Refunds arrived in v3 (Sprint 20); an older file claiming one was not written by this app.
+        if original.schemaVersion < 3,
+            original.transactions.contains(where: {
+                $0.type == TransactionType.refund.rawValue || $0.refundOfTransactionID != nil
+            })
+        {
+            let refund = TransactionType.refund.rawValue
+            throw BackupError.invalidValue(entity: "transactions", field: "type", value: refund)
+        }
         let backup = original.upgradedToCurrent()
         guard backup.schemaVersion == BackupDTO.currentSchemaVersion else {
             throw BackupError.unsupportedSchemaVersion(backup.schemaVersion)
@@ -307,7 +316,9 @@ public enum BackupValidator {
     /// Largest budget limit or goal target a backup may carry; the same bound the services enforce.
     static let maxBudgetMinorUnits = Money.maxPlanMinorUnits
 
-    /// A refund belongs to one expense in the same account and currency; nothing else names one (Sprint 20).
+    /// A refund belongs to one expense in the same account, currency, category and merchant, dated no earlier than
+    /// the day before it (the file carries no time zone; the service checks the household day), made by hand and
+    /// linked to nothing else. Nothing but a refund names a purchase (Sprint 20).
     private static func refundShape(
         _ record: BackupDTO.Transaction, purchases: [UUID: BackupDTO.Transaction]
     ) throws {
@@ -319,11 +330,17 @@ public enum BackupValidator {
         }
         guard let purchaseID = record.refundOfTransactionID, let purchase = purchases[purchaseID],
             purchase.type == TransactionType.expense.rawValue, purchase.currencyCode == record.currencyCode,
-            purchase.accountID == record.accountID
+            purchase.accountID == record.accountID, purchase.categoryID == record.categoryID,
+            purchase.merchantID == record.merchantID,
+            record.occurredAt >= purchase.occurredAt.addingTimeInterval(-86_400)
         else { throw BackupError.inconsistentLink(entity: "transactions", field: "refundOfTransactionID") }
+        guard record.source == TransactionSource.manual.rawValue, record.recurringSeriesID == nil,
+            record.scheduledOccurrence == nil, record.wishlistItemID == nil
+        else { throw BackupError.inconsistentLink(entity: "transactions", field: "source") }
     }
 
-    /// A purchase's posted and pending refunds never add up to more than it cost.
+    /// A purchase's posted and pending refunds never add up to more than it cost, never outlive its cancellation, and
+    /// are posted only once it is.
     private static func refundTotals(
         _ records: [BackupDTO.Transaction], purchases: [UUID: BackupDTO.Transaction]
     ) throws {
@@ -331,6 +348,10 @@ public enum BackupValidator {
         let live = records.filter { $0.type == TransactionType.refund.rawValue && $0.status != cancelled }
         for (purchaseID, refunds) in Dictionary(grouping: live, by: { $0.refundOfTransactionID }) {
             guard let purchaseID, let purchase = purchases[purchaseID] else { continue }
+            guard purchase.status != cancelled,
+                !(purchase.status == TransactionStatus.pending.rawValue
+                    && refunds.contains { $0.status == TransactionStatus.posted.rawValue })
+            else { throw BackupError.inconsistentLink(entity: "transactions", field: "refundOfTransactionID") }
             var total: Int64 = 0
             for refund in refunds {
                 let (sum, overflow) = total.addingReportingOverflow(refund.amountMinorUnits)

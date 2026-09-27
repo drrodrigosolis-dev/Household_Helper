@@ -239,12 +239,15 @@ struct LedgerServiceTests {
         let record = TransactionRecord(
             amount: cad(100), type: .income, status: .posted, source: .manual, occurredAt: now.addingTimeInterval(-60),
             now: now)
-        record.typeRawValue = "refund"
+        // A value no version of the app writes ("refund" became real in Sprint 20). In the default account, so the
+        // type is what stops the math.
+        record.typeRawValue = "chargeback"
+        record.accountID = try await fixture.transactions.settingsSnapshot()?.defaultAccountID
         context.insert(record)
         try context.save()
         let service = fixture.transactions
         let calendar = HouseholdCalendar(timeZone: zone)
-        await #expect(throws: LedgerError.unreadableRecord(field: "type", value: "refund")) {
+        await #expect(throws: LedgerError.unreadableRecord(field: "type", value: "chargeback")) {
             try await service.balanceSnapshot(now: now, calendar: calendar, includePendingInProjection: false)
         }
     }

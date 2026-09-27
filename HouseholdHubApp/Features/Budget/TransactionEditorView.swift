@@ -17,6 +17,8 @@ struct TransactionEditorView: View {
     @Query private var refunds: [TransactionRecord]
     @Query private var refundedPurchase: [TransactionRecord]
     @State private var refundSummary: RefundSummary?
+    /// The wishlist item this purchase bought, if any: once fully refunded, the owner decides keep or remove.
+    @Query private var boughtItems: [WishlistItem]
     @State private var isRefunding = false
 
     @State private var type: TransactionType
@@ -44,6 +46,7 @@ struct TransactionEditorView: View {
         _linkedTasks = Query(filter: #Predicate<TaskItem> { $0.linkedTransactionID == id }, sort: \.createdAt)
         _refunds = Query(
             filter: #Predicate<TransactionRecord> { $0.refundOfTransactionID == id }, sort: \.occurredAt)
+        _boughtItems = Query(filter: #Predicate<WishlistItem> { $0.purchasedTransactionID == id })
         if let purchaseID = record.refundOfTransactionID {
             _refundedPurchase = Query(filter: #Predicate<TransactionRecord> { $0.id == purchaseID })
         } else {
@@ -223,6 +226,17 @@ struct TransactionEditorView: View {
             if refundSummary?.isFullyRefunded == true {
                 Label("Fully refunded", systemImage: "checkmark.circle")
                     .foregroundStyle(.secondary)
+                // Asked when the refund was made; offered here too in case that answer never arrived (the dialog
+                // was left, or the refund was completed by editing).
+                if let item = boughtItems.first, item.status == .purchased {
+                    Text("Keep \(item.name) on your wishlist?")
+                    Button("Keep on wishlist") { Task { await resolve(item.id, .keepOnWishlist) } }
+                        .accessibilityIdentifier("editor.keepOnWishlist")
+                    Button("Remove from wishlist", role: .destructive) {
+                        Task { await resolve(item.id, .removeFromWishlist) }
+                    }
+                    .accessibilityIdentifier("editor.removeFromWishlist")
+                }
             } else {
                 Button("Refund…", systemImage: "arrow.uturn.backward") { isRefunding = true }
                     .disabled(refundSummary == nil)
@@ -241,6 +255,14 @@ struct TransactionEditorView: View {
         let name = purchase.merchantNameSnapshot ?? purchase.notes ?? category?.name
         let date = purchase.occurredAt.formatted(date: .abbreviated, time: .omitted)
         return name.map { "\($0) · \(date)" } ?? date
+    }
+
+    private func resolve(_ item: UUID, _ choice: RefundedItemChoice) async {
+        do {
+            try await services?.transactions.resolveRefundedWishlistItem(item, choice: choice, now: .now)
+        } catch {
+            errorMessage = String(localized: "The wishlist item couldn't be updated.")
+        }
     }
 
     private func loadRefundSummary() async {

@@ -295,9 +295,11 @@ public actor TransactionService {
         let accounts = try resolveAccounts(
             draft, settings: settings, current: (record.accountID, record.transferAccountID), now: now)
         try requireRefundsStillFit(
-            record, type: draft.type, status: draft.status, amount: draft.amount, accountID: accounts.source)
+            record, type: draft.type, status: draft.status, amount: draft.amount, accountID: accounts.source,
+            occurredAt: draft.occurredAt)
         // Fetched before the first edit (the merchant insert below), so a failed fetch leaves nothing pending.
         let linkedItem = try record.wishlistItemID.flatMap { try wishlistItem($0) }
+        let refundRecords = try allRefunds(of: record)
         var merchantID: UUID?
         let name = draft.merchantName.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
         if !Merchant.normalize(name).isEmpty {
@@ -320,6 +322,7 @@ public actor TransactionService {
         record.merchantID = merchantID
         record.merchantNameSnapshot = merchantID == nil ? nil : name
         record.updatedAt = now
+        carryClassification(of: record, to: refundRecords, now: now)
         // A purchase's item records the price actually paid; keep it in step with the edited transaction.
         if let item = linkedItem, item.purchasedTransactionID == id {
             item.actualPriceMinorUnits = draft.amount.minorUnits
@@ -333,9 +336,10 @@ public actor TransactionService {
         let record = try requireTransaction(id)
         try requirePurchaseInvariant(record, type: record.type, status: status)
         try requireRefundsStillFit(
-            record, type: record.type, status: status, amount: record.amount, accountID: record.accountID)
+            record, type: record.type, status: status, amount: record.amount, accountID: record.accountID,
+            occurredAt: record.occurredAt)
         if record.type == .refund, status != .cancelled {
-            try requireRefundFits(record)
+            try requireRefundFits(record, status: status)
         }
         record.status = status
         record.updatedAt = now

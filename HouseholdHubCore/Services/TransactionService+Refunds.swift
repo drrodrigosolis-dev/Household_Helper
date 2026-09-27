@@ -51,6 +51,7 @@ extension TransactionService {
         let refund = TransactionRecord(
             amount: amount, type: .refund, status: status, source: .manual, occurredAt: occurredAt, now: now)
         refund.refundOfTransactionID = purchase.id
+        // The purchase's own account, even if archived since: the money returns where it left.
         refund.accountID = purchase.accountID
         refund.categoryID = purchase.categoryID
         refund.merchantID = purchase.merchantID
@@ -81,6 +82,9 @@ extension TransactionService {
         } else {
             guard amount.minorUnits > 0 else { throw LedgerError.nonPositiveAmount }
             try requireCurrency(amount, of: purchase)
+            guard calendar.startOfDay(for: occurredAt) >= calendar.startOfDay(for: purchase.occurredAt) else {
+                throw LedgerError.refundBeforePurchase
+            }
         }
         refund.amountMinorUnits = amount.minorUnits
         refund.occurredAt = occurredAt
@@ -144,10 +148,12 @@ extension TransactionService {
         return RefundSummary(paid: paid, refunded: refunded, remaining: try paid.subtracting(refunded))
     }
 
-    /// A refund made live again (from cancelled) must still fit in what is left on its purchase.
-    func requireRefundFits(_ refund: TransactionRecord) throws {
+    /// A refund made live again (from cancelled), or posted, must still fit its purchase: within what is left, and
+    /// posted only once the purchase is.
+    func requireRefundFits(_ refund: TransactionRecord, status: TransactionStatus) throws {
         guard let purchaseID = refund.refundOfTransactionID else { throw LedgerError.refundNeedsPurchase }
         let purchase = try requireTransaction(purchaseID)
+        guard !(purchase.status == .pending && status == .posted) else { throw LedgerError.refundOfPendingPurchase }
         let remaining = try summary(of: purchase, excluding: refund.id).remaining
         guard refund.amountMinorUnits <= remaining.minorUnits else {
             throw LedgerError.refundExceedsRemaining(remaining: remaining)
@@ -166,6 +172,7 @@ extension TransactionService {
         calendar: HouseholdCalendar
     ) throws {
         guard status == .posted || status == .pending else { throw LedgerError.refundMustBeLive }
+        guard !(purchase.status == .pending && status == .posted) else { throw LedgerError.refundOfPendingPurchase }
         guard amount.minorUnits > 0 else { throw LedgerError.nonPositiveAmount }
         try requireCurrency(amount, of: purchase)
         guard calendar.startOfDay(for: occurredAt) >= calendar.startOfDay(for: purchase.occurredAt) else {
@@ -183,16 +190,47 @@ extension TransactionService {
         }
     }
 
-    /// A purchase with refunds keeps what they depend on (decision 6).
+    /// A purchase with refunds keeps what they depend on (decision 6): its type, account and currency, at least the
+    /// refunded amount, a live status (pending only while no refund is posted), and a day no later than its
+    /// earliest refund's.
     func requireRefundsStillFit(
         _ purchase: TransactionRecord, type: TransactionType, status: TransactionStatus, amount: Money,
-        accountID: UUID?
+        accountID: UUID?, occurredAt: Date
     ) throws {
         guard try hasAnyRefund(purchase) else { return }
+        let live = try liveRefunds(of: purchase, excluding: nil)
         let refunded = try summary(of: purchase, excluding: nil).refunded
         guard type == .expense, status != .cancelled, amount.currencyCode == purchase.currencyCode,
-            accountID == purchase.accountID, amount.minorUnits >= refunded.minorUnits
+            accountID == purchase.accountID, amount.minorUnits >= refunded.minorUnits,
+            !(status == .pending && live.contains { $0.status == .posted })
         else { throw LedgerError.purchaseHasRefunds }
+        let calendar = HouseholdCalendar(timeZone: .current)
+        if let earliest = try allRefunds(of: purchase).map(\.occurredAt).min(),
+            calendar.startOfDay(for: occurredAt) > calendar.startOfDay(for: earliest)
+        {
+            throw LedgerError.purchaseHasRefunds
+        }
+    }
+
+    /// Every refund of `purchase`, cancelled ones included.
+    func allRefunds(of purchase: TransactionRecord) throws -> [TransactionRecord] {
+        let target: UUID? = purchase.id
+        return try modelContext.fetch(
+            FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.refundOfTransactionID == target }))
+    }
+
+    /// Refunds follow their purchase's category and merchant (decision 1), so a recategorized purchase moves its
+    /// refunds with it and each category's spending stays true.
+    func carryClassification(of purchase: TransactionRecord, to refunds: [TransactionRecord], now: Date) {
+        for refund in refunds
+        where refund.categoryID != purchase.categoryID || refund.merchantID != purchase.merchantID
+            || refund.merchantNameSnapshot != purchase.merchantNameSnapshot
+        {
+            refund.categoryID = purchase.categoryID
+            refund.merchantID = purchase.merchantID
+            refund.merchantNameSnapshot = purchase.merchantNameSnapshot
+            refund.updatedAt = now
+        }
     }
 
     private static func trimmed(_ text: String?) -> String? {

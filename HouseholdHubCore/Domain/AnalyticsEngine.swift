@@ -103,7 +103,8 @@ public struct MerchantSpend: Sendable, Hashable, Identifiable {
 public struct AnalyticsReport: Sendable, Hashable {
     public let interval: DateInterval
     public let income: Money
-    /// Spending after refunds (Sprint 20); zero when refunds in the period exceed what was spent in it.
+    /// Spending after refunds (Sprint 20), category by category: a category whose refunds in the period exceed what
+    /// it spent counts as zero, so this is what the category chart adds up to.
     public let expense: Money
     /// Money given back for purchases in the period. Not income: it lowers spending instead.
     public let refunds: Money
@@ -143,8 +144,9 @@ public struct AnalyticsEngine: Sendable {
         let refunds = try Money.sum(refundEntries.map(\.amount), currencyCode: currencyCode)
         let netSpending = try Money.sum(spending.map(\.amount), currencyCode: currencyCode)
         let net = try income.subtracting(netSpending)
-        let expense = Self.atLeastZero(netSpending)
         let byCategory = try categories(spending, currencyCode: currencyCode)
+        // What the category chart adds up to: each category's spending after its own refunds, never below zero.
+        let expense = try Money.sum(byCategory.map(\.total), currencyCode: currencyCode)
         let points = try trend(
             incomes + spending, interval: interval, bucket: period.bucket, calendar: calendar,
             currencyCode: currencyCode)
@@ -227,7 +229,9 @@ public struct AnalyticsEngine: Sendable {
             }
             let sum = try Money.sum(entries.map(\.amount), currencyCode: currencyCode)
             let name = latest?.merchantName ?? String(localized: "Unnamed merchant")
-            return MerchantSpend(key: key, name: name, total: sum, count: entries.count)
+            // Visits are purchases; a refund lowers the total but is not a visit.
+            let visits = entries.filter { $0.amount.minorUnits > 0 }.count
+            return MerchantSpend(key: key, name: name, total: sum, count: visits)
         }
         let sorted = totals.filter { $0.total.minorUnits > 0 }.sorted { lhs, rhs in
             if lhs.total.minorUnits != rhs.total.minorUnits { return lhs.total.minorUnits > rhs.total.minorUnits }

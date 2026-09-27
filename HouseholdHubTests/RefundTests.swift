@@ -261,9 +261,11 @@ struct RefundTests {
         #expect(report.byCategory.first { $0.categoryID == fixture.dining }?.total == cad(10_000))
         #expect(report.topMerchants.first?.total == cad(10_000))
 
+        // This week: a purchase and part of it back.
+        let today = try await buy(5_000, on: Self.date(2026, 9, 27, hour: 9), in: fixture)
+        try await refund(today, 2_000, on: Self.date(2026, 9, 27, hour: 10), in: fixture)
         let summary = try await fixture.ledger.dashboardSummary(now: now, calendar: calendar)
-        // The week of Sep 27 has neither; the purchase and refund both fall earlier.
-        #expect(summary.spentThisWeek == cad(0))
+        #expect(summary.spentThisWeek == cad(3_000))
     }
 
     @Test func engineShowsZeroNotNegativeSpendingForALaterMonthReturn() throws {
@@ -399,5 +401,174 @@ struct RefundTests {
         let target = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
         let summary = try await BackupService.make(container: target).restore(older, availableMedia: [], now: now)
         #expect(summary.transactions == 1)
+    }
+
+    // MARK: Review fixes (data-safety review, Sprint 20)
+
+    @Test func aPendingPurchasesRefundStaysPendingUntilThePurchasePosts() async throws {
+        let fixture = try await makeFixture()
+        let purchase = try await fixture.ledger.create(
+            TransactionDraft(
+                amount: cad(12_000), type: .expense, occurredAt: Self.date(2026, 9, 20), status: .pending,
+                categoryID: fixture.dining),
+            now: now)
+        await #expect(throws: LedgerError.refundOfPendingPurchase) { try await refund(purchase, 12_000, in: fixture) }
+        let id = try await refund(purchase, 12_000, status: .pending, in: fixture).refundID
+        await #expect(throws: LedgerError.refundOfPendingPurchase) {
+            try await fixture.ledger.setStatus(.posted, forTransaction: id, now: now)
+        }
+        let pending = try await fixture.ledger.balanceSnapshot(
+            now: now, calendar: calendar, includePendingInProjection: false)
+        #expect(pending.current == cad(100_000))
+        #expect(pending.pendingImpact == cad(0))
+
+        try await fixture.ledger.setStatus(.posted, forTransaction: purchase, now: now)
+        try await fixture.ledger.setStatus(.posted, forTransaction: id, now: now)
+        // With a posted refund, the purchase can't go back to pending.
+        await #expect(throws: LedgerError.purchaseHasRefunds) {
+            try await fixture.ledger.setStatus(.pending, forTransaction: purchase, now: now)
+        }
+    }
+
+    @Test func refundsCountInPendingProjectedAndPerAccountFigures() async throws {
+        let fixture = try await makeFixture()
+        let purchase = try await buy(12_000, on: Self.date(2026, 9, 10), in: fixture)
+        try await refund(purchase, 2_000, status: .pending, in: fixture)
+        try await refund(purchase, 3_000, on: Self.date(2026, 10, 5), in: fixture)
+        let balances = try await fixture.ledger.balances(
+            now: now, calendar: calendar, includePendingInProjection: true)
+        #expect(balances.household.current == cad(88_000))
+        #expect(balances.household.pendingImpact == cad(2_000))
+        #expect(balances.household.projected == cad(93_000))
+        let account = try #require(try fixture.record(purchase).accountID)
+        #expect(balances.balance(of: account)?.current == cad(88_000))
+    }
+
+    @Test func recategorizingAPurchaseMovesItsRefunds() async throws {
+        let fixture = try await makeFixture()
+        let other = try await fixture.categories.create(
+            name: "Gifts", icon: "gift", color: .black, kind: .expense, now: now)
+        let purchase = try await buy(12_000, on: Self.date(2026, 9, 10), in: fixture)
+        let id = try await refund(purchase, 2_000, in: fixture).refundID
+        try await fixture.ledger.update(
+            purchase,
+            with: TransactionDraft(
+                amount: cad(12_000), type: .expense, occurredAt: Self.date(2026, 9, 10), categoryID: other,
+                merchantName: "Gift shop"),
+            now: now)
+        let moved = try fixture.record(id)
+        #expect(moved.categoryID == other)
+        #expect(moved.merchantNameSnapshot == "Gift shop")
+        #expect(moved.merchantID == (try fixture.record(purchase).merchantID))
+    }
+
+    @Test func aPurchaseKeepsItsAccountAndCannotMovePastItsRefunds() async throws {
+        let fixture = try await makeFixture()
+        let savings = try await fixture.ledger.createAccount(
+            AccountDraft(name: "Savings", kind: .savings, startingBalance: cad(0), startingBalanceDate: now), now: now)
+        let purchase = try await buy(12_000, on: Self.date(2026, 9, 10), in: fixture)
+        try await refund(purchase, 2_000, on: Self.date(2026, 9, 12), in: fixture)
+        func moved(date: Date, account: UUID? = nil) -> TransactionDraft {
+            TransactionDraft(
+                amount: cad(12_000), type: .expense, occurredAt: date, categoryID: fixture.dining, accountID: account)
+        }
+        await #expect(throws: LedgerError.purchaseHasRefunds) {
+            let otherAccount = moved(date: Self.date(2026, 9, 10), account: savings)
+            try await fixture.ledger.update(purchase, with: otherAccount, now: now)
+        }
+        await #expect(throws: LedgerError.purchaseHasRefunds) {
+            try await fixture.ledger.update(purchase, with: moved(date: Self.date(2026, 9, 13)), now: now)
+        }
+        // Up to the refund's own day is fine (14:00 is the same day in Vancouver and in UTC, where CI runs).
+        try await fixture.ledger.update(purchase, with: moved(date: Self.date(2026, 9, 12, hour: 14)), now: now)
+    }
+
+    @Test func aRefundCanBeCancelledButNotBackdatedBeforeItsPurchase() async throws {
+        let fixture = try await makeFixture()
+        let purchase = try await buy(12_000, on: Self.date(2026, 9, 10), in: fixture)
+        let id = try await refund(purchase, 12_000, in: fixture).refundID
+        await #expect(throws: LedgerError.refundBeforePurchase) {
+            try await fixture.ledger.updateRefund(
+                id, amount: cad(12_000), occurredAt: Self.date(2026, 9, 9), status: .posted, notes: nil,
+                calendar: calendar, now: now)
+        }
+        try await fixture.ledger.updateRefund(
+            id, amount: cad(12_000), occurredAt: now, status: .cancelled, notes: nil, calendar: calendar, now: now)
+        #expect(try await fixture.ledger.refundSummary(for: purchase).remaining == cad(12_000))
+    }
+
+    @Test func aRolloverBudgetGetsAllOfALaterMonthsRefundBack() async throws {
+        let fixture = try await makeFixture()
+        try await fixture.categories.setBudget(
+            for: fixture.dining, limit: cad(5_000), rollsOver: true, now: Self.date(2026, 8, 1), calendar: calendar)
+        let august = try await buy(10_000, on: Self.date(2026, 8, 10), in: fixture)
+        try await refund(august, 10_000, on: Self.date(2026, 9, 5), in: fixture)
+        let october = try await fixture.ledger.budgetReport(month: Self.date(2026, 10, 15), calendar: calendar)
+            .first { $0.categoryID == fixture.dining }
+        // August: 50 - 100 = -50 carried. September: 50 - (-100) = +150. Into October: +100.
+        #expect(october?.carriedIn == cad(10_000))
+        let september = try await fixture.ledger.budgetReport(month: Self.date(2026, 9, 15), calendar: calendar)
+            .first { $0.categoryID == fixture.dining }
+        #expect(september?.spent == cad(0))
+    }
+
+    @Test func csvExportShowsARefundAsMoneyIn() {
+        let row = TransactionCSV.Row(
+            occurredAt: now, type: .refund, status: .posted, amount: cad(2_000), category: "Shopping", merchant: nil,
+            notes: nil)
+        let text = TransactionCSV.text([row], calendar: calendar)
+        #expect(text.contains(",refund,posted,20.00,CAD,"))
+    }
+
+    @Test func aRecordedRefundMatchesTheBanksMoneyInWhenImporting() async throws {
+        let fixture = try await makeFixture()
+        let purchase = try await buy(12_000, on: Self.date(2026, 9, 10), in: fixture)
+        try await refund(purchase, 2_000, in: fixture)
+        let account = try #require(try fixture.record(purchase).accountID)
+        let existing = try await fixture.ledger.existingForImport(
+            accountID: account, from: Self.date(2026, 9, 1), to: now, calendar: calendar)
+        #expect(existing.contains { $0.amount == cad(2_000) && $0.type == .income })
+    }
+
+    @Test func backupsWithRefundStatesTheAppNeverMakesAreRefused() async throws {
+        let fixture = try await makeFixture()
+        let purchase = try await buy(12_000, on: Self.date(2026, 9, 10), in: fixture)
+        try await refund(purchase, 4_000, in: fixture)
+        let good = try await BackupService.make(container: fixture.container).snapshot(now: now, appVersion: "1") {
+            _ in nil
+        }
+        try BackupValidator.validate(good)
+        let refundIndex = try #require(good.transactions.firstIndex { $0.type == "refund" })
+        let purchaseIndex = try #require(good.transactions.firstIndex { $0.id == purchase })
+        let link = BackupError.inconsistentLink(entity: "transactions", field: "refundOfTransactionID")
+
+        var cancelledPurchase = good
+        cancelledPurchase.transactions[purchaseIndex].status = "cancelled"
+        #expect(throws: link) { try BackupValidator.validate(cancelledPurchase) }
+        var pendingPurchase = good
+        pendingPurchase.transactions[purchaseIndex].status = "pending"
+        #expect(throws: link) { try BackupValidator.validate(pendingPurchase) }
+        var otherCategory = good
+        otherCategory.transactions[refundIndex].categoryID = nil
+        #expect(throws: link) { try BackupValidator.validate(otherCategory) }
+        var early = good
+        early.transactions[refundIndex].occurredAt = Self.date(2026, 9, 8)
+        #expect(throws: link) { try BackupValidator.validate(early) }
+        var recurring = good
+        recurring.transactions[refundIndex].source = "recurring"
+        #expect(throws: BackupError.inconsistentLink(entity: "transactions", field: "recurringSeriesID")) {
+            try BackupValidator.validate(recurring)
+        }
+        // Two refunds of 80.00 on a 120.00 purchase.
+        var tooMuch = good
+        tooMuch.transactions[refundIndex].amountMinorUnits = 8_000
+        tooMuch.transactions.append(tooMuch.transactions[refundIndex])
+        tooMuch.transactions[tooMuch.transactions.count - 1].id = UUID()
+        #expect(throws: link) { try BackupValidator.validate(tooMuch) }
+        var older = good
+        older.schemaVersion = 2
+        #expect(throws: BackupError.invalidValue(entity: "transactions", field: "type", value: "refund")) {
+            try BackupValidator.validate(older)
+        }
     }
 }
