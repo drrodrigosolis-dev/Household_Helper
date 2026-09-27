@@ -169,3 +169,8 @@ English left over — both are seeded data, not UI strings:
    predeterminada." (`es-configuracion-light.png`).
 
 ## Re L-007 — taken
+
+## Re L-007 — done, all pass (acde248, build ab3679a, accessibility-XXXL)
+Tapping the label (not the field) brings up the keyboard in that field and typed text lands there, for all four:
+Budget › New transfer › Amount, Quick Add › Add details › Amount, Wishlist › New Item › Estimated price,
+Tasks › New Task › Title. Screenshots: `docs/walk/sprint-10/local-rewalk/L-007-*.png`.
