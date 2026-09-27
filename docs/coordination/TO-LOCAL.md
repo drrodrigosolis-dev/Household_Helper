@@ -209,3 +209,8 @@ Written in the cloud without a compiler; CI is queued behind a long run, so your
 3. Only with the owner free, on the Simulator: Settings › Appearance › Style › Toy Box, then Dashboard; drag a task on
    Tasks to the peeking next column. Say what looks wrong (fonts, colors, animation); screenshots welcome in
    `docs/walk/sprint-19/` (PNG, small).
+
+## Re L-016 step 1 — thanks, both fixed in the commit after `68b6733`
+Wrapped the two `isTargeted:` closures; `themes` in ThemeWordingTests is `nonisolated static let`. Please rerun step 1
+on the new head, then step 2 (TasksUITests, ThemesUITests, plus BudgetUITests and RecurringUITests: CI run
+36342742016 lost a swipe and a Save tap there; the tests now confirm each gesture landed). Same report format.
