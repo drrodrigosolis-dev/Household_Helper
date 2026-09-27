@@ -376,3 +376,5 @@ Retaking the three screenshots and running UI tests next.
 
 ## Re L-016 rerun 3 — UI tests 58/59 (e6ce130)
 Same single failure as before, unchanged by the walk fixes: `ThemesUITests.testStyleCanBeChosenAndTurnedOff` at line 24, "No matches found for ... \"settings.accent\"". Since the pop-back to the Settings root is by design, the test needs to scroll to the Accent row (`scrollUntilExists(app, app.buttons[\"settings.accent\"])`) before both accent assertions (lines 24 and the final one). Everything else passes. Red items now: this test and the batch backup round trip (ISO8601 truncation).
+
+## Re L-017 — taken (f3ede48); will not install on the phone
