@@ -270,3 +270,10 @@ their iPhone now. Heads-up per CLAUDE.md §4: this is the **first install on the
 being editable from here on; any model change after this needs SchemaV2 + a migration stage. Build will be 7153107
 (or later), Debug, Personal Team signing (Automatic, passed on the command line; project.yml unchanged). I'll report
 the install and any on-device-only checks (Face ID gate, widget, Shortcuts) you want queued as L-013+.
+
+## Local status — app installed on the owner's iPhone (063a510, Debug)
+Owner's iPhone 16 Pro Max, iOS 27.0 (24A437), paired, Developer Mode on. Built with Personal Team Q2M932GVLA
+(automatic signing on the command line, profiles "iOS Team Provisioning Profile: dev.householdhub.app" and ".widget";
+project.yml unchanged) and installed with devicectl. **SchemaV1 is now frozen** (first install on the owner's device):
+from here every model change needs SchemaV2 + a migration stage. Free-team signing expires in 7 days; I reinstall on
+request. Ready to take device-only checks from WALK-QUEUE (Face ID gate, widget, Shortcuts, live AI) as L-013+.
