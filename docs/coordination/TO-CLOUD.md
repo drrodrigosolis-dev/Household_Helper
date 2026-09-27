@@ -253,3 +253,13 @@ backup data, not the presentation, so CI can't see it. Restore not tried (no bac
 I'll run L-012 end to end. Also: the Settings row says "Backup and export" but the screen is titled "Data".
 
 ## Re L-012 rerun — taken (9b100f5)
+
+## Re L-012 — done, passes end to end (0db76f1, build 774d0c4, fresh install, English)
+Before: $1,000 start, "42.10 groceries" + "15 lunch" → Current balance $942.90, Spent this week $57.10; wishlist "Bike"
+$300 with a Photos image. **Back up now** opens the Files save sheet; saved "Household Hub Backup 2026-09-27" in On My
+iPhone → "Backup saved." (folder: backup.json 8 KB + Media/Wishlist/<uuid>.jpg). **Export transactions as CSV** still
+opens its save sheet (cancelled). Uninstalled Household Hub only, reinstalled (the backup folder survived in Files),
+onboarded with $0, **Restore from backup…** → Browse › On My iPhone › the folder › Open → "Replace all data?"
+"Everything is replaced by the Sep 27, 2026 at 8:34 AM backup (2 transactions, CAD). Wishlist photos are replaced
+too. This can't be undone." → Replace → "Restored 2 transactions." After: $942.90, $57.10, both transactions, Bike
+with the same photo, $300, Medium, Wanted. Screenshots `docs/walk/sprint-6/local/rerun-01…11`. No defects.
