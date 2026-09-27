@@ -72,11 +72,30 @@ extension XCTestCase {
     @MainActor
     func addViaQuickAdd(_ app: XCUIApplication, _ text: String) {
         let field = openQuickAdd(app)
-        field.tap()
-        field.typeText(text)
-        app.buttons["quickadd.save"].tap()
+        typeIntoQuickAdd(field, text)
+        tapQuickAddSave(app)
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: field)
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 10), .completed, "Quick Add did not save '\(text)'")
+    }
+
+    /// Types into Quick Add and waits until the field holds all of it. On a slow simulator the app can receive the
+    /// keystrokes seconds after `typeText` returns (run 36326496000: an AutoFill prompt after "+" held back the rest of
+    /// "+ 1200 paycheck"), and a partial "+ 1" would already parse as an amount.
+    @MainActor
+    func typeIntoQuickAdd(_ field: XCUIElement, _ text: String) {
+        field.tap()
+        field.typeText(text)
+        let holds = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", text), object: field)
+        XCTAssertEqual(XCTWaiter().wait(for: [holds], timeout: 10), .completed, "Quick Add never showed '\(text)'")
+    }
+
+    /// Taps Save once it is enabled: a tap on the disabled button does nothing and the sheet stays open.
+    @MainActor
+    func tapQuickAddSave(_ app: XCUIApplication) {
+        let save = app.buttons["quickadd.save"]
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: save)
+        XCTAssertEqual(XCTWaiter().wait(for: [enabled], timeout: 10), .completed, "Quick Add Save stayed disabled")
+        save.tap()
     }
 
     /// Replaces a text field's contents. Taps at the trailing edge so the cursor lands after the existing text:

@@ -51,10 +51,9 @@ final class TasksUITests: XCTestCase {
     func testQuickAddTaskSegmentCreatesATask() {
         let app = launchApp()
         let field = openQuickAdd(app)
-        field.tap()
-        field.typeText("call plumber tomorrow")
+        typeIntoQuickAdd(field, "call plumber tomorrow")
         app.segmentedControls["quickadd.type"].buttons["Task"].tap()
-        app.buttons["quickadd.save"].tap()
+        tapQuickAddSave(app)
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: field)
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 10), .completed, "Quick Add did not save")
         app.tabBars.buttons["Tasks"].tap()

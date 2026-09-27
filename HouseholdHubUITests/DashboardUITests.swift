@@ -35,10 +35,9 @@ final class DashboardUITests: XCTestCase {
         add.tap()
         let field = app.textFields["quickadd.text"]
         XCTAssertTrue(field.waitForExistence(timeout: 10), "Quick Add sheet did not open from the card")
-        field.tap()
-        field.typeText("fix the shelf")
+        typeIntoQuickAdd(field, "fix the shelf")
         app.segmentedControls["quickadd.type"].buttons["Task"].tap()
-        app.buttons["quickadd.save"].tap()
+        tapQuickAddSave(app)
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: field)
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 10), .completed, "Quick Add did not save the task")
 
