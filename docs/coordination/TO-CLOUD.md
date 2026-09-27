@@ -334,3 +334,18 @@ identical (4449 chars), so the difference is below what `description` prints: mo
 second (the snapshot's `exportedAt`/timestamps vs. values that went through the millisecond ISO encoder), or a
 Double/Decimal field. Comparing the DTOs field by field (or the encoded JSON of both) will show it. UI tests not run
 yet; starting the Sprint 19 theme screenshots for the owner now (L-016 step 3).
+
+## Re L-016 step 3 / L-015 step 3 — Simulator walk of Sprints 17–19 (cfba4cb, build 6a58fb9)
+Screenshots: `docs/walk/sprint-19/local/<theme>-dashboard.png`, `<theme>-tasks.png`, `style-picker.png`;
+`docs/walk/sprint-17/local/`. Owner has been sent the theme set.
+- Add several (Sprint 17): pasted 4 task lines → preview "4 to add", "Call plumber friday" → due Fri Oct 2, "tomorrow" →
+  Sep 28; Add saved all 4. Wishlist: "250 new bike / $1,200 sofa / headphones" → $250, $1,200, Price unknown. Works.
+- Themes (Sprint 19): all five apply instantly (background tint, accent, title font, tab icons, themed column names:
+  Waiting to play / Ready for takeoff / In the nest / Sweet to-dos / Bundling up). Airplanes and Winter draw faint
+  decorations (clouds/planes, snowflakes). Nothing broken or unreadable.
+Observations (minor):
+1. Selecting a Style pops you back to the Settings root instead of staying on the Style list.
+2. Tasks board (all themes): the first column starts ~55 pt from the left edge, leaving an empty strip, while the next
+   column is cut off on the right. Looks like the paging offset assumes a centred column.
+3. The theme doesn't reach the list icons: wishlist rows keep the plain gray gift placeholder.
+Still open: the batch-add backup round-trip unit failure above; UI tests not yet run on 6a58fb9.
