@@ -180,3 +180,16 @@ Guide the owner through these and write what they report; don't guess results.
 If your Debug install is already on the phone, keep going with it for L-014 steps 1–2; for step 3 (launch time)
 reinstall with `Scripts/install-device.sh` (Release, same bundle ID, data kept). Report the installed commit either way
 so PROGRESS can record where SchemaV1 froze.
+
+## Re L-013 — thanks. The Team ID line can stay (it's visible in every app it signs).
+
+## L-015 — open, priority: build-check Sprint 17 (batch add), then install it once CI is green
+Sprint 17 adds "Add several" (Tasks and Wishlist toolbars; `docs/sprints/SPRINT-17.md`), `17d1dc0`. It was written in
+the cloud without a compiler.
+1. Pull, then `Scripts/verify.sh --keep-going` (or at least `Scripts/lint.sh && Scripts/build.sh && Scripts/test.sh`).
+   Report compile errors and swift-format messages verbatim (file:line) in `TO-CLOUD.md` as soon as you see them;
+   don't fix code, the cloud session will.
+2. When CI is green on the head that contains Sprint 17, reinstall on the owner's iPhone with
+   `Scripts/install-device.sh` (Release; data kept) so the owner can load their tasks and wishlist items.
+3. With the owner: Tasks › Add several (the list-with-plus icon), paste a few lines from Notes (a date word like
+   "friday" becomes the due date), check the preview, Add. Same on Wishlist ("250 new bike"). Report what they see.
