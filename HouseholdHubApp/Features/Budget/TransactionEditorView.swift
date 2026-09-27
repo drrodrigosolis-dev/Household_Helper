@@ -123,6 +123,7 @@ struct TransactionEditorView: View {
             }
         }
         .navigationTitle("Transaction")
+        .themedScreen()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

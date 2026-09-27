@@ -40,6 +40,7 @@ struct CategoriesView: View {
             }
         }
         .navigationTitle("Categories")
+        .themedScreen()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Add category", systemImage: "plus") { editing = .create }
@@ -352,6 +353,7 @@ struct CategoryEditorView: View {
                 }
             }
             .navigationTitle(isCreating ? Text("New Category") : Text("Edit Category"))
+            .themedScreen()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

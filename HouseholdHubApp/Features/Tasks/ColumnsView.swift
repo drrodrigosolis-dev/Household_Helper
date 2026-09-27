@@ -53,6 +53,7 @@ struct ColumnsView: View {
         }
         .environment(\.editMode, .constant(.active))
         .navigationTitle("Columns")
+        .themedScreen()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

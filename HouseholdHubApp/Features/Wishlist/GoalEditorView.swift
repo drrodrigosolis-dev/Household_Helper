@@ -147,6 +147,7 @@ struct GoalEditorView: View {
             }
         }
         .navigationTitle(editing == nil ? "New Goal" : "Edit Goal")
+        .themedScreen()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

@@ -97,6 +97,7 @@ struct HouseholdEditorView: View {
             }
         }
         .navigationTitle("Household")
+        .themedScreen()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

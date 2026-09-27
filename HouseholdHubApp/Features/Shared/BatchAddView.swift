@@ -68,6 +68,7 @@ struct BatchAddView: View {
             }
         }
         .navigationTitle("Add several")
+        .themedScreen()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

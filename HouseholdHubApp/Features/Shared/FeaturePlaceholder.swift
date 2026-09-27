@@ -9,5 +9,6 @@ struct FeaturePlaceholder: View {
     var body: some View {
         ContentUnavailableView(message, systemImage: systemImage)
             .navigationTitle(title)
+            .themedScreen()
     }
 }

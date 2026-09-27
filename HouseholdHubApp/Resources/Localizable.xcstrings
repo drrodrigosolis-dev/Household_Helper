@@ -531,6 +531,16 @@
         }
       }
     },
+    "Airplanes": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aviones"
+          }
+        }
+      }
+    },
     "All": {
       "localizations": {
         "es": {
@@ -1591,6 +1601,16 @@
         }
       }
     },
+    "Dinosaurs": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dinosaurios"
+          }
+        }
+      }
+    },
     "Disable": {
       "localizations": {
         "es": {
@@ -2637,6 +2657,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Parece que ya está registrado"
+          }
+        }
+      }
+    },
+    "Love Mom": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Te quiero, mamá"
           }
         }
       }
@@ -4581,6 +4611,16 @@
         }
       }
     },
+    "Style": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estilo"
+          }
+        }
+      }
+    },
     "Subtasks": {
       "localizations": {
         "es": {
@@ -5121,6 +5161,16 @@
         }
       }
     },
+    "The style sets the accent color. Turn the style off to choose your own.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El estilo define el color de acento. Desactiva el estilo para elegir el tuyo."
+          }
+        }
+      }
+    },
     "The task and its subtasks will be removed, and it stops repeating.": {
       "localizations": {
         "es": {
@@ -5157,6 +5207,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tema"
+          }
+        }
+      }
+    },
+    "Theme animations": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animaciones del tema"
           }
         }
       }
@@ -5427,6 +5487,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Touch ID"
+          }
+        }
+      }
+    },
+    "Toy Box": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caja de juguetes"
           }
         }
       }
@@ -5777,6 +5847,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Widget"
+          }
+        }
+      }
+    },
+    "Winter Special": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Especial de invierno"
           }
         }
       }

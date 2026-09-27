@@ -176,6 +176,7 @@ struct RecurringEditorView: View {
                 }
             }
             .navigationTitle(seriesID == nil ? Text("New Recurring Item") : Text("Edit Recurring Item"))
+            .themedScreen()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

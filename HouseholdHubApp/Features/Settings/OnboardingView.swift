@@ -47,6 +47,7 @@ struct OnboardingView: View {
                 }
             }
             .navigationTitle("Welcome")
+            .themedScreen()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Get Started") { Task { await save() } }

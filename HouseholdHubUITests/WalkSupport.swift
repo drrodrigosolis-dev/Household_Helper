@@ -11,9 +11,15 @@ extension XCTestCase {
     /// Launches against an empty in-memory store; `onboarded` skips the first-launch sheet.
     @MainActor
     /// - Parameter language: an app language such as "es" (Sprint 16 walk); formats still follow the region.
-    func launchApp(onboarded: Bool = true, variant: WalkVariant = .light, language: String? = nil) -> XCUIApplication {
+    /// - Parameter theme: a Sprint 19 style's stored name, such as "toyBox".
+    func launchApp(
+        onboarded: Bool = true, variant: WalkVariant = .light, language: String? = nil, theme: String? = nil
+    ) -> XCUIApplication {
         let app = XCUIApplication()
         var arguments = ["-uiTesting"]
+        if let theme {
+            arguments += ["-funTheme", theme]
+        }
         if onboarded {
             arguments.append("-uiTestingSkipOnboarding")
         }

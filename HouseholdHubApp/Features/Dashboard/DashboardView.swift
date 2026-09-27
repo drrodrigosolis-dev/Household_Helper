@@ -99,6 +99,7 @@ struct DashboardView: View {
             }
             .quickAddAccess()
             .navigationTitle("Dashboard")
+            .themedScreen()
             .task { await refresh() }
             .onReceive(storeSaves) { _ in Task { await refresh() } }
         }

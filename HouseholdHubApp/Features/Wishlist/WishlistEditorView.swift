@@ -111,6 +111,7 @@ struct WishlistEditorView: View {
             }
         }
         .navigationTitle(item == nil ? Text("New Item") : Text("Edit Item"))
+        .themedScreen()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

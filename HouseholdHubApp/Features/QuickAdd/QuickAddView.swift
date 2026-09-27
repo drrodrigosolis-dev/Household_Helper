@@ -147,6 +147,7 @@ struct QuickAddView: View {
                 }
             }
             .navigationTitle("Quick Add")
+            .themedScreen()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

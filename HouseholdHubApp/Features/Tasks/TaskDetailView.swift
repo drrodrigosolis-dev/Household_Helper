@@ -108,6 +108,7 @@ struct TaskDetailView: View {
             }
         }
         .navigationTitle(task.title)
+        .themedScreen()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Edit") { isEditing = true }
@@ -356,6 +357,7 @@ struct TaskEditorView: View {
             }
         }
         .navigationTitle(task == nil ? Text("New Task") : Text("Edit Task"))
+        .themedScreen()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

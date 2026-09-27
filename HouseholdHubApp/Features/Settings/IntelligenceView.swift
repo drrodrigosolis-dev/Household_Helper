@@ -22,6 +22,7 @@ struct IntelligenceView: View {
             }
         }
         .navigationTitle("Intelligence")
+        .themedScreen()
     }
 
     private var footer: String {

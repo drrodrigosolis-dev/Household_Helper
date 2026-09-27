@@ -133,6 +133,7 @@ struct CSVImportView: View {
             }
         }
         .navigationTitle("Import CSV")
+        .themedScreen()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

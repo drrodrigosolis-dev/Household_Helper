@@ -49,6 +49,7 @@ struct AccountsView: View {
             }
         }
         .navigationTitle("Accounts")
+        .themedScreen()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Add account", systemImage: "plus") { editing = .create }
@@ -320,6 +321,7 @@ struct AccountEditorView: View {
             }
         }
         .navigationTitle(isCreating ? "New Account" : "Edit Account")
+        .themedScreen()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

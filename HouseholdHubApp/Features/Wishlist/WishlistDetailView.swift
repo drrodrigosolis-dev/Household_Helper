@@ -150,6 +150,7 @@ struct WishlistDetailView: View {
             }
         }
         .navigationTitle(item.name)
+        .themedScreen()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Edit") { isEditing = true }
@@ -292,6 +293,7 @@ struct WishlistPurchaseView: View {
             }
         }
         .navigationTitle("Mark Purchased")
+        .themedScreen()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

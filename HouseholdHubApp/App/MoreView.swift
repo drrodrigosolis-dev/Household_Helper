@@ -18,6 +18,7 @@ struct MoreView: View {
             }
             .quickAddAccess()
             .navigationTitle("More")
+            .themedScreen()
         }
     }
 }

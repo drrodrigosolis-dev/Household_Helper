@@ -91,6 +91,7 @@ struct DataView: View {
         }
         .disabled(isWorking)
         .navigationTitle("Data")
+        .themedScreen()
         .fullScreenCover(isPresented: $isRestoring) {
             ProgressView("Restoring…")
                 .interactiveDismissDisabled()

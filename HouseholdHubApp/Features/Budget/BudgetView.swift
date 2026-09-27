@@ -48,6 +48,7 @@ struct BudgetView: View {
             }
             .quickAddAccess()
             .navigationTitle("Budget")
+            .themedScreen()
             .toolbar {
                 if router.budgetSegment == .transactions {
                     // Transfers need two accounts (Sprint 10 decision 8).

@@ -11,6 +11,11 @@ struct SettingsView: View {
     @State private var accentWrite: Task<Void, Never>?
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
     @Query(sort: \Account.sortOrder) private var accounts: [Account]
+    /// Sprint 19: device settings, read by `AppRootView`.
+    @AppStorage(ThemeSettings.themeKey) private var storedTheme = FunTheme.off.rawValue
+    @AppStorage(ThemeSettings.animationsKey) private var themeAnimations = true
+
+    private var themeIsOn: Bool { FunTheme(storedValue: storedTheme) != .off }
 
     var body: some View {
         List {
@@ -83,6 +88,22 @@ struct SettingsView: View {
                         Text("Dark").tag(ThemePreference.dark)
                     }
                     .accessibilityIdentifier("settings.theme")
+                    Picker("Style", selection: $storedTheme) {
+                        ForEach(FunTheme.allCases) { theme in
+                            Label {
+                                Text(theme.displayName)
+                            } icon: {
+                                ThemeSwatch(theme: theme)
+                            }
+                            .tag(theme.rawValue)
+                        }
+                    }
+                    .pickerStyle(.navigationLink)
+                    .accessibilityIdentifier("settings.style")
+                    if themeIsOn {
+                        Toggle("Theme animations", isOn: $themeAnimations)
+                            .accessibilityIdentifier("settings.themeAnimations")
+                    }
                     Picker("Accent color", selection: accentBinding) {
                         Text("Default").tag(ColorToken?.none)
                         if let custom = settings.first?.accentColor, !CategoryEditorView.palette.contains(custom) {
@@ -98,9 +119,14 @@ struct SettingsView: View {
                         }
                     }
                     .accessibilityIdentifier("settings.accent")
+                    .disabled(themeIsOn)
                     ColorPicker("Custom accent", selection: customAccentBinding, supportsOpacity: false)
                         .accessibilityIdentifier("settings.customAccent")
-                    if let warning = accentWarning {
+                        .disabled(themeIsOn)
+                    if themeIsOn {
+                        Text("The style sets the accent color. Turn the style off to choose your own.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    } else if let warning = accentWarning {
                         Text(warning).font(.footnote).foregroundStyle(.secondary)
                     }
                 }
@@ -141,6 +167,7 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
+        .themedScreen()
     }
 
     /// Turning the gate on asks for authentication first, so it can't be enabled on a device the owner can't unlock.
@@ -218,6 +245,24 @@ struct SettingsView: View {
                     await WidgetSync.refresh(services)
                 }
             })
+    }
+}
+
+/// A style's preview in the picker: its accent color with one of its pictures; a palette for Off.
+private struct ThemeSwatch: View {
+    let theme: FunTheme
+
+    var body: some View {
+        if let spec = theme.spec {
+            Text(spec.emptyStateGlyph)
+                .font(.footnote)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(spec.accent))
+                .accessibilityHidden(true)
+        } else {
+            Image(systemName: "paintpalette")
+                .accessibilityHidden(true)
+        }
     }
 }
 

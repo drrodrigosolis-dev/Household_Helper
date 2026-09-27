@@ -16,6 +16,11 @@ struct AppRootView: View {
     @State private var pendingQuickAdd = false
     /// Set when the lock is on but the device has no passcode, so nothing can authenticate.
     @State private var passcodeOff = false
+    /// Sprint 19: Settings › Appearance › Style. A device setting, so `@AppStorage` rather than `AppSettings`.
+    @AppStorage(ThemeSettings.themeKey) private var storedTheme = FunTheme.off.rawValue
+    @AppStorage(ThemeSettings.animationsKey) private var themeAnimations = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var lockEnabled: Bool { settings.first?.faceIDEnabled == true }
 
@@ -31,7 +36,9 @@ struct AppRootView: View {
         }
     }
 
-    private var accent: Color? { settings.first?.accentColor.map { Color($0) } }
+    private var funTheme: ThemeSpec? { FunTheme(storedValue: storedTheme).spec }
+    /// A theme sets the accent; the custom accent applies with themes off.
+    private var accent: Color? { funTheme?.accent ?? settings.first?.accentColor.map { Color($0) } }
     private var isLocked: Bool { lockEnabled && !isUnlocked }
 
     var body: some View {
@@ -70,6 +77,12 @@ struct AppRootView: View {
         }
         .preferredColorScheme(colorScheme)
         .tint(accent)
+        .fontDesign(funTheme == nil ? nil : .rounded)
+        .scrollContentBackground(funTheme == nil ? .automatic : .hidden)
+        .environment(\.funTheme, funTheme)
+        .environment(\.themeAnimates, funTheme != nil && themeAnimations && !reduceMotion)
+        .onChange(of: storedTheme, initial: true) { ThemeAppearance.apply(funTheme) }
+        .onChange(of: dynamicTypeSize) { ThemeAppearance.apply(funTheme) }
         // App switcher: cover the screen whenever the gated app isn't frontmost.
         .overlay {
             if lockEnabled, scenePhase != .active, !isAuthenticating {

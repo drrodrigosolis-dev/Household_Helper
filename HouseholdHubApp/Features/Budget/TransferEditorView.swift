@@ -98,6 +98,7 @@ struct TransferEditorView: View {
             }
         }
         .navigationTitle(record == nil ? Text("New Transfer") : Text("Transfer"))
+        .themedScreen()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if record == nil {

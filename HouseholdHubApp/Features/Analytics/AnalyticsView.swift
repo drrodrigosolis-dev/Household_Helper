@@ -56,6 +56,7 @@ struct AnalyticsView: View {
             }
         }
         .navigationTitle("Analytics")
+        .themedScreen()
         .task(id: reportKey) { await refresh() }
         .onReceive(storeSaves) { _ in Task { await refresh() } }
     }

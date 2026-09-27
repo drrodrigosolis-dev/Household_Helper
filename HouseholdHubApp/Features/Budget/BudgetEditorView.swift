@@ -103,6 +103,7 @@ struct BudgetEditorView: View {
             }
         }
         .navigationTitle(isEditing ? "Edit Budget" : "New Budget")
+        .themedScreen()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

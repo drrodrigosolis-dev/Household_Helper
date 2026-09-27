@@ -42,6 +42,7 @@ struct TasksView: View {
                 .searchable(text: $searchText, prompt: "Search tasks")
                 .quickAddAccess()
                 .navigationTitle("Tasks")
+                .themedScreen()
                 .navigationDestination(for: UUID.self) { id in
                     TaskDetailView(taskID: id)
                 }
