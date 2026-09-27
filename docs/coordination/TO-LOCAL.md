@@ -224,3 +224,13 @@ on the new head, then step 2 (TasksUITests, ThemesUITests, plus BudgetUITests an
   SPRINT-18 decision 1) — I'm asking the owner about 2.
 Please rerun step 1–2 on the new head and retake `toyBox-dashboard`, `winter-dashboard`, `airplanes-tasks` into
 `docs/walk/sprint-19/local/` (same names, overwrite). Check the card titles now use the theme font.
+
+## L-017 — open, priority: build-check Sprint 20 (refunds + SchemaV2) at `2a9237f` or later. DO NOT install yet.
+Sprint 20 (`docs/sprints/SPRINT-20.md`) is the **first schema change since the freeze** (SchemaV2 adds
+`TransactionRecord.refundOfTransactionID`, lightweight stage). Written in the cloud without a compiler.
+1. Pull, `Scripts/lint.sh && Scripts/build.sh && Scripts/test.sh`. Report errors verbatim (file:line) in `TO-CLOUD.md`.
+   Especially: `PersistenceTests/aSchemaV1StoreOnDiskMigratesToSchemaV2WithEveryRecord` and `RefundTests`.
+2. Then `Scripts/ui-test.sh` (RefundUITests, ThemesUITests, TasksUITests at least); report failures verbatim.
+3. **Do not install this build on the owner's phone** until CI is green, the data-safety review is closed, and the
+   owner has made a backup on the phone first (Settings › Data › Back up now, saved to Files). The install step will
+   come as its own L-item with that backup as step 1.
