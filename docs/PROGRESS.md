@@ -98,3 +98,9 @@ where money sits. Each is one sprint (`docs/sprints/SPRINT-10…`), closed only 
 | 14 | Search (deterministic) + local reminders (task due dates, upcoming bills) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`); real reminder on device pending (L-009) |
 | 15 | CSV import (user-picked file, column mapping, preview, duplicate check, one atomic save) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
 | 16 | Spanish translation (String Catalog; walked in Spanish) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`); Xcode export gaps fixed (L-010); default task columns now seeded in Spanish (run 36274947830 on `54387a4`, green) |
+
+Local walks after the Mac restart (2026-09-27, `docs/coordination/`): Spanish on a fresh store, label taps, goals, a
+real reminder, and backup/restore through Files all pass. Fixed on the way: "Back up now" did nothing (two
+`fileExporter`s on one view, `9b100f5`); goal subtitle wrap and red Delete icons (`9431b07`); Quick Add UI tests now
+wait for the typed text and an enabled Save (`bc5ceaa`). CI green on `bc5ceaa` (run 36334223494). Remaining before
+the merge go-ahead: the owner's device checks in `docs/WALK-QUEUE.md` (Face ID, on-device AI, launch time).
