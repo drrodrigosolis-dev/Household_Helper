@@ -43,6 +43,23 @@ day it comes back, so both records stay and every past figure stays true (§5 of
     v3 file with the existing "made by a newer version" message.
 11. **Themes:** the celebration does not play for refunds.
 
+12. **Pending purchases:** while a purchase is pending its refunds are pending too (a posted refund would raise the
+    current balance with money that hasn't left it, §9). Added from the data-safety review.
+13. **Recategorizing:** a refund follows its purchase's category and merchant when the purchase is edited, and the
+    purchase can't be dated after its earliest refund's day.
+
+## Data-safety review and migration audit (2026-09-27)
+Blocked on two stale tests (fixed: an "unknown" type that is now real; a "too new" version that is now current) and
+six integrity gaps, all fixed with tests: S1 pending purchases, S2 recategorizing and redating, S3 validator gaps,
+S4 rollover losing part of a later-month refund, S5 a lost keep/remove choice (now also offered in the purchase's
+editor), S6 CSV duplicate check. Also fixed: Expenses equals the category chart's total; refunds are not merchant
+visits; the migration test covers all 12 models; the schema decision is in `docs/research/apple-api-decisions.md`.
+Frozen V1 verified with git: no persistence file changed between `063a510` and the plan; version 1.0.0.
+Kept, known: un-archiving a removed item brings it back as Purchased although its purchase was refunded (N6); after
+"Keep on wishlist", deleting the refunds leaves the old purchase counted and the item Wanted (the owner's own undo);
+the delete dialog's wording is generic for purchases with refunds (the error then explains) (N5); the v2 restore
+test uses a re-versioned v3 file rather than a literal v2 file (T4).
+
 ## Items
 | # | Item | Built (CI green) | Walked |
 |---|---|---|---|
@@ -57,5 +74,5 @@ day it comes back, so both records stay and every past figure stays true (§5 of
 Lanes: none (schema and money; one author).
 
 ## Close-out
-☐ CI green · ☐ migration audit · ☐ data-safety review · ☐ walk (`docs/walk/sprint-20/`) · ☐ owner backup before
+☐ CI green · ☑ migration audit · ☑ data-safety review (findings fixed; see above) · ☐ walk (`docs/walk/sprint-20/`) · ☐ owner backup before
 install · ☐ PROGRESS + PR
