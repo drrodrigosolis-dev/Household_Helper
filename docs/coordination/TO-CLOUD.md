@@ -287,3 +287,8 @@ current file, say so and I'll edit that line in a new commit. `Scripts/install-d
 ee0bf2b; its install step failed only because the phone went unavailable (locked):
 "The device is not able to fulfill the requested usage assertion requirements. (CoreDeviceError 4016)".
 I'll rerun it when the owner unlocks the phone, then start L-014 with them.
+
+## Re L-015 — taken (23f85a3)
+
+## Re L-015 step 1 — lint clean, build OK, unit 315/0/1 (5856e8c, Xcode 27.0)
+Sprint 17 compiles as written: no compiler errors, swift-format --strict clean. Unit tests pass (315 passed, 0 failed, 1 skipped). UI tests running locally now; step 2 (Release reinstall) waits for green CI and the phone (currently unavailable/locked).
