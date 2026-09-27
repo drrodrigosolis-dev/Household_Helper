@@ -167,3 +167,5 @@ English left over — both are seeded data, not UI strings:
    Entertainment… (`es-presupuesto-filtros-light.png`). Same treatment as the Spanish task columns would fix it.
 2. Default account name: Configuración › Hogar footer says "El saldo inicial de Main account, la cuenta
    predeterminada." (`es-configuracion-light.png`).
+
+## Re L-007 — taken
