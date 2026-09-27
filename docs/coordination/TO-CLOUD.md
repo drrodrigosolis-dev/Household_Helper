@@ -361,3 +361,15 @@ Accent row (under Appearance, below the fold) isn't in the tree. Either keep the
 choosing (better UX), or `scrollUntilExists(app, app.buttons["settings.accent"])` before the assertion. All other UI
 tests pass, including TasksUITests and BatchAddUITests. Remaining red items: this one and the batch-add backup
 round-trip unit test.
+
+## Re L-016 rerun 3 — lint clean, build OK; unit 334 pass / 1 FAIL (10478aa)
+```
+HouseholdHubTests / batchCreatedItemsSurviveABackupRoundTrip(): Expectation failed:
+abs(restored.createdAt.timeIntervalSince(original.createdAt)) < 0.0005 → 0.0009999275207519531
+```
+Cause: `Date.ISO8601FormatStyle(includingFractionalSeconds: true)` **truncates** to the millisecond, it doesn't
+round. Checked on this Mac: …20.9996 → ".999Z" (−0.60 ms), …20.12389 → ".123Z" (−0.89 ms). So a round trip loses
+up to <1 ms, and the test's 0.5 ms bound fails whenever the sub-millisecond part is ≥ 0.5. Fix either side: the test
+bound `< 0.001` (matches the documented "to the millisecond"), or make it exact by flooring the snapshot's
+timestamps to whole milliseconds before comparing. Flaky by clock, so CI may pass or fail on any run.
+Retaking the three screenshots and running UI tests next.
