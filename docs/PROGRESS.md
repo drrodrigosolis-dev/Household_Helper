@@ -52,6 +52,7 @@ Statuses: not started / in progress / CI green / blocked.
     "automatic merchant transaction import from banks": no bank connection, no background import.
 15. **SchemaV1 stays editable through the v1.1 data features** (accounts, budgets, goals, recurring tasks); it freezes
     at the first install on the owner's device as before, so installing before those are green would force migrations.
+    **Frozen 2026-09-27** at `063a510` (Debug build, first install on the owner's iPhone 16 Pro Max, iOS 27.0).
 16. **Sprint 10 defaults accepted ("run")**: the 11 account and transfer decisions in `docs/sprints/SPRINT-10.md`.
 17. **Budgets roll over by default, with a toggle on each budget** (Sprint 11); the other Sprint 11 defaults accepted.
 18. **Cloud ↔ local sessions** coordinate through `docs/coordination/` (two one-way files in the repo).
