@@ -213,6 +213,7 @@ extension XCTestCase {
 
     @MainActor
     /// A column's header reads "<name>, <n> tasks".
+    @MainActor
     func columnHeader(_ app: XCUIApplication, _ name: String) -> XCUIElement {
         app.descendants(matching: .any)
             .matching(NSPredicate(format: "label BEGINSWITH %@ AND label ENDSWITH %@", "\(name),", "tasks")).firstMatch
