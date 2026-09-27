@@ -108,7 +108,9 @@ private struct ThemedFont: ViewModifier {
 
     func body(content: Content) -> some View {
         let font = theme?.displayFont(style) ?? .system(style)
-        content.font(weight.map { font.weight($0) } ?? font)
+        // The root sets SF Rounded for body text with a theme on, and a font design overrides a custom font (Sprint 19
+        // walk: titles came out SF Rounded). Clearing it here changes nothing with themes off, where none is set.
+        content.font(weight.map { font.weight($0) } ?? font).fontDesign(nil)
     }
 }
 

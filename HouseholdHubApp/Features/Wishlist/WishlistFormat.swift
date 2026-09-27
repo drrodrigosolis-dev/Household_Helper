@@ -40,6 +40,7 @@ struct WishlistThumbnail: View {
     var size: CGFloat? = 56
 
     @Environment(\.services) private var services
+    @Environment(\.funTheme) private var theme
     @State private var image: UIImage?
 
     var body: some View {
@@ -52,6 +53,10 @@ struct WishlistThumbnail: View {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
+                } else if let theme {
+                    // Sprint 19: without a photo, the theme's picture instead of the gray gift.
+                    Text(theme.emptyStateGlyph)
+                        .font(.system(size: 24))
                 } else {
                     Image(systemName: "gift")
                         .font(.system(size: 20, weight: .medium))

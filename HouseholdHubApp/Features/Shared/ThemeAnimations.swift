@@ -79,14 +79,32 @@ struct CelebrationOverlay: View {
     }
 }
 
-/// The Dashboard's gentle background animation, faint and behind the cards. With Theme animations off or Reduce
-/// Motion it stands still.
+extension AmbientMotion {
+    /// Motions that live near one edge would sit behind the cards on a full Dashboard (Sprint 19 walk: toys,
+    /// footprints and hearts were hidden), so they get their own strip above the cards. A plane crossing and falling
+    /// snow cover the whole screen and show between the cards.
+    var drawsInBanner: Bool {
+        switch self {
+        case .bobbing, .walking, .floatingUp: true
+        case .crossing, .falling: false
+        }
+    }
+}
+
+/// The Dashboard's gentle animation, faint: in a strip above the cards (`.banner`) or behind them (`.background`),
+/// depending on the theme's motion. With Theme animations off or Reduce Motion it stands still.
 struct AmbientLayer: View {
+    enum Placement {
+        case banner
+        case background
+    }
+
     @Environment(\.funTheme) private var theme
     @Environment(\.themeAnimates) private var animates
+    let placement: Placement
 
     var body: some View {
-        if let theme {
+        if let theme, theme.ambient.drawsInBanner == (placement == .banner) {
             TimelineView(.animation(minimumInterval: 1 / 30, paused: !animates)) { context in
                 let time = animates ? context.date.timeIntervalSinceReferenceDate : 0
                 GeometryReader { proxy in
@@ -98,7 +116,7 @@ struct AmbientLayer: View {
                     }
                 }
             }
-            .opacity(0.35)
+            .opacity(placement == .banner ? 0.8 : 0.35)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
         }
@@ -123,7 +141,7 @@ struct AmbientLayer: View {
         case .bobbing:
             return (0..<4).map { index in
                 let x = width * (0.14 + 0.24 * Double(index))
-                let y = height * 0.88 + sin(time * 1.3 + Double(index)) * 6
+                let y = height * 0.5 + sin(time * 1.3 + Double(index)) * 6
                 return Piece(id: index, glyph: glyph(index), point: CGPoint(x: x, y: y), size: 30)
             }
         case .crossing:
@@ -143,7 +161,7 @@ struct AmbientLayer: View {
             return (0..<6).map { index in
                 let age = fraction((step - Double(index)) / 9) * 9
                 let x = width * (Double(index) + 0.5) / 6
-                let y = height * 0.9 + (index.isMultiple(of: 2) ? -6 : 6)
+                let y = height * 0.5 + (index.isMultiple(of: 2) ? -6 : 6)
                 return Piece(
                     id: index, glyph: glyph(index), point: CGPoint(x: x, y: y), size: 22,
                     opacity: max(0, 1 - age / 4))
