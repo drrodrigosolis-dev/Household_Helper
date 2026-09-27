@@ -63,6 +63,8 @@ Statuses: not started / in progress / CI green / blocked.
 23. **Sprint 14 defaults accepted ("run")**: search and local reminders, `docs/sprints/SPRINT-14.md`.
 24. **Sprint 15 defaults accepted ("run")**: CSV import, `docs/sprints/SPRINT-15.md`.
 25. **Sprint 16 defaults accepted ("run Spanish")**: neutral Latin-American Spanish, `docs/sprints/SPRINT-16.md`.
+26. **Batch add in v1.1** (2026-09-27): paste a list, one type per batch (tasks or wishlist items), preview, one
+    save; ships before the merge as Sprint 17 (`docs/sprints/SPRINT-17.md`).
 
 ## Defaults awaiting the owner's review (Phase 10)
 - **Currency after records exist (§6.3):** Settings › Household refuses the change and says why, rather than §6.3's
@@ -98,6 +100,7 @@ where money sits. Each is one sprint (`docs/sprints/SPRINT-10…`), closed only 
 | 14 | Search (deterministic) + local reminders (task due dates, upcoming bills) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`); real reminder on device pending (L-009) |
 | 15 | CSV import (user-picked file, column mapping, preview, duplicate check, one atomic save) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
 | 16 | Spanish translation (String Catalog; walked in Spanish) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`); Xcode export gaps fixed (L-010); default task columns now seeded in Spanish (run 36274947830 on `54387a4`, green) |
+| 17 | Batch add (paste a list of tasks or wishlist items, preview, one save) | building |
 
 Local walks after the Mac restart (2026-09-27, `docs/coordination/`): Spanish on a fresh store, label taps, goals, a
 real reminder, and backup/restore through Files all pass. Fixed on the way: "Back up now" did nothing (two
