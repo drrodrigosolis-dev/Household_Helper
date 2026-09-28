@@ -56,7 +56,7 @@ struct QuickAddFixtures {
             dayOffset: nil),
         // Income only when the model says so; a category of the wrong kind is dropped.
         Case(
-            note: "got paid", model: QuickAddSuggestion(type: "income", categoryName: "Dining"), amount: nil,
+            note: "paycheck", model: QuickAddSuggestion(type: "income", categoryName: "Dining"), amount: nil,
             income: true, category: nil, dayOffset: nil),
         // A category that isn't the household's is ignored, and dates stay within the past month.
         Case(

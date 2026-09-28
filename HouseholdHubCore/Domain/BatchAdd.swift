@@ -3,8 +3,10 @@ import Foundation
 /// Reads one task line (Sprint 17, decision 3). One date word becomes the due date and looks forward: `today`/`hoy`,
 /// `tomorrow`/`mañana`, or a weekday meaning its next occurrence, today included. Weekdays are full names (English or
 /// Spanish) or the English `tue`, `thu`, `fri`; other three-letter forms are ordinary words too often ("sun cream",
-/// "ir al mar"), so they stay in the title. Everything else, numbers too, stays in the title ("buy 2 lightbulbs"). A line that is only a date word
-/// keeps it as the title.
+/// "ir al mar"), so they stay in the title. A time of day (`TimeOfDayParser`: "3pm", "a las 15:30", "noon") becomes
+/// the due time; with no date word the task is due today while that time is still ahead of `now`, tomorrow once it
+/// has passed. Everything else, numbers too, stays in the title ("buy 2 lightbulbs"). A line that is only date and
+/// time words keeps them all as the title.
 public struct TaskLineParser: Sendable {
     public let calendar: HouseholdCalendar
 
@@ -18,20 +20,32 @@ public struct TaskLineParser: Sendable {
     public struct Result: Equatable, Sendable {
         public var title: String
         public var dueDate: Date?
+        /// Minutes after local midnight on the due day; set only together with `dueDate`.
+        public var dueTimeMinutes: Int?
     }
 
     public func parse(_ text: String, now: Date) -> Result {
-        var tokens = text.split(whereSeparator: \.isWhitespace).map(String.init)
-        var dueDate: Date?
+        let words = text.split(whereSeparator: \.isWhitespace).map(String.init)
+        var tokens = words
+        // The time first: "8 de la mañana" holds "mañana", which alone is a date word.
+        let time = TimeOfDayParser.firstMatch(in: tokens)
+        if let time {
+            tokens.removeSubrange(time.tokens)
+        }
         // The last date word wins: dates usually trail ("call plumber friday").
-        if tokens.count > 1, let index = tokens.lastIndex(where: { daysAhead(for: $0, now: now) != nil }),
-            let ahead = daysAhead(for: tokens[index], now: now)
-        {
+        let dateIndex = tokens.lastIndex(where: { daysAhead(for: $0, now: now) != nil })
+        guard tokens.count > (dateIndex == nil ? 0 : 1) else {
+            return Result(title: words.joined(separator: " "), dueDate: nil)
+        }
+        var dueDate: Date?
+        if let dateIndex, let ahead = daysAhead(for: tokens[dateIndex], now: now) {
             let day = calendar.calendar.date(byAdding: .day, value: ahead, to: now) ?? now
             dueDate = calendar.startOfDay(for: day)
-            tokens.remove(at: index)
+            tokens.remove(at: dateIndex)
+        } else if let time {
+            dueDate = TimeOfDayParser.dueDay(forMinutes: time.minutes, now: now, calendar: calendar)
         }
-        return Result(title: tokens.joined(separator: " "), dueDate: dueDate)
+        return Result(title: tokens.joined(separator: " "), dueDate: dueDate, dueTimeMinutes: time?.minutes)
     }
 
     /// Days ahead for a date word, or nil when the token isn't one. Trailing punctuation is ignored ("friday,").
@@ -198,7 +212,8 @@ public struct BatchAddPlanner: Sendable {
         case .tasks:
             let line = tasks.parse(body, now: now)
             guard !line.title.isEmpty else { return .skipped(.noText) }
-            return .task(TaskDraft(title: line.title, dueDate: line.dueDate))
+            let draft = TaskDraft(title: line.title, dueDate: line.dueDate, dueTimeMinutes: line.dueTimeMinutes)
+            return .task(draft)
         case .wishlist:
             let line = wishes.parse(body)
             if line.priceTooLarge { return .skipped(.priceTooLarge) }

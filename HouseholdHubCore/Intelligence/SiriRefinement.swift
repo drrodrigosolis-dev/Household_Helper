@@ -121,9 +121,10 @@ public enum SiriRefinement {
         guard let amount = spokenAmount(guess.amount, note: note, currency: currency) else { return nil }
         let parser = QuickAddParser(currency: currency, categories: [], calendar: calendar)
         let parsed = parser.parse(note, now: now)
-        // The type always comes from the §25.2 grammar: income only with a leading "+" or an income word ("income",
-        // "received", "ingreso", "recibido"), expense otherwise ("gasto" included). The model can't turn an expense
-        // into income or income into an expense; an answer that isn't one of the two kinds is refused outright.
+        // The type always comes from the §25.2 grammar: income only with a leading "+" or an income phrase ("got
+        // paid", "received", "me pagaron", "ingreso"), expense otherwise ("I paid", "gasto" included). The model can't
+        // turn an expense into income or income into an expense; an answer that isn't one of the two kinds is refused
+        // outright.
         guard ["income", "expense", ""].contains(guess.kind.trimmingCharacters(in: .whitespaces).lowercased()) else {
             return nil
         }
@@ -147,6 +148,11 @@ public enum SiriRefinement {
             let day = parser.parse(phrase, now: now)
             if fromNote, day.dateRecognized {
                 occurredAt = day.occurredAt
+                // A time the sentence named stays on the day the model picked ("paid monday at 3pm").
+                if day.timeOfDayMinutes == nil, let minutes = parsed.timeOfDayMinutes {
+                    occurredAt = TimeOfDayParser.pastInstant(
+                        minutes: minutes, onDayOf: day.occurredAt, dayNamed: true, now: now, calendar: calendar)
+                }
             }
         }
         guard occurredAt <= now else { return nil }

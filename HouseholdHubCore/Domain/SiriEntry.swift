@@ -93,12 +93,21 @@ public enum WishlistEntry {
 
 /// The Add a Task grammar (Sprint 25, owner answer 1): the whole dictated text is the title, numbers and date words
 /// included; the task goes to the first column (owner answer 2).
+///
+/// A time of day (owner request 2026-09-28, `TimeOfDayParser`) is the exception: "call the plumber friday at 3pm"
+/// is due Friday at 15:00, titled "call the plumber". A time needs a day, so when the text names a time the batch
+/// task line grammar reads the day too (`TaskLineParser`): a date word, or with none, today while the time is still
+/// ahead of `now` and tomorrow once it has passed. Without a time, date words stay in the title as before.
 public enum TaskEntry {
-    public static func draft(text: String) throws -> TaskDraft {
+    public static func draft(text: String, now: Date, calendar: HouseholdCalendar) throws -> TaskDraft {
         // Dictation ends the sentence with a period; it isn't part of the title.
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let title = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: ".")).trimmingCharacters(in: .whitespaces)
         guard !title.isEmpty else { throw SiriEntryError.emptyText }
+        let line = TaskLineParser(calendar: calendar).parse(title, now: now)
+        if let minutes = line.dueTimeMinutes, let due = line.dueDate {
+            return TaskDraft(title: line.title, dueDate: due, dueTimeMinutes: minutes)
+        }
         return TaskDraft(title: title)
     }
 }

@@ -126,7 +126,7 @@ private struct BatchLineRow: View {
             case .task(let draft):
                 Text(draft.title)
                 if let due = draft.dueDate {
-                    Text("Due \(due.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))")
+                    Text("Due \(dueText(due, minutes: draft.dueTimeMinutes))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -147,6 +147,14 @@ private struct BatchLineRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("batch.line")
+    }
+
+    /// "Fri, Oct 2", or "Fri, Oct 2, 3:30 PM" when the line named a time.
+    private func dueText(_ due: Date, minutes: Int?) -> String {
+        let day = Date.FormatStyle.dateTime.weekday(.abbreviated).month(.abbreviated).day()
+        guard let minutes else { return due.formatted(day) }
+        let calendar = HouseholdCalendar(timeZone: .current)
+        return TimeOfDay.date(minutes: minutes, onDayOf: due, calendar: calendar).formatted(day.hour().minute())
     }
 
     private func detail(_ draft: WishlistDraft) -> String {
