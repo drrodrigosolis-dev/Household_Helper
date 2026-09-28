@@ -1071,6 +1071,16 @@
         }
       }
     },
+    "Categories are matched by name, or suggested from the category you last gave the same merchant. You can change any row's category below.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las categorías se asignan por nombre o se sugieren según la última categoría que le diste al mismo comercio. Puedes cambiar la categoría de cualquier fila abajo."
+          }
+        }
+      }
+    },
     "Categories are matched by name; anything else is filed as Uncategorized.": {
       "localizations": {
         "es": {
@@ -5107,6 +5117,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sugerido en este dispositivo. Revísalo antes de guardar."
+          }
+        }
+      }
+    },
+    "Suggested: you filed this merchant here before": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sugerida: ya clasificaste este comercio aquí antes"
           }
         }
       }
