@@ -341,6 +341,16 @@
         }
       }
     },
+    "A file with the same column headers will use this mapping automatically next time.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un archivo con los mismos encabezados de columna usará esta asignación automáticamente la próxima vez."
+          }
+        }
+      }
+    },
     "A number is the price, #tag picks a category. Example: 250 new bike #home": {
       "localizations": {
         "es": {
@@ -2661,6 +2671,16 @@
         }
       }
     },
+    "Import presets": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plantillas de importación"
+          }
+        }
+      }
+    },
     "Import transactions from CSV…": {
       "localizations": {
         "es": {
@@ -3151,6 +3171,16 @@
         }
       }
     },
+    "Matched your preset “%@”.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coincide con tu plantilla “%@”."
+          }
+        }
+      }
+    },
     "Medium": {
       "localizations": {
         "es": {
@@ -3587,6 +3617,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sin recurrentes"
+          }
+        }
+      }
+    },
+    "No saved presets yet. Map a file's columns, then choose “Save as preset…”.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay plantillas guardadas. Asigna las columnas de un archivo y luego elige “Guardar como plantilla…”."
           }
         }
       }
@@ -4227,6 +4267,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Solo movimientos registrados."
+          }
+        }
+      }
+    },
+    "Preset": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plantilla"
           }
         }
       }
@@ -4907,6 +4957,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ahorra %@ al mes hasta el %@"
+          }
+        }
+      }
+    },
+    "Save as preset": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar como plantilla"
+          }
+        }
+      }
+    },
+    "Save as preset…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar como plantilla…"
           }
         }
       }
