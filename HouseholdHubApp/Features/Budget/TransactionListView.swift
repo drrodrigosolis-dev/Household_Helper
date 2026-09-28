@@ -12,12 +12,41 @@ struct TransactionListView: View {
     /// Sprint 23 (A-007): Select mode, turned on and off from the Budget toolbar.
     @Binding var isSelecting: Bool
     @State private var limit = TransactionListView.pageSize
+    @Environment(\.services) private var services
+    /// Sprint 23 (F3): the Undo banner's state, owned by Budget; absent where no screen provides one.
+    @Environment(UndoCenter.self) private var undoCenter: UndoCenter?
 
     var body: some View {
         FilteredTransactions(filter: filter, search: SearchQuery(search), limit: limit, isSelecting: $isSelecting) {
             limit += TransactionListView.pageSize
         }
         .id(filter)
+        .safeAreaInset(edge: .bottom) {
+            if let banner = undoCenter?.banner {
+                UndoBannerView(banner: banner, undo: performUndo)
+                    // Clear of the floating + at the bottom trailing corner.
+                    .padding(.leading, 16)
+                    .padding(.trailing, 88)
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.default, value: undoCenter?.banner)
+    }
+
+    /// Takes the offered undo back through the service: a delete is restored in one save, or refused with nothing
+    /// changed; a bulk category edit is re-applied record by record.
+    private func performUndo() {
+        guard let undoCenter, let services, let undo = undoCenter.take() else { return }
+        Task {
+            do {
+                try await services.transactions.undo(undo, now: .now)
+            } catch UndoError.partiallyUndone(let failed) {
+                undoCenter.notify(UndoMessage.partlyUndone(failed: failed))
+            } catch {
+                undoCenter.notify(UndoMessage.refused)
+            }
+        }
     }
 }
 
@@ -43,6 +72,11 @@ enum BulkEdit {
             accountID: record.accountID)
     }
 
+    /// A recurring occurrence, which a delete marks skipped and can also disable the series of (spec §8.3).
+    static func isOccurrence(_ record: TransactionRecord) -> Bool {
+        record.recurringSeriesID != nil && record.scheduledOccurrence != nil
+    }
+
     /// Refunds go first, so a purchase whose refunds are also selected can be deleted after them.
     static func deletionOrder(_ records: [TransactionRecord]) -> [TransactionRecord] {
         records.filter { $0.type == .refund } + records.filter { $0.type != .refund }
@@ -58,6 +92,7 @@ private struct TransactionDay {
 private struct FilteredTransactions: View {
     @Environment(\.services) private var services
     @Environment(AppRouter.self) private var router
+    @Environment(UndoCenter.self) private var undoCenter: UndoCenter?
     @Query private var records: [TransactionRecord]
     @Query private var categories: [CategoryRecord]
     @Query(sort: \Account.sortOrder) private var accounts: [Account]
@@ -233,10 +268,13 @@ private struct FilteredTransactions: View {
     private func delete(_ record: TransactionRecord, disableSeries: Bool) {
         let id = record.id
         pendingDelete = nil
+        guard let services else { return }
         Task {
             do {
-                try await services?.transactions.deleteTransaction(id, alsoDisableSeries: disableSeries, now: .now)
+                let deleted = try await services.transactions.deleteTransactionForUndo(
+                    id, alsoDisableSeries: disableSeries, now: .now)
                 errorMessage = nil
+                undoCenter?.offer(.deletion([deleted]), message: UndoMessage.deleted(1))
             } catch LedgerError.purchaseHasRefunds {
                 errorMessage = String(localized: "This purchase has refunds. Delete its refunds first.")
             } catch {
@@ -267,7 +305,15 @@ private struct FilteredTransactions: View {
                     Text("Delete \(selected.count) transactions?"), isPresented: $isConfirmingBulkDelete,
                     titleVisibility: .visible
                 ) {
-                    Button("Delete \(selected.count) transactions", role: .destructive) { bulkDelete(selected) }
+                    Button("Delete \(selected.count) transactions", role: .destructive) {
+                        bulkDelete(selected, disablingSeries: false)
+                    }
+                    // Spec §8.3's third choice, for the recurring occurrences among them (data-safety review B2).
+                    if selected.contains(where: BulkEdit.isOccurrence) {
+                        Button("Delete and disable their series", role: .destructive) {
+                            bulkDelete(selected, disablingSeries: true)
+                        }
+                    }
                     Button("Cancel", role: .cancel) {}
                 } message: {
                     Text(bulkDeleteMessage(selected))
@@ -319,8 +365,10 @@ private struct FilteredTransactions: View {
 
     private func bulkDeleteMessage(_ selected: [TransactionRecord]) -> String {
         var parts = [String(localized: "They will be removed from your history and balances.")]
-        if selected.contains(where: { $0.recurringSeriesID != nil }) {
-            parts.append(String(localized: "Recurring occurrences are marked as skipped; their series keep running."))
+        if selected.contains(where: BulkEdit.isOccurrence) {
+            let skipped = String(
+                localized: "Occurrences are marked as skipped; their series keep running unless you disable them.")
+            parts.append(skipped)
         }
         if selected.contains(where: { $0.wishlistItemID != nil }) {
             parts.append(String(localized: "Wishlist items they bought are no longer purchased."))
@@ -340,15 +388,19 @@ private struct FilteredTransactions: View {
         isWorking = true
         Task {
             var failed: Set<UUID> = []
+            var changes: [CategoryChange] = []
             for (id, draft) in drafts {
                 do {
-                    try await services.transactions.update(id, with: draft, now: .now)
+                    changes.append(try await services.transactions.updateCategoryForUndo(id, with: draft, now: .now))
                 } catch {
                     failed.insert(id)
                 }
             }
             isWorking = false
             finishBulk(failed: failed)
+            if !changes.isEmpty {
+                undoCenter?.offer(.categoryChange(changes), message: UndoMessage.recategorized(changes.count))
+            }
             if !failed.isEmpty {
                 errorMessage = String(
                     localized: "\(failed.count) of \(drafts.count) couldn't be changed. They are still selected.")
@@ -356,18 +408,23 @@ private struct FilteredTransactions: View {
         }
     }
 
-    /// Deletes each record through the service, as a single delete would: an occurrence is marked skipped, a purchase
-    /// with refunds is refused, a wishlist purchase reverts its item. Records that fail stay selected.
-    private func bulkDelete(_ selected: [TransactionRecord]) {
+    /// Deletes each record through the service, as a single delete would: an occurrence is marked skipped (and its
+    /// series disabled when asked), a purchase with refunds is refused, a wishlist purchase reverts its item. Records
+    /// that fail stay selected.
+    private func bulkDelete(_ selected: [TransactionRecord], disablingSeries: Bool) {
         let ids = BulkEdit.deletionOrder(selected).map(\.id)
+        let occurrences = Set(selected.filter(BulkEdit.isOccurrence).map(\.id))
         guard let services, !ids.isEmpty else { return }
         isWorking = true
         Task {
             var failed: Set<UUID> = []
             var hasRefunds = 0
+            var deleted: [DeletedTransaction] = []
             for id in ids {
                 do {
-                    try await services.transactions.deleteTransaction(id, alsoDisableSeries: false, now: .now)
+                    let entry = try await services.transactions.deleteTransactionForUndo(
+                        id, alsoDisableSeries: disablingSeries && occurrences.contains(id), now: .now)
+                    deleted.append(entry)
                 } catch LedgerError.purchaseHasRefunds {
                     failed.insert(id)
                     hasRefunds += 1
@@ -377,6 +434,9 @@ private struct FilteredTransactions: View {
             }
             isWorking = false
             finishBulk(failed: failed)
+            if !deleted.isEmpty {
+                undoCenter?.offer(.deletion(deleted), message: UndoMessage.deleted(deleted.count))
+            }
             if hasRefunds > 0 {
                 errorMessage = String(
                     localized: "\(hasRefunds) purchases have refunds and were kept. Delete their refunds first.")
@@ -460,6 +520,10 @@ struct TransactionRow: View {
         var parts: [String] = []
         if record.type == .refund {
             parts.append(String(localized: "Refund"))
+        }
+        // Sprint 23 (F4): one part of a split payment.
+        if record.splitGroupID != nil {
+            parts.append(String(localized: "Split"))
         }
         if record.type == .transfer {
             let source = accountName(record.accountID) ?? String(localized: "another account")
