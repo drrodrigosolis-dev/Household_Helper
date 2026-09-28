@@ -24,6 +24,15 @@ public enum AnalyticsPeriod: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    /// The month the period's category changes compare against (Sprint 23, A-018): the calendar month before a
+    /// single-month period. Longer periods have no comparison.
+    public func comparisonInterval(now: Date, calendar: HouseholdCalendar) -> DateInterval? {
+        guard bucket == .week else { return nil }
+        let start = interval(now: now, calendar: calendar).start
+        guard let earlier = calendar.calendar.date(byAdding: .month, value: -1, to: start) else { return nil }
+        return DateInterval(start: calendar.startOfMonth(for: earlier), end: start)
+    }
+
     /// Trend bars group by week for single-month periods, by month otherwise.
     public var bucket: AnalyticsBucket {
         switch self {
@@ -82,6 +91,34 @@ public struct CategorySpend: Sendable, Hashable, Identifiable {
     public var id: String { categoryID?.uuidString ?? "uncategorized" }
 }
 
+/// One category's spending against the month before (Sprint 23, A-018). `difference` is the size of the change,
+/// never negative; `direction` says which way it went.
+public struct CategoryChange: Sendable, Hashable, Identifiable {
+    public enum Direction: Sendable, Hashable {
+        case up
+        case down
+        case same
+    }
+
+    /// Nil is the "Uncategorized" bucket.
+    public let categoryID: UUID?
+    public let current: Money
+    public let previous: Money
+    public let difference: Money
+    public let direction: Direction
+
+    public var id: String { categoryID?.uuidString ?? "uncategorized" }
+
+    public init(categoryID: UUID?, current: Money, previous: Money) throws {
+        let change = try current.subtracting(previous)
+        self.categoryID = categoryID
+        self.current = current
+        self.previous = previous
+        self.difference = try change.isNegative ? change.negated() : change
+        self.direction = change.isZero ? .same : change.isNegative ? .down : .up
+    }
+}
+
 public struct TrendPoint: Sendable, Hashable, Identifiable {
     /// Start of the week or month.
     public let start: Date
@@ -127,7 +164,16 @@ public struct AnalyticsEngine: Sendable {
         _ entries: [AnalyticsEntry], period: AnalyticsPeriod, now: Date, calendar: HouseholdCalendar,
         currencyCode: String, includePending: Bool = false
     ) throws -> AnalyticsReport {
-        let interval = period.interval(now: now, calendar: calendar)
+        try report(
+            entries, interval: period.interval(now: now, calendar: calendar), bucket: period.bucket, now: now,
+            calendar: calendar, currencyCode: currencyCode, includePending: includePending)
+    }
+
+    /// The same report for any interval, such as the month before a period (Sprint 23: change vs last month).
+    public func report(
+        _ entries: [AnalyticsEntry], interval: DateInterval, bucket: AnalyticsBucket, now: Date,
+        calendar: HouseholdCalendar, currencyCode: String, includePending: Bool = false
+    ) throws -> AnalyticsReport {
         let counted = entries.filter { entry in
             let countedStatus = entry.status == .posted || (includePending && entry.status == .pending)
             return countedStatus && entry.type != .transfer && entry.occurredAt >= interval.start
@@ -148,12 +194,21 @@ public struct AnalyticsEngine: Sendable {
         // What the category chart adds up to: each category's spending after its own refunds, never below zero.
         let expense = try Money.sum(byCategory.map(\.total), currencyCode: currencyCode)
         let points = try trend(
-            incomes + spending, interval: interval, bucket: period.bucket, calendar: calendar,
-            currencyCode: currencyCode)
+            incomes + spending, interval: interval, bucket: bucket, calendar: calendar, currencyCode: currencyCode)
         let top = try merchants(spending, currencyCode: currencyCode)
         return AnalyticsReport(
             interval: interval, income: income, expense: expense, refunds: refunds, net: net, byCategory: byCategory,
             trend: points, topMerchants: top)
+    }
+
+    /// Each category of `current` against what it spent in `previous` (Sprint 23, A-018), in `current`'s order. A
+    /// category missing from `previous` spent nothing there.
+    public func changes(from previous: [CategorySpend], to current: [CategorySpend]) throws -> [CategoryChange] {
+        let before = Dictionary(previous.map { ($0.id, $0.total) }, uniquingKeysWith: { first, _ in first })
+        return try current.map { spend in
+            let earlier = before[spend.id] ?? .zero(spend.total.currencyCode)
+            return try CategoryChange(categoryID: spend.categoryID, current: spend.total, previous: earlier)
+        }
     }
 
     /// Spending shown for a group whose refunds exceed its purchases in the period (a return in a later month).

@@ -4,24 +4,43 @@ import SwiftData
 import SwiftUI
 
 /// Budget › Budgets (Sprint 11): each budgeted category's month — spent, what is available (the limit plus what
-/// rolled over), and what is left or over. Tapping a row edits it; + adds one.
+/// rolled over), and what is left or over. Tapping a row edits it; + adds one. Sprint 23 (A-017): previous months
+/// too, a year back (or to the oldest budget's start), never past the current month.
 struct BudgetsListView: View {
     @Environment(\.services) private var services
     @Environment(AppRouter.self) private var router
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
     @Query private var budgets: [CategoryBudget]
-    @State private var statuses: [BudgetStatus] = []
+    /// The month picked with the arrows; nil is the current month, so the screen follows the calendar.
+    @State private var pickedMonth: BudgetMonth?
+    /// The report with the month it was computed for, so a late result for another month is never shown.
+    @State private var loaded: (month: BudgetMonth, statuses: [BudgetStatus])?
     @State private var editing: BudgetEditorView.Mode?
     @State private var loadFailed = false
+    private let calendar = HouseholdCalendar(timeZone: .current)
 
     private var storeSaves: some Publisher<Notification, Never> {
         NotificationCenter.default.publisher(for: ModelContext.didSave).receive(on: RunLoop.main)
     }
 
+    private var navigator: BudgetMonthNavigator {
+        BudgetMonthNavigator(now: .now, calendar: calendar, starts: budgets.map(\.start))
+    }
+
+    private var month: BudgetMonth { navigator.clamped(pickedMonth ?? navigator.current) }
+
+    private var isCurrentMonth: Bool { month == navigator.current }
+
+    /// The shown month's figures, or nil while they load.
+    private var statuses: [BudgetStatus]? {
+        guard let loaded, loaded.month == month else { return nil }
+        return loaded.statuses
+    }
+
     var body: some View {
         Group {
             // Budgets of archived categories are hidden, so an empty report is an empty screen.
-            if statuses.isEmpty, !loadFailed {
+            if isCurrentMonth, statuses?.isEmpty == true, !loadFailed {
                 ContentUnavailableView {
                     EmptyStateLabel(Text("No budgets"), systemImage: "chart.bar.doc.horizontal")
                 } description: {
@@ -33,27 +52,30 @@ struct BudgetsListView: View {
             } else {
                 List {
                     Section {
-                        ForEach(statuses, id: \.categoryID) { status in
-                            if let category = categories.first(where: { $0.id == status.categoryID }) {
-                                BudgetRow(status: status, category: category)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture { edit(category) }
-                                    .accessibilityAddTraits(.isButton)
-                                    .accessibilityHint("Edits this budget")
-                                    .accessibilityAction(named: "Show transactions") { showTransactions(category) }
-                                    .contextMenu {
-                                        Button("Edit", systemImage: "pencil") { edit(category) }
-                                        Button("Show transactions", systemImage: "list.bullet") {
-                                            showTransactions(category)
-                                        }
-                                    }
+                        monthStepper
+                            .themedRow()
+                    }
+                    Section {
+                        if let statuses {
+                            if statuses.isEmpty, !loadFailed {
+                                Text("No budgets this month.")
+                                    .foregroundStyle(.secondary)
                                     .themedRow()
                             }
+                            ForEach(statuses, id: \.categoryID) { status in
+                                if let category = categories.first(where: { $0.id == status.categoryID }) {
+                                    row(status, category)
+                                }
+                            }
+                        } else if !loadFailed {
+                            ProgressView()
                         }
-                    } header: {
-                        Text(Date.now.formatted(.dateTime.month(.wide).year()))
                     } footer: {
-                        Text("Rolled-over budgets carry what was left, or overspent, into the next month.")
+                        if isCurrentMonth {
+                            Text("Rolled-over budgets carry what was left, or overspent, into the next month.")
+                        } else {
+                            Text("Past months use each budget's current limit. Rollover counts from its start month.")
+                        }
                     }
                     if loadFailed {
                         ErrorText(String(localized: "Budgets couldn't be calculated. Your data is safe."))
@@ -71,8 +93,63 @@ struct BudgetsListView: View {
         .sheet(item: $editing) { mode in
             NavigationStack { BudgetEditorView(mode: mode) }
         }
-        .task { await refresh() }
+        .task(id: month) { await refresh() }
         .onReceive(storeSaves) { _ in Task { await refresh() } }
+    }
+
+    private func row(_ status: BudgetStatus, _ category: CategoryRecord) -> some View {
+        BudgetRow(status: status, category: category)
+            .contentShape(Rectangle())
+            .onTapGesture { edit(category) }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("Edits this budget")
+            .accessibilityAction(named: "Show transactions") { showTransactions(category) }
+            .contextMenu {
+                Button("Edit", systemImage: "pencil") { edit(category) }
+                Button("Show transactions", systemImage: "list.bullet") {
+                    showTransactions(category)
+                }
+            }
+            .themedRow()
+    }
+
+    /// Previous and next month around the month's name; each arrow is its own button (VoiceOver and Switch Control
+    /// reach them directly), and a disabled one says why by being dimmed and announced as dimmed.
+    private var monthStepper: some View {
+        HStack {
+            Button {
+                pickedMonth = navigator.previous(of: month)
+            } label: {
+                Label("Previous month", systemImage: "chevron.left")
+                    .labelStyle(.iconOnly)
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+            .disabled(!navigator.canGoBack(from: month))
+            .accessibilityIdentifier("budgets.previousMonth")
+            Spacer(minLength: 8)
+            Text(title(month))
+                .font(.headline)
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("budgets.month")
+            Spacer(minLength: 8)
+            Button {
+                let next = navigator.next(of: month)
+                pickedMonth = next == navigator.current ? nil : next
+            } label: {
+                Label("Next month", systemImage: "chevron.right")
+                    .labelStyle(.iconOnly)
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+            .disabled(!navigator.canGoForward(from: month))
+            .accessibilityIdentifier("budgets.nextMonth")
+        }
+        // Two buttons in one row: without this, a tap anywhere in the row would trigger both.
+        .buttonStyle(.borderless)
+    }
+
+    private func title(_ month: BudgetMonth) -> String {
+        month.start(in: calendar).formatted(.dateTime.month(.wide).year())
     }
 
     private func edit(_ category: CategoryRecord) {
@@ -80,17 +157,25 @@ struct BudgetsListView: View {
         editing = .edit(budget)
     }
 
+    /// The current month opens this month's transactions; a past month opens the category's whole history, since
+    /// the transaction filter has no month of its own.
     private func showTransactions(_ category: CategoryRecord) {
-        router.showBudget(.transactions, filter: TransactionFilter(period: .thisMonth, categoryID: category.id))
+        let period: TransactionFilter.Period = isCurrentMonth ? .thisMonth : .all
+        router.showBudget(.transactions, filter: TransactionFilter(period: period, categoryID: category.id))
     }
 
     private func refresh() async {
         guard let services else { return }
+        let requested = month
         do {
-            statuses = try await services.transactions.budgetReport(
-                month: .now, calendar: HouseholdCalendar(timeZone: .current))
+            let result = try await services.transactions.budgetReport(
+                month: requested.start(in: calendar), calendar: calendar)
+            guard requested == month else { return }
+            loaded = (requested, result)
             loadFailed = false
         } catch {
+            guard requested == month else { return }
+            loaded = nil
             loadFailed = true
         }
     }
@@ -121,7 +206,8 @@ struct BudgetRow: View {
                 .tint(BudgetFormat.tint(status))
                 .accessibilityHidden(true)
             if !status.carriedIn.isZero {
-                Text(BudgetFormat.carriedText(status))
+                // Sprint 23 (A-017): with rollover, "of" is the limit plus the carry, so name the limit too.
+                Text(BudgetFormat.limitText(status) + " · " + BudgetFormat.carriedText(status))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -143,6 +229,10 @@ enum BudgetFormat {
             return String(localized: "\(status.remaining.formatted()) left")
         }
         return String(localized: "\(over.formatted()) over")
+    }
+
+    static func limitText(_ status: BudgetStatus) -> String {
+        String(localized: "Limit \(status.limit.formatted())")
     }
 
     static func carriedText(_ status: BudgetStatus) -> String {

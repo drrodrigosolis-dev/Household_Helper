@@ -6,7 +6,9 @@ import SwiftUI
 
 /// Analytics (spec §24.2): period selector, spending by category, income vs expense trend, top merchants. Every
 /// chart has the same numbers in a table and an audio-graph descriptor (§24.5). Posted transactions, plus pending
-/// ones when Include pending is on (owner decision 2026-09-26).
+/// ones when Include pending is on (owner decision 2026-09-26). Sprint 23: categories and bars open their
+/// transactions, each category shows its change vs the month before (A-018), and "Last month" sums up the previous
+/// calendar month (F5).
 struct AnalyticsView: View {
     @Environment(\.services) private var services
     @Environment(AppRouter.self) private var router
@@ -16,7 +18,10 @@ struct AnalyticsView: View {
 
     @State private var period: AnalyticsPeriod?
     /// The report with the period and pending choice it was computed for, so a late or stale result is never shown.
-    @State private var loaded: (key: ReportKey, report: AnalyticsReport)?
+    @State private var loaded: (key: ReportKey, report: AnalyticsReport, changes: [CategoryChange])?
+    /// Last month's summary (F5), with the pending choice it was computed for.
+    @State private var summary: (includesPending: Bool, value: MonthSummary)?
+    @State private var summaryFailed = false
 
     struct ReportKey: Hashable {
         let period: AnalyticsPeriod
@@ -46,13 +51,20 @@ struct AnalyticsView: View {
                     .accessibilityIdentifier("analytics.includePending")
             }
             if let loaded, loaded.key == reportKey {
-                content(loaded.report)
+                content(loaded.report, changes: loaded.changes)
             } else if loadFailed {
                 ContentUnavailableView(
                     "Analytics unavailable", systemImage: "exclamationmark.triangle",
                     description: Text("Your data is safe; the figures couldn't be calculated."))
             } else {
                 ProgressView()
+            }
+            if let summary, summary.includesPending == includesPending {
+                MonthSummarySection(summary: summary.value, categories: categories)
+            } else if summaryFailed {
+                Section("Last month") {
+                    ErrorText(String(localized: "Last month's summary couldn't be calculated. Your data is safe."))
+                }
             }
         }
         .navigationTitle("Analytics")
@@ -62,7 +74,7 @@ struct AnalyticsView: View {
     }
 
     @ViewBuilder
-    private func content(_ report: AnalyticsReport) -> some View {
+    private func content(_ report: AnalyticsReport, changes: [CategoryChange]) -> some View {
         Section {
             LabeledContent("Income") { AmountText(report.income.formatted()) }
             LabeledContent("Expenses") { AmountText(report.expense.formatted()) }
@@ -97,8 +109,10 @@ struct AnalyticsView: View {
             }
             CategorySection(
                 report: report, categories: categories, currencyCode: report.income.currencyCode, budgets: budgets,
-                onSelect: showBudget)
-            TrendSection(report: report, bucket: selectedPeriod.bucket, currencyCode: report.income.currencyCode)
+                changes: changes, comparison: comparison, onSelect: showBudget)
+            TrendSection(
+                report: report, bucket: selectedPeriod.bucket, currencyCode: report.income.currencyCode,
+                onSelect: showBucket(startingAt:))
             if !report.topMerchants.isEmpty {
                 Section("Top merchants") {
                     ForEach(report.topMerchants) { merchant in
@@ -150,10 +164,13 @@ struct AnalyticsView: View {
     private func refresh() async {
         guard let services else { return }
         let requested = reportKey
+        let now = Date.now
         do {
-            let result = try await services.analytics.report(period: requested.period, now: .now, calendar: calendar)
+            let result = try await services.analytics.report(period: requested.period, now: now, calendar: calendar)
+            let changes = try await services.analytics.categoryChanges(
+                period: requested.period, now: now, calendar: calendar)
             guard requested == reportKey else { return }
-            loaded = (requested, result)
+            loaded = (requested, result, changes)
             loadFailed = false
         } catch {
             guard requested == reportKey else { return }
@@ -161,14 +178,66 @@ struct AnalyticsView: View {
             loaded = nil
             loadFailed = true
         }
+        await refreshSummary(services, includesPending: requested.includesPending, now: now)
     }
 
-    /// Spec §24.2: a category opens Budget filtered to it (Sprint 5 default 5 for the period).
+    /// F5: last month's report, its budgets and today's goals, combined by `MonthSummary`.
+    private func refreshSummary(_ services: AppServices, includesPending: Bool, now: Date) async {
+        let lastMonth = AnalyticsPeriod.lastMonth.interval(now: now, calendar: calendar)
+        do {
+            let report = try await services.analytics.report(period: .lastMonth, now: now, calendar: calendar)
+            let budgets = try await services.transactions.budgetReport(month: lastMonth.start, calendar: calendar)
+            let goals = try await services.transactions.goalReport(now: now, calendar: calendar)
+            let value = try MonthSummary(report: report, budgets: budgets, goals: goals)
+            guard includesPending == self.includesPending else { return }
+            summary = (includesPending, value)
+            summaryFailed = false
+        } catch {
+            guard includesPending == self.includesPending else { return }
+            summary = nil
+            summaryFailed = true
+        }
+    }
+
+    /// What the category changes compare against, for their wording.
+    private var comparison: CategorySection.Comparison? {
+        switch selectedPeriod {
+        case .thisMonth: return .lastMonth
+        case .lastMonth: return .monthBefore
+        case .last3Months, .thisYear, .last12Months: return nil
+        }
+    }
+
+    /// The transaction filter's closest period to the one on screen: it has no date range of its own, so a period
+    /// other than this month opens every date (Sprint 5 default 5).
+    private var filterPeriod: TransactionFilter.Period { selectedPeriod == .thisMonth ? .thisMonth : .all }
+
+    /// Spec §24.2: a category opens Budget filtered to it (Sprint 5 default 5 for the period); Uncategorized opens the
+    /// transactions without a category (Sprint 23).
     private func showBudget(_ categoryID: UUID?) {
-        guard let categoryID else { return }
-        let range: TransactionFilter.Period = selectedPeriod == .thisMonth ? .thisMonth : .all
         // The same statuses as the figure that was tapped: posted only, or posted and pending.
-        let filter = TransactionFilter(period: range, categoryID: categoryID, status: includesPending ? nil : .posted)
+        var filter = TransactionFilter(period: filterPeriod, status: includesPending ? nil : .posted)
+        if let categoryID {
+            filter.categoryID = categoryID
+        } else {
+            filter.uncategorizedOnly = true
+        }
+        router.showBudget(.transactions, filter: filter)
+    }
+
+    /// Sprint 23 (A-018): a week or month bar opens Budget at the narrowest period the filter has that holds it: this
+    /// week, this month, or every date.
+    private func showBucket(startingAt start: Date) {
+        let now = Date.now
+        let range: TransactionFilter.Period
+        if selectedPeriod.bucket == .week, start == calendar.startOfWeek(for: now) {
+            range = .thisWeek
+        } else if selectedPeriod == .thisMonth || start == calendar.startOfMonth(for: now) {
+            range = .thisMonth
+        } else {
+            range = .all
+        }
+        let filter = TransactionFilter(period: range, status: includesPending ? nil : .posted)
         router.showBudget(.transactions, filter: filter)
     }
 }

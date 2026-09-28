@@ -171,6 +171,16 @@
         }
       }
     },
+    "%lld of %lld reached": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld de %2$lld alcanzadas"
+          }
+        }
+      }
+    },
     "%lld photos couldn't be read and are left out of this backup.": {
       "localizations": {
         "es": {
@@ -2501,6 +2511,16 @@
         }
       }
     },
+    "Goals show where they stand today.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las metas muestran cómo van hoy."
+          }
+        }
+      }
+    },
     "Green": {
       "localizations": {
         "es": {
@@ -3101,6 +3121,16 @@
         }
       }
     },
+    "Last month's summary couldn't be calculated. Your data is safe.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo calcular el resumen del mes pasado. Tus datos están a salvo."
+          }
+        }
+      }
+    },
     "Left to refund": {
       "localizations": {
         "es": {
@@ -3117,6 +3147,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Claro"
+          }
+        }
+      }
+    },
+    "Limit %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Límite %@"
           }
         }
       }
@@ -3631,6 +3671,16 @@
         }
       }
     },
+    "Next month": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mes siguiente"
+          }
+        }
+      }
+    },
     "No amount.": {
       "localizations": {
         "es": {
@@ -3647,6 +3697,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sin presupuestos"
+          }
+        }
+      }
+    },
+    "No budgets this month.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay presupuestos este mes."
           }
         }
       }
@@ -3921,6 +3981,16 @@
         }
       }
     },
+    "Nothing was recorded last month.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se registró nada el mes pasado."
+          }
+        }
+      }
+    },
     "Notifications are off for Household Hub. Allow them in the Settings app to get reminders.": {
       "localizations": {
         "es": {
@@ -4181,6 +4251,16 @@
         }
       }
     },
+    "Past months use each budget's current limit. Rollover counts from its start month.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los meses anteriores usan el límite actual de cada presupuesto. El saldo acumulado cuenta desde su mes de inicio."
+          }
+        }
+      }
+    },
     "Pending": {
       "localizations": {
         "es": {
@@ -4387,6 +4467,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vista previa · %lld por agregar"
+          }
+        }
+      }
+    },
+    "Previous month": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mes anterior"
           }
         }
       }
@@ -6471,6 +6561,16 @@
         }
       }
     },
+    "Top categories": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Categorías principales"
+          }
+        }
+      }
+    },
     "Top merchants": {
       "localizations": {
         "es": {
@@ -7091,6 +7191,16 @@
         }
       }
     },
+    "^[%lld budget](inflect: true) over": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "^[%lld presupuesto excedido](inflect: true)"
+          }
+        }
+      }
+    },
     "^[%lld purchase](inflect: true)": {
       "localizations": {
         "es": {
@@ -7151,6 +7261,26 @@
         }
       }
     },
+    "down %@ from last month": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ menos que el mes pasado"
+          }
+        }
+      }
+    },
+    "down %@ from the month before": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ menos que el mes anterior"
+          }
+        }
+      }
+    },
     "e.g. Groceries": {
       "localizations": {
         "es": {
@@ -7207,6 +7337,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "línea %lld"
+          }
+        }
+      }
+    },
+    "same as last month": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "igual que el mes pasado"
+          }
+        }
+      }
+    },
+    "same as the month before": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "igual que el mes anterior"
+          }
+        }
+      }
+    },
+    "up %@ from last month": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ más que el mes pasado"
+          }
+        }
+      }
+    },
+    "up %@ from the month before": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ más que el mes anterior"
           }
         }
       }
