@@ -333,7 +333,8 @@ extension BackupService {
         model.isEnabled = dto.isEnabled
         model.accountID = dto.accountID
         model.transferAccountID = dto.transferAccountID
-        model.kindRawValue = dto.kind
+        // A bill is stored as nil, as the service stores it, even when a file names it (review S4).
+        model.kindRawValue = dto.kind == RecurringKind.bill.rawValue ? nil : dto.kind
         model.createdAt = dto.createdAt
         model.updatedAt = dto.updatedAt
     }

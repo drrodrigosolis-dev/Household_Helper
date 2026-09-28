@@ -78,9 +78,22 @@ final class RecurringUITests: XCTestCase {
         captureScreen(app, named: "sprint22-recurring-purchase-editor-light")
         tapSaveAndWaitForClose(app.buttons["recurringEditor.save"], closes: store)
 
-        let row = recurringRow(app, containing: "Corner Market")
-        XCTAssertTrue(row.waitForExistence(timeout: 10), "The row should name the store")
+        XCTAssertTrue(recurringRow(app, containing: "Corner Market").waitForExistence(timeout: 10), "No store")
         captureScreen(app, named: "sprint22-recurring-list-light")
+
+        // Editing keeps it a purchase at its store (data-safety review B2a).
+        let edit = app.buttons["Edit"]
+        XCTAssertTrue(revealSwipeAction(recurringRow(app, containing: "Corner Market"), edit, leading: true))
+        edit.tap()
+        XCTAssertTrue(app.navigationBars["Edit Recurring Item"].waitForExistence(timeout: 5), "Editor did not open")
+        XCTAssertTrue(app.segmentedControls["recurringEditor.kind"].buttons["Purchase"].isSelected, "Still a purchase")
+        XCTAssertEqual(app.textFields["recurringEditor.store"].value as? String, "Corner Market")
+        replaceText(in: app.textFields["recurringEditor.amount"], with: "85")
+        tapSaveAndWaitForClose(app.buttons["recurringEditor.save"], closes: app.navigationBars["Edit Recurring Item"])
+        let row = recurringRow(app, containing: "85.00")
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "The edit should show the new amount")
+        XCTAssertTrue(row.label.contains("Corner Market"), "The edit kept the store: \(row.label)")
+
         let post = app.buttons["Post"]
         revealSwipeAction(row, post)
         post.tap()

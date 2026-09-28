@@ -131,13 +131,14 @@ struct RecurringEditorView: View {
                             .multilineTextAlignment(.trailing)
                             .accessibilityIdentifier("recurringEditor.name")
                     }
-                    if kind == .purchase {
+                    if showsStore {
                         FocusingRow("Store") {
                             TextField("Optional", text: $store)
                                 .multilineTextAlignment(.trailing)
                                 .accessibilityIdentifier("recurringEditor.store")
                         }
-                    } else {
+                    }
+                    if kind == .bill {
                         Picker("Type", selection: $type) {
                             Text("Expense").tag(TransactionType.expense)
                             Text("Income").tag(TransactionType.income)
@@ -220,6 +221,10 @@ struct RecurringEditorView: View {
         }
     }
 
+    /// A purchase names its store; a bill shows one only if it already has one (a restored or older series), so saving
+    /// keeps it instead of dropping it unseen (Sprint 22 review S1).
+    private var showsStore: Bool { kind == .purchase || merchantID != nil }
+
     /// A purchase is always an expense; the type picker is for bills.
     private var effectiveType: TransactionType { kind == .purchase ? .expense : type }
 
@@ -266,10 +271,10 @@ struct RecurringEditorView: View {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let notes = trimmed.isEmpty ? nil : trimmed
         let type = effectiveType
-        // A transfer has no category, and only a transfer names a destination; only a purchase names a store.
+        // A transfer has no category, and only a transfer names a destination.
         let category = type == .transfer ? nil : categoryID
         let destination = type == .transfer ? toAccountID : nil
-        let storeName = kind == .purchase ? store.trimmingCharacters(in: .whitespacesAndNewlines) : ""
+        let storeName = showsStore && type != .transfer ? store.trimmingCharacters(in: .whitespacesAndNewlines) : ""
         let merchant = storeName.isEmpty ? nil : storeName
         do {
             if let seriesID {

@@ -436,13 +436,15 @@ struct AccountsTests {
             startDate: start, transferAccountID: savings, now: now)
         try await ledger.updateSeries(
             id, templateAmount: cad(5_000), type: .transfer, rule: .monthlyOnDay(day: 20), startDate: start,
-            categoryID: nil, notes: nil, accountID: fixture.main, transferAccountID: cash, now: now)
+            categoryID: nil, notes: nil, accountID: fixture.main, transferAccountID: cash,
+            kind: .bill, merchantName: nil, now: now)
         let stored = try #require(try fixture.context().fetch(FetchDescriptor<RecurringTransaction>()).first)
         #expect(stored.transferAccountID == cash)
         await #expect(throws: LedgerError.transferNeedsTwoAccounts) {
             try await ledger.updateSeries(
                 id, templateAmount: cad(5_000), type: .transfer, rule: .monthlyOnDay(day: 20), startDate: start,
-                categoryID: nil, notes: nil, accountID: cash, transferAccountID: cash, now: now)
+                categoryID: nil, notes: nil, accountID: cash, transferAccountID: cash,
+                kind: .bill, merchantName: nil, now: now)
         }
     }
 

@@ -112,7 +112,7 @@ struct RecurringPurchaseTests {
 
         try await ledger.updateSeries(
             id, templateAmount: cad(20_000), type: .expense, rule: .weekly(interval: 1, weekday: 7), startDate: start,
-            categoryID: nil, notes: "Groceries", now: now)
+            categoryID: nil, notes: "Groceries", kind: .bill, merchantName: nil, now: now)
         let bill = try series(container, id)
         #expect(bill.kind == .bill)
         #expect(bill.kindRawValue == nil)
@@ -308,5 +308,77 @@ struct RecurringPurchaseTests {
         var explicitBill = good
         explicitBill.recurringTransactions[index].kind = RecurringKind.bill.rawValue
         try BackupValidator.validate(explicitBill)
+    }
+
+    // MARK: Data-safety review (Sprint 22)
+
+    /// S4: a file that names a bill restores it as the service stores one (nil), so it exports exactly the same.
+    @Test func aBackupNamingABillRestoresItAsStored() async throws {
+        let (container, ledger) = try await makeLedger()
+        let rent = try await ledger.createSeries(
+            templateAmount: cad(120_000), type: .expense, rule: .monthlyOnDay(day: 1), timeZone: zone, startDate: now,
+            notes: "Rent", now: now)
+        var backup = try await snapshot(container)
+        let index = try #require(backup.recurringTransactions.firstIndex { $0.id == rent })
+        backup.recurringTransactions[index].kind = RecurringKind.bill.rawValue
+        let target = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
+        _ = try await BackupService.make(container: target).restore(backup, availableMedia: [], now: now)
+        #expect(try series(target, rent).kindRawValue == nil)
+        #expect(try await snapshot(target).recurringTransactions.first { $0.id == rent }?.kind == nil)
+    }
+
+    /// S5: saving the same store name keeps the series' own merchant, even when another one shares the name.
+    @Test func theSameStoreNameKeepsItsMerchant() async throws {
+        let (container, ledger) = try await makeLedger()
+        let id = try await groceries(ledger)
+        let original = try #require(try series(container, id).merchantID)
+        let context = ModelContext(container)
+        context.insert(Merchant(displayName: "Costco", now: now))
+        try context.save()
+        try await ledger.updateSeries(
+            id, templateAmount: cad(19_000), type: .expense, rule: .weekly(interval: 1, weekday: 7),
+            startDate: now.addingTimeInterval(86_400), categoryID: nil, notes: "Groceries", kind: .purchase,
+            merchantName: "costco ", now: now)
+        #expect(try series(container, id).merchantID == original)
+    }
+
+    /// S3: an impossible rule is refused before anything is looked up or changed, so no new store is left behind.
+    @Test func aRefusedEditLeavesNoNewStore() async throws {
+        let (container, ledger) = try await makeLedger()
+        let id = try await groceries(ledger)
+        await #expect(throws: RecurrenceRuleError.self) {
+            try await ledger.updateSeries(
+                id, templateAmount: cad(19_000), type: .expense, rule: .monthlyOnDay(day: 40), startDate: now,
+                categoryID: nil, notes: "Groceries", kind: .purchase, merchantName: "New Store", now: now)
+        }
+        try await ledger.createSeries(
+            templateAmount: cad(5_000), type: .expense, rule: .monthlyOnDay(day: 1), timeZone: zone, startDate: now,
+            notes: "Phone", now: now)
+        let names = try ModelContext(container).fetch(FetchDescriptor<Merchant>()).map(\.displayName)
+        #expect(names == ["Costco"])
+        #expect(try series(container, id).templateAmount == cad(18_000))
+    }
+
+    /// S6: posting an occurrence moves the current balance the same way for either kind.
+    @Test func postingEitherKindMovesTheBalanceAlike() async throws {
+        let (container, ledger) = try await makeLedger()
+        let start = now.addingTimeInterval(-8 * 86_400)
+        let purchase = try await groceries(ledger, start: start)
+        let bill = try await ledger.createSeries(
+            templateAmount: cad(18_000), type: .expense, rule: .weekly(interval: 1, weekday: 7), timeZone: zone,
+            startDate: start, notes: "Cleaner", now: now)
+        func current() async throws -> Money {
+            try await ledger.dashboardSummary(now: now, calendar: calendar).balance.current
+        }
+        let before = try await current()
+        let purchaseDate = try #require(try series(container, purchase).nextOccurrence)
+        try await ledger.materialize(seriesID: purchase, occurrence: purchaseDate, now: now)
+        let afterPurchase = try await current()
+        let billDate = try #require(try series(container, bill).nextOccurrence)
+        try await ledger.materialize(seriesID: bill, occurrence: billDate, now: now)
+        let afterBill = try await current()
+        #expect(purchaseDate <= now)
+        #expect(before.minorUnits - afterPurchase.minorUnits == 18_000)
+        #expect(afterPurchase.minorUnits - afterBill.minorUnits == 18_000)
     }
 }

@@ -293,3 +293,10 @@ New: `Features/Shared/ThemeArt.swift` (chalk edge, texture, drawings, crayon but
 3. Re-try L-018 by hand (spring-load once, then drop lands in the column that came in).
 4. **No install on the phone.** SchemaV3 migrates the phone's V2 store; the install will be its own L-item with a
    backup first, after CI is green and the data-safety review is closed.
+
+## L-020 step 5 — pin the frozen schemas (data-safety review B2b; needed before the phone install)
+Check out `fd7e67e` in a scratch worktree (`git worktree add /tmp/hh-fd7e67e fd7e67e`), and in a throwaway unit test
+(not committed there) print, for `Schema(versionedSchema: SchemaV1.self)` and `SchemaV2.self`, each entity's `name`
+and `versionHash` (base64). Paste both lists into TO-CLOUD.md. Then on `build/v1.1` I (or you, if faster) add
+`FrozenSchemaTests` asserting today's SchemaV1/SchemaV2 give exactly those hashes, so any edit to a frozen class fails
+CI. Remove the scratch worktree afterwards (`git worktree remove /tmp/hh-fd7e67e`).

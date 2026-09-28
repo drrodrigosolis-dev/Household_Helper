@@ -21,3 +21,11 @@ that repeat (groceries every week) recorded as purchases rather than bills.
 | 2 | Recurring editor: Bill / Purchase, store field; rows and Upcoming | ☐ | ☐ |
 | 3 | Posting a purchase occurrence records the merchant; reminders only for bills | ☐ | ☐ |
 | 4 | UI tests + screenshots | ☐ | ☐ |
+
+## Data-safety review (2026-09-28)
+No code defect that loses or changes data. B1 (frozen classes vs the installed `063a510`/`fd7e67e`) verified with
+git: the V1 copy's stored properties match `063a510`, `RecurringTransaction` did not change between the installs, and
+SchemaV2's list is unchanged. B2a (editing keeps kind and store) now has a UI test. B2b (pin V1/V2 version hashes)
+is L-020 step 5 on the Mac, required before the phone install. Should-fix S1–S6 done: a bill's existing store is shown
+and kept; `updateSeries` requires `kind`/`merchantName`; the rule is validated before any edit; a file's explicit
+bill restores as nil; the same store name keeps its merchant; posting either kind moves the balance alike (tests).

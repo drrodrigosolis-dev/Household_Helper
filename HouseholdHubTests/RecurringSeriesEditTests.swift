@@ -37,7 +37,7 @@ struct RecurringSeriesEditTests {
 
         try await ledger.updateSeries(
             id, templateAmount: cad(130_000), type: .expense, rule: .monthlyOnDay(day: 15), startDate: start,
-            categoryID: nil, notes: "Rent (new lease)", now: now)
+            categoryID: nil, notes: "Rent (new lease)", kind: .bill, merchantName: nil, now: now)
 
         let edited = try series(container, id)
         #expect(edited.templateAmount == cad(130_000))
@@ -59,22 +59,22 @@ struct RecurringSeriesEditTests {
         await #expect(throws: LedgerError.nonPositiveAmount) {
             try await ledger.updateSeries(
                 id, templateAmount: cad(0), type: .expense, rule: .monthlyOnDay(day: 1), startDate: now,
-                categoryID: nil, notes: nil, now: now)
+                categoryID: nil, notes: nil, kind: .bill, merchantName: nil, now: now)
         }
         await #expect(throws: LedgerError.transferNeedsTwoAccounts) {
             try await ledger.updateSeries(
                 id, templateAmount: cad(500), type: .transfer, rule: .monthlyOnDay(day: 1), startDate: now,
-                categoryID: nil, notes: nil, now: now)
+                categoryID: nil, notes: nil, kind: .bill, merchantName: nil, now: now)
         }
         await #expect(throws: RecurrenceRuleError.self) {
             try await ledger.updateSeries(
                 id, templateAmount: cad(500), type: .expense, rule: .monthlyOnDay(day: 40), startDate: now,
-                categoryID: nil, notes: nil, now: now)
+                categoryID: nil, notes: nil, kind: .bill, merchantName: nil, now: now)
         }
         await #expect(throws: LedgerError.unknownSeries) {
             try await ledger.updateSeries(
                 UUID(), templateAmount: cad(500), type: .expense, rule: .monthlyOnDay(day: 1), startDate: now,
-                categoryID: nil, notes: nil, now: now)
+                categoryID: nil, notes: nil, kind: .bill, merchantName: nil, now: now)
         }
     }
 

@@ -606,14 +606,17 @@ public actor TransactionService {
     /// Changes a series' template and rule (spec §9.4: occurrences are computed, so a rule change only moves the
     /// projection). Transactions already posted from it keep their own amount, date, category and merchant; the next
     /// occurrence is recomputed after the latest one posted, so nothing is offered twice. `kind` and `merchantName`
-    /// replace the stored ones: pass the series' current values to keep them (no store clears it).
+    /// replace the stored ones, so they have no defaults: a caller that left them out would turn a purchase into a
+    /// bill and clear its store (Sprint 22 review S2). No store clears it.
     public func updateSeries(
         _ id: UUID, templateAmount: Money, type: TransactionType, rule: RecurrenceRule, startDate: Date,
         endDate: Date? = nil, categoryID: UUID?, notes: String?, accountID: UUID? = nil,
-        transferAccountID: UUID? = nil, kind: RecurringKind = .bill, merchantName: String? = nil, now: Date
+        transferAccountID: UUID? = nil, kind: RecurringKind, merchantName: String?, now: Date
     ) throws {
         begin()
         guard let series = try recurringSeries(id) else { throw LedgerError.unknownSeries }
+        // Before any lookup or edit, so an impossible rule leaves nothing half-changed (review S3).
+        try rule.validate()
         guard kind == .bill || type == .expense else { throw LedgerError.purchaseMustBeExpense }
         let store = Self.storeName(merchantName)
         let template = TransactionDraft(
@@ -631,7 +634,16 @@ public actor TransactionService {
         // Looked up before the first edit to the series, so a failed fetch leaves it as it was.
         var merchantID: UUID?
         if let store {
-            merchantID = try findOrCreateMerchant(named: store, now: now).id
+            // The same store name keeps the series' own merchant: names aren't unique, so looking it up again could
+            // pick another one with the same name (review S5).
+            let current = try series.merchantID.flatMap { id in
+                try modelContext.fetch(FetchDescriptor<Merchant>(predicate: #Predicate { $0.id == id })).first
+            }
+            if let current, current.normalizedName == Merchant.normalize(store) {
+                merchantID = current.id
+            } else {
+                merchantID = try findOrCreateMerchant(named: store, now: now).id
+            }
         }
         series.accountID = accounts.source
         series.transferAccountID = accounts.destination
