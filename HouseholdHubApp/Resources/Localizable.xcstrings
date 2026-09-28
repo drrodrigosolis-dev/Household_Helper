@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ at %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ en %2$@"
+          }
+        }
+      }
+    },
     "%@ can't be used for this type. Choose another category.": {
       "localizations": {
         "es": {
@@ -257,6 +267,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Un pago recurrente vence mañana."
+          }
+        }
+      }
+    },
+    "A recurring purchase is always an expense.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una compra recurrente siempre es un gasto."
           }
         }
       }
@@ -877,6 +897,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cuenta bancaria"
+          }
+        }
+      }
+    },
+    "Bill": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Factura"
           }
         }
       }
@@ -4101,6 +4131,16 @@
         }
       }
     },
+    "Purchase": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compra"
+          }
+        }
+      }
+    },
     "Purchased": {
       "localizations": {
         "es": {
@@ -5017,6 +5057,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Filtro de estado"
+          }
+        }
+      }
+    },
+    "Store": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tienda"
           }
         }
       }
@@ -6577,6 +6627,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "otra cuenta"
+          }
+        }
+      }
+    },
+    "e.g. Groceries": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "p. ej. Súper"
           }
         }
       }

@@ -52,6 +52,43 @@ final class RecurringUITests: XCTestCase {
         XCTAssertTrue(app.buttons["recurring.addEmpty"].waitForExistence(timeout: 10), "The series should be gone")
     }
 
+    /// Sprint 22: a recurring purchase names its store, shows a cart, and posts as an expense.
+    @MainActor
+    func testRecurringPurchaseNamesItsStore() {
+        let app = launchApp()
+        app.tabBars.buttons["Budget"].tap()
+        app.buttons["Recurring"].tap()
+        let add = app.buttons["recurring.addEmpty"]
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        add.tap()
+        let kind = app.segmentedControls["recurringEditor.kind"]
+        XCTAssertTrue(kind.waitForExistence(timeout: 5), "The editor should offer Bill or Purchase")
+        kind.buttons["Purchase"].tap()
+        XCTAssertFalse(app.segmentedControls["recurringEditor.type"].exists, "A purchase is always an expense")
+        let name = app.textFields["recurringEditor.name"]
+        name.tap()
+        name.typeText("Groceries")
+        let store = app.textFields["recurringEditor.store"]
+        XCTAssertTrue(store.waitForExistence(timeout: 5), "A purchase names its store")
+        store.tap()
+        store.typeText("Corner Market")
+        let amount = app.textFields["recurringEditor.amount"]
+        amount.tap()
+        amount.typeText("80")
+        captureScreen(app, named: "sprint22-recurring-purchase-editor-light")
+        tapSaveAndWaitForClose(app.buttons["recurringEditor.save"], closes: store)
+
+        let row = recurringRow(app, containing: "Corner Market")
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "The row should name the store")
+        captureScreen(app, named: "sprint22-recurring-list-light")
+        let post = app.buttons["Post"]
+        revealSwipeAction(row, post)
+        post.tap()
+        app.buttons["Transactions"].tap()
+        let posted = transactionRow(app, containing: "Groceries")
+        XCTAssertTrue(posted.waitForExistence(timeout: 10), "Posted purchase missing")
+    }
+
     @MainActor
     private func createRent(_ app: XCUIApplication) {
         let add = app.buttons["recurring.addEmpty"]

@@ -304,7 +304,7 @@ struct DashboardView: View {
                     ForEach(upcoming) { item in
                         // Stacks at accessibility sizes so title, date, and amount never squeeze each other.
                         rowLayout {
-                            Text(item.title ?? String(localized: "Recurring item"))
+                            upcomingTitle(item)
                             if !typeSize.isAccessibilitySize {
                                 Spacer()
                             }
@@ -317,6 +317,17 @@ struct DashboardView: View {
                     }
                 }
             }
+        }
+    }
+
+    /// A recurring purchase (Sprint 22) shows a cart; one without a name reads as its store.
+    @ViewBuilder
+    private func upcomingTitle(_ item: UpcomingOccurrence) -> some View {
+        let title = item.title ?? item.merchantName ?? String(localized: "Recurring item")
+        if item.kind == .purchase {
+            Label(title, systemImage: "cart")
+        } else {
+            Text(title)
         }
     }
 

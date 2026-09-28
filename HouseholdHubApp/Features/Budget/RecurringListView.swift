@@ -8,6 +8,7 @@ import SwiftUI
 struct RecurringListView: View {
     @Environment(\.services) private var services
     @Query(sort: \RecurringTransaction.createdAt) private var series: [RecurringTransaction]
+    @Query private var merchants: [Merchant]
     @State private var isCreating = false
     @State private var editing: RecurringTransaction?
     @State private var deleting: RecurringTransaction?
@@ -63,7 +64,7 @@ struct RecurringListView: View {
     }
 
     private func row(_ item: RecurringTransaction) -> some View {
-        RecurringRow(item: item)
+        RecurringRow(item: item, store: item.merchantID.flatMap { id in merchants.first { $0.id == id }?.displayName })
             .swipeActions(edge: .trailing) {
                 if item.isEnabled, item.nextOccurrence != nil {
                     Button("Post") { post(item) }
@@ -147,6 +148,8 @@ struct RecurringListView: View {
 
 private struct RecurringRow: View {
     let item: RecurringTransaction
+    /// A purchase's store (Sprint 22).
+    let store: String?
 
     static func icon(_ type: TransactionType) -> String {
         switch type {
@@ -159,7 +162,7 @@ private struct RecurringRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: RecurringRow.icon(item.type))
+            Image(systemName: item.kind == .purchase ? "cart" : RecurringRow.icon(item.type))
                 .font(.title2)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
@@ -181,7 +184,14 @@ private struct RecurringRow: View {
     }
 
     private var detail: String {
-        let rule = (try? item.rule()).map(RecurrenceFormat.describe) ?? ""
+        let described = (try? item.rule()).map(RecurrenceFormat.describe) ?? ""
+        // A purchase reads "Weekly on Saturday at Costco".
+        let rule: String
+        if item.kind == .purchase, let store {
+            rule = String(localized: "\(described) at \(store)")
+        } else {
+            rule = described
+        }
         guard item.isEnabled else { return rule + " · " + String(localized: "Disabled") }
         guard let next = item.nextOccurrence else { return rule + " · " + String(localized: "Ended") }
         return rule + " · " + String(localized: "Next \(next.formatted(date: .abbreviated, time: .omitted))")
