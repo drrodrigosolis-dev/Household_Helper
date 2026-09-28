@@ -24,12 +24,16 @@ public struct RecurrenceEngine: Sendable {
     ) -> [Date] {
         guard (try? rule.validate()) != nil else { return [] }
         let generator = Generator(rule: rule, start: start, calendar: calendar)
+        // Candidates are built from the start's whole seconds, so compare against the start without its fraction: a
+        // series started "now" (Date.now carries fractions of a second) otherwise lost its first occurrence, which
+        // fell a fraction of a second before the start (audit A-001).
+        let firstMoment = Date(timeIntervalSinceReferenceDate: start.timeIntervalSinceReferenceDate.rounded(.down))
         var results: [Date] = []
         var index = generator.firstUsefulIndex(for: window.start)
         while results.count < Self.maximumOccurrencesPerQuery, let candidate = generator.candidate(at: index) {
             if candidate >= window.end { break }
             if let end, candidate > end { break }
-            if candidate >= start, candidate >= window.start {
+            if candidate >= firstMoment, candidate >= window.start {
                 results.append(candidate)
             }
             index += 1

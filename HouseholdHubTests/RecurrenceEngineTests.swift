@@ -45,6 +45,25 @@ struct RecurrenceEngineTests {
         engine.occurrences(of: series, in: window)
     }
 
+    /// Audit A-001: a series started "now" carries fractions of a second; its first occurrence, rebuilt from whole
+    /// seconds, must still count (it was dropped, so a bill due today never reached Upcoming or the balance).
+    @Test(arguments: [
+        RecurrenceRule.daily(interval: 1), .weekly(interval: 1, weekday: 1), .monthlyOnDay(day: 27),
+        .yearly(month: 9, day: 27),
+    ])
+    func aStartWithFractionsOfASecondKeepsItsFirstOccurrence(rule: RecurrenceRule) throws {
+        // Sunday 2026-09-27 20:45:12.734 in Vancouver.
+        let start = try date("2026-09-27T20:45:12-07:00").addingTimeInterval(0.734)
+        let amount = Money(minorUnits: 1799, currencyCode: "CAD")
+        let series = RecurringSeries(
+            templateAmount: amount, type: .expense, rule: rule, timeZone: vancouverZone, startDate: start,
+            endDate: nil)
+        let day = try window("2026-09-27T00:00:00-07:00", "2026-09-28T00:00:00-07:00")
+        let first = try #require(occurrences(series, day).first, "The first occurrence was dropped")
+        #expect(localParts([first], in: vancouverZone) == [[2026, 9, 27, 20]])
+        #expect(engine.nextOccurrence(of: series, after: start.addingTimeInterval(-1)) == first)
+    }
+
     @Test func monthlyDay31ClampsToShortMonths() throws {
         let rule = try series(.monthlyOnDay(day: 31), start: "2026-01-31T10:00:00-08:00")
         let result = occurrences(rule, try window("2026-01-01T00:00:00-08:00", "2026-05-01T00:00:00-07:00"))
