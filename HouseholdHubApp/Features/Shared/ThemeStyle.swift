@@ -95,9 +95,10 @@ extension View {
         modifier(ThemedSurface(cornerRadius: cornerRadius, standard: AnyShapeStyle(standard)))
     }
 
-    /// The theme's background behind a screen. Every pushed or presented screen applies it next to its title.
-    func themedScreen() -> some View {
-        modifier(ThemedScreen())
+    /// The theme's page behind a screen (Sprint 21: chalkboard or paper). Every pushed or presented screen applies it
+    /// next to its title; a tab's first screen passes `decorated` for the corner drawings.
+    func themedScreen(decorated: Bool = false) -> some View {
+        modifier(ThemedScreen(decorated: decorated))
     }
 }
 
@@ -122,7 +123,10 @@ private struct ThemedSurface: ViewModifier {
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius)
         if let theme {
-            content.background(theme.surface, in: shape)
+            // Sprint 21: a chalk-sketched edge, as in the owner's mockup.
+            content
+                .background(theme.surface.opacity(0.92), in: shape)
+                .overlay { ChalkBorder(cornerRadius: cornerRadius) }
         } else {
             content.background(standard, in: shape)
         }
@@ -159,10 +163,11 @@ struct EmptyStateLabel: View {
 
 private struct ThemedScreen: ViewModifier {
     @Environment(\.funTheme) private var theme
+    let decorated: Bool
 
     func body(content: Content) -> some View {
         if let theme {
-            content.containerBackground(theme.background, for: .navigation)
+            content.containerBackground(for: .navigation) { ThemeBackdrop(theme: theme, decorated: decorated) }
         } else {
             content
         }

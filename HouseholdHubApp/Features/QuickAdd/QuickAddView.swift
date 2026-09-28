@@ -2,23 +2,49 @@ import HouseholdHubCore
 import SwiftData
 import SwiftUI
 
-/// Floating Quick Add button shown over every tab (spec §24.3).
+/// Floating Quick Add button shown over every tab (spec §24.3). With a theme on it is the theme's crayon button
+/// (Sprint 21): the drawing from its art board, or a crayon circle in its accent.
 struct QuickAddButton: View {
+    @Environment(\.funTheme) private var theme
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Image(systemName: "plus")
-                .font(.title2.weight(.semibold))
-                .frame(width: 56, height: 56)
+        styled
+            .accessibilityLabel("Quick Add")
+            .accessibilityHint("Record an expense or income")
+            // Fixed size like a tab bar item, so at the largest text sizes a long press shows it enlarged instead.
+            .accessibilityShowsLargeContentViewer()
+            .accessibilityIdentifier("quickadd.button")
+    }
+
+    @ViewBuilder
+    private var styled: some View {
+        if let theme {
+            Button(action: action) {
+                ZStack {
+                    if let art = theme.art(.addButton) {
+                        art.resizable().scaledToFit()
+                    } else {
+                        Circle().fill(theme.accent)
+                        ChalkBorder(cornerRadius: 30, color: .white.opacity(0.5)).padding(3)
+                        Image(systemName: "plus")
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .frame(width: 60, height: 60)
+                .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+        } else {
+            Button(action: action) {
+                Image(systemName: "plus")
+                    .font(.title2.weight(.semibold))
+                    .frame(width: 56, height: 56)
+            }
+            .buttonStyle(.glassProminent)
+            .clipShape(Circle())
         }
-        .buttonStyle(.glassProminent)
-        .clipShape(Circle())
-        .accessibilityLabel("Quick Add")
-        .accessibilityHint("Record an expense or income")
-        // Fixed size like a tab bar item, so at the largest text sizes a long press shows it enlarged instead.
-        .accessibilityShowsLargeContentViewer()
-        .accessibilityIdentifier("quickadd.button")
     }
 }
 

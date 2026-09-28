@@ -23,10 +23,9 @@ struct DashboardView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.funTheme) private var theme
 
-    /// Big figures take the theme's font (Sprint 19); `.fontDesign(nil)` at each use lets it win over the root's SF
-    /// Rounded.
+    /// Big figures: with a theme on, bold rounded digits that stay easy to read (Sprint 21 owner answer).
     private func figureFont(_ style: Font.TextStyle) -> Font {
-        theme?.displayFont(style) ?? .system(style)
+        theme == nil ? .system(style) : .system(style, design: .rounded, weight: .bold)
     }
 
     init() {
@@ -81,8 +80,8 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    if let theme, theme.ambient.drawsInBanner {
-                        AmbientLayer(placement: .banner).frame(height: 64)
+                    if theme != nil {
+                        ThemeHeaderStrip()
                     }
                     if let summary {
                         balanceCards(summary)
@@ -110,7 +109,7 @@ struct DashboardView: View {
             .background { AmbientLayer(placement: .background) }
             .quickAddAccess()
             .navigationTitle("Dashboard")
-            .themedScreen()
+            .themedScreen(decorated: true)
             .task { await refresh() }
             .onReceive(storeSaves) { _ in Task { await refresh() } }
         }
@@ -119,10 +118,30 @@ struct DashboardView: View {
     // MARK: Cards
 
     private var quickAddButton: some View {
-        Button("Add", systemImage: "plus") { router.isQuickAddPresented = true }
-            .buttonStyle(.bordered)
+        styledAddButton
             .accessibilityLabel("Quick Add")
             .accessibilityIdentifier("dashboard.quickAdd")
+    }
+
+    @ViewBuilder
+    private var styledAddButton: some View {
+        let button = Button("Add", systemImage: "plus") { router.isQuickAddPresented = true }
+        if theme != nil {
+            button.buttonStyle(CrayonCapsuleStyle())
+        } else {
+            button.buttonStyle(.bordered)
+        }
+    }
+
+    /// The balance and, with a theme on, the crayon strokes beside it from the mockup.
+    private func balanceFigure(_ summary: DashboardSummary) -> some View {
+        HStack(spacing: 6) {
+            AmountText(summary.balance.current.formatted(), font: figureFont(.largeTitle).bold())
+                .fontDesign(nil)
+            if theme != nil {
+                DoodleView(doodle: .dashes, size: 22)
+            }
+        }
     }
 
     @ViewBuilder
@@ -137,14 +156,12 @@ struct DashboardView: View {
             // Stacked at accessibility sizes so "Add" never breaks mid-word (local Sprint 10 walk).
             if typeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 8) {
-                    AmountText(summary.balance.current.formatted(), font: figureFont(.largeTitle).bold())
-                        .fontDesign(nil)
+                    balanceFigure(summary)
                     quickAddButton
                 }
             } else {
-                HStack(alignment: .firstTextBaseline) {
-                    AmountText(summary.balance.current.formatted(), font: figureFont(.largeTitle).bold())
-                        .fontDesign(nil)
+                HStack(alignment: theme == nil ? .firstTextBaseline : .center) {
+                    balanceFigure(summary)
                     Spacer(minLength: 8)
                     quickAddButton
                 }
@@ -153,14 +170,15 @@ struct DashboardView: View {
         pairLayout {
             DashboardCard(
                 title: "Pending impact", identifier: "dashboard.pending",
-                value: summary.balance.pendingImpact.formatted()
+                value: summary.balance.pendingImpact.formatted(), ornament: .starSmall
             ) {
                 router.showBudget(.transactions, filter: TransactionFilter(status: .pending))
             } content: {
                 AmountText(summary.balance.pendingImpact.formatted(), font: figureFont(.title3)).fontDesign(nil)
             }
             DashboardCard(
-                title: "Spent this week", identifier: "dashboard.week", value: summary.spentThisWeek.formatted()
+                title: "Spent this week", identifier: "dashboard.week", value: summary.spentThisWeek.formatted(),
+                ornament: .starSmall
             ) {
                 router.showBudget(.transactions, filter: TransactionFilter(period: .thisWeek, status: .posted))
             } content: {
@@ -174,7 +192,13 @@ struct DashboardView: View {
             router.showBudget(.recurring)
         } content: {
             VStack(alignment: .leading, spacing: 8) {
-                AmountText(summary.balance.projected.formatted(), font: figureFont(.title2)).fontDesign(nil)
+                HStack {
+                    AmountText(summary.balance.projected.formatted(), font: figureFont(.title2)).fontDesign(nil)
+                    if theme != nil && !typeSize.isAccessibilitySize {
+                        Spacer(minLength: 8)
+                        ThemeDrawing(piece: .car, height: 40)
+                    }
+                }
                 Toggle("Include pending", isOn: pendingBinding)
                     .font(.subheadline)
                     .accessibilityIdentifier("dashboard.includePending")
@@ -270,7 +294,7 @@ struct DashboardView: View {
     }
 
     private func upcomingCard(_ upcoming: [UpcomingOccurrence]) -> some View {
-        DashboardCard(title: "Upcoming (7 days)", identifier: "dashboard.upcoming") {
+        DashboardCard(title: "Upcoming (7 days)", identifier: "dashboard.upcoming", ornament: .star) {
             router.showBudget(.recurring)
         } content: {
             if upcoming.isEmpty {
@@ -297,7 +321,7 @@ struct DashboardView: View {
     }
 
     private var recentCard: some View {
-        DashboardCard(title: "Recent activity", identifier: "dashboard.recent") {
+        DashboardCard(title: "Recent activity", identifier: "dashboard.recent", ornament: .blocks) {
             router.showBudget(.transactions)
         } content: {
             if activity.isEmpty {
@@ -377,18 +401,23 @@ private struct DashboardCard<Content: View>: View {
     /// The card's figure, read with its title on the button so VoiceOver hears "Current balance, $1,234".
     let value: String?
     let hint: LocalizedStringKey
+    /// A small drawing beside the title when a theme is on (Sprint 21); never at accessibility text sizes.
+    let ornament: ThemePiece?
     let action: () -> Void
     let content: () -> Content
+    @Environment(\.funTheme) private var theme
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     init(
         title: LocalizedStringKey, identifier: String, value: String? = nil,
-        hint: LocalizedStringKey = "Opens the matching Budget view", action: @escaping () -> Void,
-        @ViewBuilder content: @escaping () -> Content
+        hint: LocalizedStringKey = "Opens the matching Budget view", ornament: ThemePiece? = nil,
+        action: @escaping () -> Void, @ViewBuilder content: @escaping () -> Content
     ) {
         self.title = title
         self.identifier = identifier
         self.value = value
         self.hint = hint
+        self.ornament = ornament
         self.action = action
         self.content = content
     }
@@ -400,6 +429,9 @@ private struct DashboardCard<Content: View>: View {
                     Text(title)
                         .themedFont(.headline)
                     Spacer()
+                    if let ornament, theme != nil, !typeSize.isAccessibilitySize {
+                        ThemeDrawing(piece: ornament, height: ornament == .blocks ? 34 : 22)
+                    }
                     Image(systemName: "chevron.right")
                         .font(.footnote)
                         .foregroundStyle(.secondary)

@@ -104,7 +104,7 @@ struct WishlistView: View {
             }
             .quickAddAccess()
             .navigationTitle("Wishlist")
-            .themedScreen()
+            .themedScreen(decorated: true)
             .navigationDestination(for: UUID.self) { id in
                 WishlistDetailView(itemID: id)
             }
