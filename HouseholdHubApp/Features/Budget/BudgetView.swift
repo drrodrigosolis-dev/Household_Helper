@@ -18,6 +18,13 @@ struct BudgetView: View {
     @State private var isPresentingTransfer = false
     /// Sprint 14: searches the transactions the filter allows.
     @State private var searchText = ""
+    /// Sprint 23 (A-005): the search the list applies. It trails the typed text by a short pause, so typing stays
+    /// responsive with a long history.
+    @State private var appliedSearch = ""
+    /// Sprint 23 (A-014): the search field is active, so the floating + would sit over its results.
+    @State private var isSearching = false
+    /// Sprint 23 (A-007): the transaction list's Select mode.
+    @State private var isSelecting = false
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
     @Query(sort: \Account.sortOrder) private var accounts: [Account]
 
@@ -27,9 +34,10 @@ struct BudgetView: View {
             Group {
                 switch router.budgetSegment {
                 case .transactions:
-                    TransactionListView(filter: router.budgetFilter, search: searchText)
-                        .searchable(text: $searchText, prompt: "Search transactions")
+                    TransactionListView(filter: router.budgetFilter, search: appliedSearch, isSelecting: $isSelecting)
+                        .searchable(text: $searchText, isPresented: $isSearching, prompt: "Search transactions")
                         .refreshable { isPresentingQuickAdd = true }
+                        .task(id: searchText) { await applySearch(searchText) }
                 case .recurring:
                     RecurringListView()
                 case .budgets:
@@ -46,13 +54,22 @@ struct BudgetView: View {
                 .padding(.horizontal)
                 .accessibilityIdentifier("budget.segment")
             }
-            .quickAddAccess()
+            // Recurring and Budgets add with their own + (A-013); searching and selecting need the space (A-014).
+            .quickAddAccess(showsButton: router.budgetSegment == .transactions && !isSearching && !isSelecting)
             .navigationTitle("Budget")
             .themedScreen(decorated: true, toolbarTrailing: true)
             .toolbar {
                 if router.budgetSegment == .transactions {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            isSelecting.toggle()
+                        } label: {
+                            isSelecting ? Text("Done") : Text("Select")
+                        }
+                        .accessibilityIdentifier("transactions.select")
+                    }
                     // Transfers need two accounts (Sprint 10 decision 8).
-                    if accounts.filter({ !$0.isArchived }).count > 1 {
+                    if !isSelecting, accounts.filter({ !$0.isArchived }).count > 1 {
                         ToolbarItem(placement: .topBarTrailing) {
                             Button("New transfer", systemImage: "arrow.left.arrow.right") {
                                 isPresentingTransfer = true
@@ -60,8 +77,14 @@ struct BudgetView: View {
                             .accessibilityIdentifier("budget.newTransfer")
                         }
                     }
-                    ToolbarItem(placement: .topBarTrailing) { filterMenu(filter: $router.budgetFilter) }
+                    if !isSelecting {
+                        ToolbarItem(placement: .topBarTrailing) { filterMenu(filter: $router.budgetFilter) }
+                    }
                 }
+            }
+            .onChange(of: router.budgetSegment) {
+                isSelecting = false
+                isSearching = false
             }
             .sheet(isPresented: $isPresentingQuickAdd) { QuickAddView() }
             .sheet(isPresented: $isPresentingTransfer) {
@@ -78,10 +101,12 @@ struct BudgetView: View {
                 Text("This month").tag(TransactionFilter.Period.thisMonth)
                 Text("Last 30 days").tag(TransactionFilter.Period.last30Days)
             }
-            Picker("Category", selection: filter.categoryID) {
-                Text("All categories").tag(UUID?.none)
+            Picker("Category", selection: filter.categoryChoice) {
+                Text("All categories").tag(TransactionFilter.CategoryChoice.all)
+                // Sprint 23 (A-006): what still needs a category, such as rows from an import.
+                Text("Uncategorized").tag(TransactionFilter.CategoryChoice.uncategorized)
                 ForEach(categories) { category in
-                    Text(category.name).tag(UUID?.some(category.id))
+                    Text(category.name).tag(TransactionFilter.CategoryChoice.category(category.id))
                 }
             }
             if accounts.count > 1 {
@@ -107,6 +132,19 @@ struct BudgetView: View {
         }
         .accessibilityValue(filter.wrappedValue.isActive ? Text("On") : Text("Off"))
         .accessibilityIdentifier("budget.filter")
+    }
+
+    /// Hands the typed search to the list after a short pause; a newer keystroke cancels the wait. Clearing the field
+    /// applies at once.
+    private func applySearch(_ text: String) async {
+        if !text.isEmpty {
+            do {
+                try await Task.sleep(for: .milliseconds(150))
+            } catch {
+                return
+            }
+        }
+        appliedSearch = text
     }
 }
 

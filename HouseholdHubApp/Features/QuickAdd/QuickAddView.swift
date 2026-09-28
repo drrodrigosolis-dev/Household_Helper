@@ -51,23 +51,28 @@ struct QuickAddButton: View {
 /// Quick Add access on a tab's root screen (spec §24.3): the floating button, bottom scroll clearance so it never
 /// covers the last row, and the sheet. Pushed screens (editors, Settings pages) do not get the button.
 private struct QuickAddAccess: ViewModifier {
+    /// Sprint 23 (A-013, A-014): a screen hides the button where it would duplicate its own + or cover search
+    /// results; the sheet and the scroll clearance stay, so the list doesn't jump when it comes back.
+    let showsButton: Bool
     @State private var isPresenting = false
 
     func body(content: Content) -> some View {
         content
             .contentMargins(.bottom, 88, for: .scrollContent)
             .overlay(alignment: .bottomTrailing) {
-                QuickAddButton { isPresenting = true }
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 12)
+                if showsButton {
+                    QuickAddButton { isPresenting = true }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 12)
+                }
             }
             .sheet(isPresented: $isPresenting) { QuickAddView() }
     }
 }
 
 extension View {
-    func quickAddAccess() -> some View {
-        modifier(QuickAddAccess())
+    func quickAddAccess(showsButton: Bool = true) -> some View {
+        modifier(QuickAddAccess(showsButton: showsButton))
     }
 }
 
