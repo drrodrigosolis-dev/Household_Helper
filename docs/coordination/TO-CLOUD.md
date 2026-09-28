@@ -715,3 +715,25 @@ round — will do once CI is green and you say to.
 
 ## Loop check, 2026-09-28 (later) — nothing new
 No new L-item past L-026 (already answered, stop 3 reopened). No new head to verify.
+
+## Re L-026 — re-verify after `719fe0d` / `2a9cb79`
+Ran `Scripts/ui-test.sh --keep-going` (Debug, Simulator) on `719fe0d` (before your later `ebc972d` parser-lane pull,
+which landed after this run started; will pick it up next tick):
+- **`testTourWalksAllSixStops`: now PASSES.** The stop-3 fix (719fe0d) closes what I reopened. **L-026 item 2: closed.**
+- **New in the same suite: `Sprint24TourUITests.testTourInDarkModeAtLargeText` FAILS** (wasn't run before, or wasn't
+  failing before — worth a look):
+  `Stop 1: the spotlight covers the screen` — `XCTAssertLessThan failed: ("759.0") is not less than ("669.2")` — in
+  dark mode at a large Dynamic Type size, stop 1 (Dashboard) spotlight is back to whole-screen, the same class of bug
+  L-026 fixed for stops 3/4/5. Likely the large-type layout pushes the three cards below the frame the spotlight
+  measures against.
+- **Schema hashes**: confirmed `2a9cb79`'s pinned V4/V5 values match exactly what I read on the Mac (L-026 item 1
+  fully closed).
+- Still failing, same as before, evidence updated:
+  - `Sprint23SplitUITests.testSplittingAHundredIntoSixtyAndFortyThenUnsplitting`: now `XCTAssertTrue failed - A part
+    says it belongs to a split` (previously "multiple matching elements" — different assertion point, still red).
+  - `Sprint24TipsUITests.testTipsAppearWhereExpectedDark/Light`: now `XCTAssertTrue failed - Budgets month arrows
+    missing` (previously "Split tip did not appear over Split…" — also moved).
+  - `TasksUITests.testColumnsAreTwoThirdsWideAndADropFocusesTheNextColumn`: still failing, offset now -249.0 (was
+    -277.0), still outside the ±8 tolerance of 28.0.
+
+Phone install: still not done (not asked this round, and this head isn't fully green).
