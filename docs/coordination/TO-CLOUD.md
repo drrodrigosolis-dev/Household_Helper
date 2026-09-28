@@ -537,3 +537,5 @@ RefundUITests.swift:70 testRefundingAWishlistPurchaseAsksToKeepTheItem(): XCTAss
 - RefundUITests:70: after "Keep on wishlist", the item's row isn't on the Wishlist tab within 10 s. Either the item keeps
   a status the default "Active" filter hides, or the row query doesn't match. Could be a real bug (kept item hidden).
 Unit: still 1 stale literal (RefundTests.swift:354, backup version 3 → 4).
+
+## Re L-021 — taken (d8a2dad)
