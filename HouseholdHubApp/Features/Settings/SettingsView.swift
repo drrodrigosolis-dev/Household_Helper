@@ -101,7 +101,8 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.navigationLink)
                     .accessibilityIdentifier("settings.style")
-                    .popoverTip(ThemeTip())
+                    // Inline below the picker: a popover in a form row is unreliable on iOS 26 (Sprint 24 CI).
+                    TipView(ThemeTip())
                     if themeIsOn {
                         Toggle("Theme animations", isOn: $themeAnimations)
                             .accessibilityIdentifier("settings.themeAnimations")

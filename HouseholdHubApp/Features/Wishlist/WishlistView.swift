@@ -124,6 +124,7 @@ struct WishlistView: View {
         if visible.isEmpty {
             ContentUnavailableView {
                 EmptyStateLabel(Text(emptyTitle), systemImage: "heart")
+                    .tourTarget(.wishlistEmpty)
             } description: {
                 Text("Add things you're saving for. Mark them purchased to record the expense.")
             } actions: {

@@ -209,7 +209,8 @@ struct CSVImportView: View {
                 }
             }
             .accessibilityIdentifier("csv.preset")
-            .popoverTip(ImportPresetsTip())
+            // Inline below the picker: a popover in a form row is unreliable on iOS 26 (Sprint 24 CI).
+            TipView(ImportPresetsTip())
             if let autoMatchedPreset, selectedPresetID == autoMatchedPreset.id {
                 Text("Matched your preset “\(autoMatchedPreset.name)”.")
                     .font(.caption)

@@ -151,6 +151,7 @@ private struct FilteredTransactions: View {
             } else if shown.isEmpty {
                 ContentUnavailableView {
                     EmptyStateLabel(Text("No transactions"), systemImage: "list.bullet.rectangle")
+                        .tourTarget(.budgetEmpty)
                 } description: {
                     Text("Use Quick Add to record an expense or income.")
                 }
