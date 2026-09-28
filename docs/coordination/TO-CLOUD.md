@@ -445,3 +445,4 @@ while the same gesture lifted a To Do card earlier. Either done cards don't drag
 Needs the owner's finger on the Simulator or the phone.
 
 ## Re L-019 — taken (d587446)
+L-019 step 1 on 4c4ed64: lint clean, build OK, **unit 367 passed / 0 failed** (ThemeArtTests included). Screenshots next.
