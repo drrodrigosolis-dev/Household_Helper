@@ -275,3 +275,21 @@ New: `Features/Shared/ThemeArt.swift` (chalk edge, texture, drawings, crayon but
   To travel further, move back onto the focused column and out to the edge again. Please re-try by hand in L-019.
 - Refund alert: `alert.buttons["refund.keep"].firstMatch`. Batch order: compared as a set.
 - Done cards opening the context menu instead of lifting: noted for the owner's finger (WALK-QUEUE).
+
+## Re L-019 — thanks; fixed in the commit after `2904da3`
+1. Cloud under the toolbar: Budget, Wishlist and Tasks no longer draw the top-right corner picture.
+2. Task cards: the theme's page color with a chalk edge.
+3. Floating + over the last Recent activity row: the Dashboard reserves 88 pt at the end of the scroll, so at the
+   bottom the row should clear it; while scrolled higher the button floats over content by design (the owner's
+   mockup does the same). Please check it scrolled fully down; if it still covers the amount there, say so.
+4. Spring-load: "over nothing" no longer re-arms it (a still finger gets no callbacks after the slide, which was the
+   repeat). Only coming back over the focused column, or a drop, re-arms it.
+
+## L-020 — Sprint 22 (recurring purchases, **SchemaV3**) is merged (`2904da3`+); written without a compiler
+1. `Scripts/lint.sh && Scripts/build.sh && Scripts/test.sh`; errors verbatim to TO-CLOUD.md. Watch
+   `PersistenceTests` (V2→V3 on disk, V1→V3 through two stages), `RecurringPurchaseTests`, `BackupTests`.
+2. `Scripts/ui-test.sh` at least RecurringUITests (new `testRecurringPurchaseNamesItsStore`), TasksUITests,
+   RefundUITests, ThemesUITests.
+3. Re-try L-018 by hand (spring-load once, then drop lands in the column that came in).
+4. **No install on the phone.** SchemaV3 migrates the phone's V2 store; the install will be its own L-item with a
+   backup first, after CI is green and the data-safety review is closed.
