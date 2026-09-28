@@ -136,6 +136,13 @@ public struct CategoryUndoEntry: Equatable, Sendable {
     /// Whether the previous category was the on-device model's pick; undo restores it with the category.
     public let previousIsAIClassified: Bool
     public let appliedCategoryID: UUID?
+    /// The record's merchant, whose learned category (`Merchant.defaultCategoryID`) the edit may have changed
+    /// (Sprint 23 review S2).
+    public let merchantID: UUID?
+    /// The merchant's learned category before the edit, which undo puts back.
+    public let previousMerchantCategoryID: UUID?
+    /// The merchant's learned category just after the edit: undo leaves one learned since then alone.
+    public let appliedMerchantCategoryID: UUID?
 }
 
 /// What the Undo banner can take back (Sprint 23, F3). Kept in memory for a few seconds, never persisted.
@@ -201,16 +208,21 @@ extension TransactionService {
             purchasedItem: itemState, linkedTasks: taskStates, splitSurvivor: survivorState)
     }
 
-    /// Changes a transaction through `update` (so every rule of an edit applies) and returns its previous category.
+    /// Changes a transaction through `update` (so every rule of an edit applies) and returns its previous category,
+    /// and its merchant's previous learned category.
     @discardableResult
     public func updateCategoryForUndo(_ id: UUID, with draft: TransactionDraft, now: Date) throws -> CategoryUndoEntry {
         begin()
         let record = try requireTransaction(id)
-        let change = CategoryUndoEntry(
-            transactionID: id, previousCategoryID: record.categoryID, previousIsAIClassified: record.isAIClassified,
-            appliedCategoryID: draft.categoryID)
+        let previousCategoryID = record.categoryID
+        let previousIsAIClassified = record.isAIClassified
+        let merchant = try record.merchantID.flatMap { try undoMerchant($0) }
+        let previousLearned = merchant?.defaultCategoryID
         try update(id, with: draft, now: now)
-        return change
+        return CategoryUndoEntry(
+            transactionID: id, previousCategoryID: previousCategoryID, previousIsAIClassified: previousIsAIClassified,
+            appliedCategoryID: draft.categoryID, merchantID: merchant?.id, previousMerchantCategoryID: previousLearned,
+            appliedMerchantCategoryID: merchant?.defaultCategoryID)
     }
 
     /// Takes back a delete or a bulk category edit.
@@ -229,7 +241,7 @@ extension TransactionService {
         let restoring = Set(entries.filter { $0.effect == .removed }.map(\.record.id))
         // Every check and fetch happens before the first edit, so a refusal leaves nothing pending.
         var steps: [RestoreStep] = []
-        var refundedAmounts: [UUID: Int64] = [:]
+        var refundedAmounts: [UUID: [Money]] = [:]
         var postedRefundPurchases: Set<UUID> = []
         for entry in entries {
             let snapshot = entry.record
@@ -255,10 +267,14 @@ extension TransactionService {
                         step.tasks.append((task, state.updatedAt))
                     }
                 }
-                if let purchaseID = snapshot.refundOfTransactionID, !restoring.contains(purchaseID), snapshot.isLive {
-                    refundedAmounts[purchaseID, default: 0] += snapshot.amountMinorUnits
-                    if snapshot.statusRawValue == TransactionStatus.posted.rawValue {
-                        postedRefundPurchases.insert(purchaseID)
+                if let purchaseID = snapshot.refundOfTransactionID, !restoring.contains(purchaseID) {
+                    try requireRefundMatches(snapshot, purchaseID: purchaseID)
+                    if snapshot.isLive {
+                        let amount = Money(minorUnits: snapshot.amountMinorUnits, currencyCode: snapshot.currencyCode)
+                        refundedAmounts[purchaseID, default: []].append(amount)
+                        if snapshot.statusRawValue == TransactionStatus.posted.rawValue {
+                            postedRefundPurchases.insert(purchaseID)
+                        }
                     }
                 }
             case .markedSkipped:
@@ -274,11 +290,14 @@ extension TransactionService {
             steps.append(step)
         }
         // Refunds coming back must still fit their purchase: within what is left, and pending while it is.
-        for (purchaseID, amount) in refundedAmounts {
+        for (purchaseID, amounts) in refundedAmounts {
             guard let purchase = try undoTransaction(purchaseID) else { throw UndoError.linkTargetMissing }
-            let remaining = try summary(of: purchase, excluding: nil).remaining.minorUnits
+            // Summed as money, so an overflow refuses the undo instead of wrapping.
+            let amount = try Money.sum(amounts, currencyCode: purchase.currencyCode)
+            let remaining = try summary(of: purchase, excluding: nil).remaining
             guard purchase.type == .expense, purchase.status == .posted || purchase.status == .pending,
-                !(purchase.status == .pending && postedRefundPurchases.contains(purchaseID)), amount <= remaining
+                !(purchase.status == .pending && postedRefundPurchases.contains(purchaseID)),
+                amount.minorUnits <= remaining.minorUnits
             else { throw UndoError.changedSince }
         }
         let rejoins = try rebuildSplits(steps)
@@ -294,11 +313,14 @@ extension TransactionService {
         try commit()
     }
 
-    /// Gives each transaction back its previous category through `update`, the path the bulk edit took. Everything
-    /// is checked first; a record changed since, or a previous category now archived or gone, refuses the whole undo.
+    /// Gives each transaction back its previous category through `update`, the path the bulk edit took, and each
+    /// merchant the category it had learned before. Everything is checked first; a record changed since, or a previous
+    /// category now archived, gone or of the wrong kind, refuses the whole undo.
     func revert(_ changes: [CategoryUndoEntry], now: Date) throws {
         begin()
         var drafts: [(UUID, TransactionDraft)] = []
+        // Per merchant: what it had learned before the first edit, and after the last.
+        var learnedStates: [UUID: (previous: UUID?, applied: UUID?)] = [:]
         for change in changes {
             guard let record = try undoTransaction(change.transactionID) else { throw UndoError.linkTargetMissing }
             guard record.categoryID == change.appliedCategoryID else { throw UndoError.changedSince }
@@ -313,6 +335,18 @@ extension TransactionService {
                 isAIClassified: change.previousCategoryID != nil && change.previousIsAIClassified,
                 accountID: record.accountID, transferAccountID: record.transferAccountID)
             drafts.append((record.id, draft))
+            if let merchantID = change.merchantID {
+                var state = learnedStates[merchantID] ?? (previous: change.previousMerchantCategoryID, applied: nil)
+                state.applied = change.appliedMerchantCategoryID
+                learnedStates[merchantID] = state
+            }
+        }
+        // A merchant that learned another category since keeps it: only what the bulk edit taught is taken back.
+        var relearned: [(merchant: Merchant, categoryID: UUID?)] = []
+        for (merchantID, state) in learnedStates where state.previous != state.applied {
+            if let merchant = try undoMerchant(merchantID), merchant.defaultCategoryID == state.applied {
+                relearned.append((merchant: merchant, categoryID: state.previous))
+            }
         }
         var failed = 0
         for (id, draft) in drafts {
@@ -322,6 +356,13 @@ extension TransactionService {
                 failed += 1
             }
         }
+        // Each update taught its merchant the category it gave back; this puts back what the merchant had learned.
+        begin()
+        for entry in relearned where entry.merchant.defaultCategoryID != entry.categoryID {
+            entry.merchant.defaultCategoryID = entry.categoryID
+            entry.merchant.updatedAt = now
+        }
+        try commit()
         guard failed == 0 else { throw UndoError.partiallyUndone(failed: failed) }
     }
 
@@ -406,6 +447,19 @@ extension TransactionService {
         return rejoins
     }
 
+    /// A refund coming back to a purchase that stayed must still be one of that purchase (Sprint 23 review B2): an
+    /// expense in the same currency, account, category and merchant, on or before the refund's day. Cancelled refunds
+    /// too, as a backup refuses a mismatched refund whatever its status.
+    private func requireRefundMatches(_ snapshot: TransactionSnapshot, purchaseID: UUID) throws {
+        guard let purchase = try undoTransaction(purchaseID) else { throw UndoError.linkTargetMissing }
+        let calendar = HouseholdCalendar(timeZone: .current)
+        guard purchase.typeRawValue == TransactionType.expense.rawValue,
+            purchase.currencyCode == snapshot.currencyCode, purchase.accountID == snapshot.accountID,
+            purchase.categoryID == snapshot.categoryID, purchase.merchantID == snapshot.merchantID,
+            calendar.startOfDay(for: snapshot.occurredAt) >= calendar.startOfDay(for: purchase.occurredAt)
+        else { throw UndoError.changedSince }
+    }
+
     /// Every id the record points at must still exist; a refund's purchase may be coming back in the same undo.
     private func requireLinkTargets(of snapshot: TransactionSnapshot, restoring: Set<UUID>) throws {
         for accountID in [snapshot.accountID, snapshot.transferAccountID].compactMap({ $0 }) {
@@ -452,6 +506,10 @@ extension TransactionService {
 
     private func undoAccountExists(_ id: UUID) throws -> Bool {
         try modelContext.fetchCount(FetchDescriptor<Account>(predicate: #Predicate { $0.id == id })) > 0
+    }
+
+    private func undoMerchant(_ id: UUID) throws -> Merchant? {
+        try modelContext.fetch(FetchDescriptor<Merchant>(predicate: #Predicate { $0.id == id })).first
     }
 
     private func undoMerchantExists(_ id: UUID) throws -> Bool {

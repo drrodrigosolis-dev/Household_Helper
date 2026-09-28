@@ -311,6 +311,8 @@ public actor TransactionService {
         // Fetched before the first edit (the merchant insert below), so a failed fetch leaves nothing pending.
         let linkedItem = try record.wishlistItemID.flatMap { try wishlistItem($0) }
         let refundRecords = try allRefunds(of: record)
+        // Each other part's refunds follow that part's merchant, which this edit may change (Sprint 23 review B1).
+        let otherPartRefunds = try otherParts.map { ($0, try allRefunds(of: $0)) }
         let keepsCategory = draft.categoryID == record.categoryID
         let isAIClassified = keepsCategory ? record.isAIClassified : draft.isAIClassified
         let learned = try learnableCategory(draft.categoryID, type: draft.type, isAIClassified: isAIClassified)
@@ -353,6 +355,9 @@ public actor TransactionService {
         record.updatedAt = now
         carryClassification(of: record, to: refundRecords, now: now)
         shareSplit(from: record, to: otherParts, now: now)
+        for (part, refunds) in otherPartRefunds {
+            carryClassification(of: part, to: refunds, now: now)
+        }
         // A purchase's item records the price actually paid; keep it in step with the edited transaction.
         if let item = linkedItem, item.purchasedTransactionID == id {
             item.actualPriceMinorUnits = draft.amount.minorUnits
@@ -376,9 +381,14 @@ public actor TransactionService {
         try requireSplitEdit(
             record, siblings: otherParts, type: record.type, status: status, accountID: record.accountID,
             occurredAt: record.occurredAt)
+        // Parts stored out of step would take this part's merchant too; their refunds follow it (review B1).
+        let otherPartRefunds = try otherParts.map { ($0, try allRefunds(of: $0)) }
         record.status = status
         record.updatedAt = now
         shareSplit(from: record, to: otherParts, now: now)
+        for (part, refunds) in otherPartRefunds {
+            carryClassification(of: part, to: refunds, now: now)
+        }
         try commit()
     }
 

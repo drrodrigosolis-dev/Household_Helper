@@ -1,3 +1,4 @@
+import CoreData
 import Foundation
 import SwiftData
 import Testing
@@ -59,6 +60,13 @@ struct TransactionUndoTests {
         func task(_ id: UUID) throws -> TaskItem {
             let descriptor = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.id == id })
             return try #require(try ModelContext(container).fetch(descriptor).first)
+        }
+
+        /// The category the merchant of transaction `id` has learned.
+        func learnedCategory(ofMerchantOf id: UUID) throws -> UUID? {
+            let merchantID = try #require(try record(id)?.merchantID)
+            let descriptor = FetchDescriptor<Merchant>(predicate: #Predicate { $0.id == merchantID })
+            return try #require(try ModelContext(container).fetch(descriptor).first).defaultCategoryID
         }
     }
 
@@ -247,6 +255,57 @@ struct TransactionUndoTests {
         #expect(balancesAfter == balancesBefore)
     }
 
+    /// Review S6: a transfer comes back with both its accounts.
+    @Test func undoGivesBackATransferWithBothAccounts() async throws {
+        let fixture = try await makeFixture()
+        let savings = try await fixture.ledger.createAccount(
+            AccountDraft(
+                name: "Savings", kind: .savings, startingBalance: cad(0), startingBalanceDate: Self.date(2026, 8, 1)),
+            now: now)
+        let id = try await fixture.ledger.create(
+            TransactionDraft(
+                amount: cad(25_000), type: .transfer, occurredAt: Self.date(2026, 9, 20), transferAccountID: savings),
+            now: now)
+        let before = try fixture.snapshot(id)
+        #expect(before.transferAccountID == savings && before.accountID != nil)
+        let balancesBefore = try await balances(fixture)
+
+        let deleted = try await fixture.ledger.deleteTransactionForUndo(id, alsoDisableSeries: false, now: later)
+        #expect(try fixture.record(id) == nil)
+        try await fixture.ledger.undo(.deletion([deleted]), now: later)
+
+        #expect(try fixture.snapshot(id) == before)
+        let balancesAfter = try await balances(fixture)
+        #expect(balancesAfter == balancesBefore, "Both accounts' figures are as they were")
+    }
+
+    /// Review S5: the snapshot names every stored attribute of the current record, so a field added in a later schema
+    /// can't be lost on undo without this failing; and every one of them comes back as it was.
+    @Test func theSnapshotKeepsEveryStoredField() throws {
+        let model = try #require(NSManagedObjectModel.makeManagedObjectModel(for: [TransactionRecord.self]))
+        let entity = try #require(model.entitiesByName["TransactionRecord"])
+        let stored = Set(entity.propertiesByName.keys)
+        let record = TransactionRecord(
+            amount: cad(1_234), type: .refund, status: .pending, source: .manual, occurredAt: now, now: now)
+        record.merchantID = UUID()
+        record.merchantNameSnapshot = "Corner Store"
+        record.categoryID = UUID()
+        record.notes = "Paper"
+        record.recurringSeriesID = UUID()
+        record.scheduledOccurrence = now
+        record.wishlistItemID = UUID()
+        record.isAIClassified = true
+        record.accountID = UUID()
+        record.transferAccountID = UUID()
+        record.refundOfTransactionID = UUID()
+        record.splitGroupID = UUID()
+        record.updatedAt = later
+        let snapshot = TransactionSnapshot(of: record)
+        let fields = Set(Mirror(reflecting: snapshot).children.compactMap(\.label))
+        #expect(fields == stored, "Every stored attribute is in the snapshot")
+        #expect(TransactionSnapshot(of: snapshot.makeRecord()) == snapshot, "And comes back as it was")
+    }
+
     // MARK: Splits
 
     /// Splits a 60.00 purchase into 40.00 and 20.00; returns the parts, the original first.
@@ -348,6 +407,112 @@ struct TransactionUndoTests {
         #expect(try fixture.record(refund) == nil)
     }
 
+    /// The draft that saves `record` as it is, to be changed by one field.
+    private func unchanged(_ record: TransactionRecord) -> TransactionDraft {
+        TransactionDraft(
+            amount: record.amount, type: record.type, occurredAt: record.occurredAt, status: record.status,
+            categoryID: record.categoryID, merchantName: record.merchantNameSnapshot, notes: record.notes,
+            accountID: record.accountID, transferAccountID: record.transferAccountID)
+    }
+
+    enum PurchaseDrift: CaseIterable, Sendable {
+        case notAnExpense
+        case otherAccount
+        case laterDay
+        case otherCategory
+        case otherMerchant
+    }
+
+    /// Review B2: a refund comes back only to a purchase it still belongs to, whatever its status; a backup would
+    /// refuse any other.
+    @Test(arguments: PurchaseDrift.allCases, [false, true])
+    func undoOfARefundIsRefusedWhenItsPurchaseNoLongerMatches(drift: PurchaseDrift, cancelled: Bool) async throws {
+        let fixture = try await makeFixture()
+        let purchase = try await buy(6_000, in: fixture)
+        let refundDay = Self.date(2026, 9, 21)
+        let result = try await fixture.ledger.refundTransaction(
+            purchase, amount: cad(1_500), occurredAt: refundDay, notes: nil, calendar: calendar, now: now)
+        let refund = result.refundID
+        if cancelled {
+            try await fixture.ledger.updateRefund(
+                refund, amount: cad(1_500), occurredAt: refundDay, status: .cancelled, notes: nil, calendar: calendar,
+                now: now)
+        }
+        let deleted = try await fixture.ledger.deleteTransactionForUndo(refund, alsoDisableSeries: false, now: later)
+        var draft = unchanged(try #require(try fixture.record(purchase)))
+        switch drift {
+        case .notAnExpense:
+            draft.type = .income
+            draft.categoryID = nil
+        case .otherAccount:
+            draft.accountID = try await fixture.ledger.createAccount(
+                AccountDraft(
+                    name: "Cash", kind: .cash, startingBalance: cad(0), startingBalanceDate: Self.date(2026, 8, 1)),
+                now: now)
+        case .laterDay:
+            draft.occurredAt = Self.date(2026, 9, 23)
+        case .otherCategory:
+            draft.categoryID = try await CategoryService.make(container: fixture.container).create(
+                name: "Gifts", icon: "gift", color: .black, kind: .expense, now: now)
+        case .otherMerchant:
+            draft.merchantName = "Other Shop"
+        }
+        try await fixture.ledger.update(purchase, with: draft, now: later)
+
+        await #expect(throws: UndoError.changedSince) {
+            try await fixture.ledger.undo(.deletion([deleted]), now: later)
+        }
+        #expect(try fixture.record(refund) == nil, "Nothing was restored")
+    }
+
+    enum RefundMisfit: CaseIterable, Sendable {
+        case moreThanIsLeft
+        case purchaseCancelled
+        case purchasePendingWhileRefundPosted
+    }
+
+    @Test(arguments: RefundMisfit.allCases)
+    func undoOfARefundIsRefusedWhenItNoLongerFits(misfit: RefundMisfit) async throws {
+        let fixture = try await makeFixture()
+        let purchase = try await buy(6_000, in: fixture)
+        let result = try await fixture.ledger.refundTransaction(
+            purchase, amount: cad(1_500), occurredAt: Self.date(2026, 9, 21), notes: nil, calendar: calendar,
+            now: now)
+        let refund = result.refundID
+        let deleted = try await fixture.ledger.deleteTransactionForUndo(refund, alsoDisableSeries: false, now: later)
+        switch misfit {
+        case .moreThanIsLeft:
+            // 50.00 of 60.00 refunded since: the 15.00 no longer fits in what is left.
+            _ = try await fixture.ledger.refundTransaction(
+                purchase, amount: cad(5_000), occurredAt: Self.date(2026, 9, 22), notes: nil, calendar: calendar,
+                now: later)
+        case .purchaseCancelled:
+            try await fixture.ledger.setStatus(.cancelled, forTransaction: purchase, now: later)
+        case .purchasePendingWhileRefundPosted:
+            try await fixture.ledger.setStatus(.pending, forTransaction: purchase, now: later)
+        }
+
+        await #expect(throws: UndoError.changedSince) {
+            try await fixture.ledger.undo(.deletion([deleted]), now: later)
+        }
+        #expect(try fixture.record(refund) == nil, "Nothing was restored")
+    }
+
+    @Test func undoOfASkippedOccurrenceIsRefusedOnceItIsNoLongerSkipped() async throws {
+        let fixture = try await makeFixture()
+        let target = try await makeTarget(.recurringOccurrence, in: fixture)
+        let seriesID = try #require(target.seriesID)
+        let deleted = try await fixture.ledger.deleteTransactionForUndo(
+            target.transactionID, alsoDisableSeries: true, now: later)
+        try await fixture.ledger.setStatus(.pending, forTransaction: target.transactionID, now: later)
+
+        await #expect(throws: UndoError.changedSince) {
+            try await fixture.ledger.undo(.deletion([deleted]), now: later)
+        }
+        #expect(try fixture.record(target.transactionID)?.status == .pending, "The later edit is kept")
+        #expect(try fixture.series(seriesID).isEnabled == false, "Nothing was restored")
+    }
+
     @Test func undoOfAPurchaseIsRefusedOnceTheItemIsBoughtAgain() async throws {
         let fixture = try await makeFixture()
         let target = try await makeTarget(.wishlistPurchase, in: fixture)
@@ -425,5 +590,90 @@ struct TransactionUndoTests {
             try await fixture.ledger.undo(.categoryChange([change]), now: later)
         }
         #expect(try fixture.record(id)?.categoryID == gifts, "A later edit is never overwritten")
+    }
+
+    enum PreviousCategoryDrift: CaseIterable, Sendable {
+        case archived
+        case otherKind
+    }
+
+    @Test(arguments: PreviousCategoryDrift.allCases)
+    func categoryUndoIsRefusedWhenThePreviousCategoryCantBeUsed(drift: PreviousCategoryDrift) async throws {
+        let fixture = try await makeFixture()
+        let id = try await buy(1_000, in: fixture)
+        let categories = CategoryService.make(container: fixture.container)
+        let dining = try await categories.create(
+            name: "Dining", icon: "fork.knife", color: .black, kind: .expense, now: now)
+        var draft = unchanged(try #require(try fixture.record(id)))
+        draft.categoryID = dining
+        let change = try await fixture.ledger.updateCategoryForUndo(id, with: draft, now: later)
+        switch drift {
+        case .archived:
+            try await categories.setArchived(true, category: fixture.shopping, now: later)
+        case .otherKind:
+            // Nothing else uses Shopping, so it may become an income category.
+            try await categories.update(
+                category: fixture.shopping, name: "Shopping", icon: "bag", color: .black, kind: .income, now: later)
+        }
+
+        await #expect(throws: UndoError.changedSince) {
+            try await fixture.ledger.undo(.categoryChange([change]), now: later)
+        }
+        #expect(try fixture.record(id)?.categoryID == dining, "Nothing was changed back")
+        #expect(try fixture.learnedCategory(ofMerchantOf: id) == dining)
+    }
+
+    /// Records the bulk edit's path can no longer write are counted, and the rest is still changed back.
+    @Test func categoryUndoReportsWhatItCouldNotChangeBack() async throws {
+        let fixture = try await makeFixture()
+        let purchase = try await buy(6_000, in: fixture)
+        let result = try await fixture.ledger.refundTransaction(
+            purchase, amount: cad(1_000), occurredAt: Self.date(2026, 9, 21), notes: nil, calendar: calendar,
+            now: now)
+        let other = try await buy(1_000, in: fixture)
+        let dining = try await CategoryService.make(container: fixture.container).create(
+            name: "Dining", icon: "fork.knife", color: .black, kind: .expense, now: now)
+        var draft = unchanged(try #require(try fixture.record(other)))
+        draft.categoryID = dining
+        let changed = try await fixture.ledger.updateCategoryForUndo(other, with: draft, now: later)
+        // A refund passes every check (its category is as the entry says), but `update` never writes one: its
+        // category follows its purchase. The bulk edit can't produce this entry, so it is made here.
+        let unwritable = CategoryUndoEntry(
+            transactionID: result.refundID, previousCategoryID: nil, previousIsAIClassified: false,
+            appliedCategoryID: fixture.shopping, merchantID: nil, previousMerchantCategoryID: nil,
+            appliedMerchantCategoryID: nil)
+
+        await #expect(throws: UndoError.partiallyUndone(failed: 1)) {
+            try await fixture.ledger.undo(.categoryChange([changed, unwritable]), now: later)
+        }
+        #expect(try fixture.record(other)?.categoryID == fixture.shopping, "The rest is changed back")
+        #expect(try fixture.record(result.refundID)?.categoryID == fixture.shopping, "The refund keeps its purchase's")
+    }
+
+    /// Review S2: the merchant learns the category the bulk edit gave; undo gives it back the one it had learned
+    /// before, not merely the record's old category.
+    @Test func categoryUndoGivesTheMerchantBackWhatItHadLearned() async throws {
+        let fixture = try await makeFixture()
+        let categories = CategoryService.make(container: fixture.container)
+        let gifts = try await categories.create(name: "Gifts", icon: "gift", color: .black, kind: .expense, now: now)
+        let dining = try await categories.create(
+            name: "Dining", icon: "fork.knife", color: .black, kind: .expense, now: now)
+        let filed = try await buy(1_000, in: fixture)
+        // A later purchase at the same store in Gifts: that is what the store has learned.
+        try await fixture.ledger.create(
+            TransactionDraft(
+                amount: cad(500), type: .expense, occurredAt: Self.date(2026, 9, 21), categoryID: gifts,
+                merchantName: "Corner Store"),
+            now: now)
+        #expect(try fixture.learnedCategory(ofMerchantOf: filed) == gifts)
+
+        var draft = unchanged(try #require(try fixture.record(filed)))
+        draft.categoryID = dining
+        let change = try await fixture.ledger.updateCategoryForUndo(filed, with: draft, now: later)
+        #expect(try fixture.learnedCategory(ofMerchantOf: filed) == dining, "The bulk edit teaches the store")
+
+        try await fixture.ledger.undo(.categoryChange([change]), now: later)
+        #expect(try fixture.record(filed)?.categoryID == fixture.shopping)
+        #expect(try fixture.learnedCategory(ofMerchantOf: filed) == gifts, "What it had learned before the edit")
     }
 }

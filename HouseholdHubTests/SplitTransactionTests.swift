@@ -380,6 +380,92 @@ struct SplitTransactionTests {
         #expect(try fixture.record(ids[0]).status == .cancelled)
     }
 
+    /// Review B1 and S3: a new merchant, or the same one typed another way, reaches every part and every part's
+    /// refunds, so the next backup still validates.
+    @Test func editingOnePartsMerchantMovesTheOtherPartsRefundsToo() async throws {
+        let fixture = try await makeFixture()
+        let original = try await spend(10_000, in: fixture)
+        let ids = try await split(original, [6_000, 4_000], in: fixture)
+        let result = try await fixture.ledger.refundTransaction(
+            ids[1], amount: cad(1_000), occurredAt: now, notes: nil, calendar: calendar, now: now)
+        let refund = result.refundID
+        func edit(merchant: String) async throws {
+            let part = try fixture.record(ids[0])
+            try await fixture.ledger.update(
+                ids[0],
+                with: TransactionDraft(
+                    amount: part.amount, type: .expense, occurredAt: part.occurredAt, status: part.status,
+                    categoryID: part.categoryID, merchantName: merchant, notes: part.notes, accountID: part.accountID),
+                now: now)
+        }
+
+        try await edit(merchant: "MARKET")
+        #expect(try fixture.record(ids[1]).merchantNameSnapshot == "MARKET", "The name as typed reaches every part")
+        #expect(try fixture.record(refund).merchantNameSnapshot == "MARKET")
+
+        try await edit(merchant: "Corner Store")
+        let first = try fixture.record(ids[0])
+        let second = try fixture.record(ids[1])
+        let refunded = try fixture.record(refund)
+        #expect(second.merchantID == first.merchantID && second.merchantNameSnapshot == "Corner Store")
+        #expect(refunded.merchantID == second.merchantID, "A part's refund follows its part's merchant")
+        #expect(refunded.merchantNameSnapshot == "Corner Store")
+        #expect(refunded.categoryID == second.categoryID)
+        let backup = try await BackupService.make(container: fixture.container).snapshot(now: now, appVersion: "1") {
+            _ in nil
+        }
+        try BackupValidator.validate(backup)
+    }
+
+    enum PartEdit: CaseIterable, Sendable {
+        case cancelled
+        case pending
+        case laterDay
+        case otherAccount
+    }
+
+    /// Every part takes an edited part's status, date and account, so an edit that the other part's refund could not
+    /// follow is refused, changing neither part.
+    @Test(arguments: PartEdit.allCases)
+    func aPartEditTheOtherPartsRefundCantFollowIsRefused(edit: PartEdit) async throws {
+        let fixture = try await makeFixture()
+        let card = try await fixture.ledger.createAccount(
+            AccountDraft(name: "Card", kind: .creditCard, startingBalance: cad(0), startingBalanceDate: entered),
+            now: entered)
+        let original = try await spend(10_000, in: fixture)
+        let ids = try await split(original, [6_000, 4_000], in: fixture)
+        _ = try await fixture.ledger.refundTransaction(
+            ids[1], amount: cad(1_000), occurredAt: Self.date(2026, 9, 11), notes: nil, calendar: calendar, now: now)
+        let before = try [fixture.record(ids[0]), fixture.record(ids[1])].map { TransactionSnapshot(of: $0) }
+        let part = try fixture.record(ids[0])
+        var edited = TransactionDraft(
+            amount: part.amount, type: .expense, occurredAt: part.occurredAt, status: part.status,
+            categoryID: part.categoryID, merchantName: part.merchantNameSnapshot, notes: part.notes,
+            accountID: part.accountID)
+        switch edit {
+        case .cancelled:
+            edited.status = .cancelled
+        case .pending:
+            edited.status = .pending
+        case .laterDay:
+            edited.occurredAt = Self.date(2026, 9, 13)
+        case .otherAccount:
+            edited.accountID = card
+        }
+        let draft = edited
+        await #expect(throws: LedgerError.purchaseHasRefunds) {
+            try await fixture.ledger.update(ids[0], with: draft, now: now)
+        }
+        if edit == .cancelled || edit == .pending {
+            let status = draft.status
+            await #expect(throws: LedgerError.purchaseHasRefunds) {
+                try await fixture.ledger.setStatus(status, forTransaction: ids[0], now: now)
+            }
+        }
+        let after = try [fixture.record(ids[0]), fixture.record(ids[1])].map { TransactionSnapshot(of: $0) }
+        #expect(after == before)
+    }
+
     @Test func aPartsTypeDoesNotChange() async throws {
         let fixture = try await makeFixture()
         let original = try await spend(10_000, in: fixture)

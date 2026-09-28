@@ -217,9 +217,13 @@ extension TransactionService {
     }
 
     /// Gives every other part the edited part's status, date, account and merchant, without saving: the parts of a
-    /// split are one payment.
+    /// split are one payment. The merchant's name as typed goes too, so a renamed store reads the same on every part.
+    /// The caller carries the new merchant on to each part's refunds (`carryClassification`).
     func shareSplit(from record: TransactionRecord, to siblings: [TransactionRecord], now: Date) {
-        for sibling in siblings where !Self.sharePayment(sibling, record) {
+        let behind = siblings.filter {
+            !Self.sharePayment($0, record) || $0.merchantNameSnapshot != record.merchantNameSnapshot
+        }
+        for sibling in behind {
             sibling.statusRawValue = record.statusRawValue
             sibling.occurredAt = record.occurredAt
             sibling.accountID = record.accountID
