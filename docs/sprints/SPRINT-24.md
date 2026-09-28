@@ -3,7 +3,7 @@
 Owner request 2026-09-28: a detailed first-time user experience tutorial where highlights and short callouts teach
 everything the app can do. Siri moved to Sprint 25.
 
-## Proposed shape (owner to confirm at sprint start)
+## Shape (owner agreed 2026-09-28)
 1. **First-run tour** after onboarding: 5–7 stops over the essentials (Dashboard figures, Quick Add, Budget, Wishlist
    → purchase, Tasks board, More › Settings). A spotlight dims the screen around the highlighted control with a
    short callout (one or two lines), Next / Skip, a step count. Skippable at any time; never blocks the app.
