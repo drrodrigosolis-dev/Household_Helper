@@ -44,7 +44,7 @@ struct EntryTimeAndPhraseTests {
         ("3pm", 900), ("3 pm", 900), ("3:30pm", 930), ("3:30 p.m.", 930), ("15:30", 930), ("at 3pm", 900),
         ("at 15:30", 930), ("noon", 720), ("midnight", 0), ("12am", 0), ("12pm", 720), ("3 PM", 900),
         ("At Noon.", 720), ("at midnight", 0), ("9:05AM,", 545), ("3:30", 210), ("0:15", 15),
-    ])
+    ] as [(String, Int)])
     func englishTimes(text: String, minutes: Int) {
         let tokens = Self.words(text)
         let match = TimeOfDayParser.firstMatch(in: tokens)
@@ -57,7 +57,7 @@ struct EntryTimeAndPhraseTests {
         ("a las 3 de la tarde", 900), ("12 de la noche", 0), ("12 de la tarde", 720), ("al mediodía", 720),
         ("a medianoche", 0), ("a la 1", 60), ("a las 0", 0), ("a las 23", 1380), ("5 de la madrugada", 300),
         ("8 de la manana", 480),
-    ])
+    ] as [(String, Int)])
     func spanishTimes(text: String, minutes: Int) {
         let tokens = Self.words(text)
         let match = TimeOfDayParser.firstMatch(in: tokens)
@@ -78,7 +78,9 @@ struct EntryTimeAndPhraseTests {
     }
 
     /// A time with no date word: today while it is still ahead of `now`, tomorrow once it has passed.
-    @Test(arguments: [(16 * 60, 0), (15 * 60 + 1, 0), (15 * 60, 1), (14 * 60, 1), (0, 1), (23 * 60 + 59, 0)])
+    // Minutes after midnight written out (16:00, 15:01, 15:00, 14:00, 0:00, 23:59): arithmetic inside the literal
+    // was more than the type checker would solve in time (local build on ebc972d).
+    @Test(arguments: [(960, 0), (901, 0), (900, 1), (840, 1), (0, 1), (1439, 0)] as [(Int, Int)])
     func aTaskTimeWithoutADayIsTheNextOne(minutes: Int, daysAhead: Int) {
         let day = TimeOfDayParser.dueDay(forMinutes: minutes, now: now, calendar: calendar)
         #expect(day == Self.startOfDay(daysAhead))
@@ -99,7 +101,7 @@ struct EntryTimeAndPhraseTests {
         ("pagar renta a las 3", "pagar renta", 1, 180),
         ("take out trash midnight", "take out trash", 1, 0),
         ("Buy 3 eggs at 5:30 PM", "Buy 3 eggs", 0, 1050),
-    ])
+    ] as [(String, String, Int, Int)])
     func taskLinesReadATime(text: String, title: String, daysAhead: Int, minutes: Int) throws {
         let line = TaskLineParser(calendar: calendar).parse(text, now: now)
         #expect(line.title == title)
@@ -137,7 +139,7 @@ struct EntryTimeAndPhraseTests {
         ("call the plumber friday at 3pm.", "call the plumber", 0, 900),
         ("Llamar al fontanero a las 5 de la tarde", "Llamar al fontanero", 0, 1020),
         ("water plants at 7:30 am", "water plants", 1, 450),
-    ])
+    ] as [(String, String, Int, Int)])
     func siriTasksReadATime(text: String, title: String, daysAhead: Int, minutes: Int) throws {
         let draft = try TaskEntry.draft(text: text, now: now, calendar: calendar)
         #expect(draft.title == title)
@@ -181,7 +183,7 @@ struct EntryTimeAndPhraseTests {
     @Test(arguments: [
         ("buy 3 eggs", Int64(300), "buy eggs"), ("40 room 25:00", 4_000, "room 25:00"),
         ("40 at 3 guys", 4_000, "at 3 guys"),
-    ])
+    ] as [(String, Int64, String)])
     func quickAddLeavesWhatIsNotATime(text: String, minorUnits: Int64, description: String) {
         let parsed = parser.parse(text, now: now)
         #expect(parsed.amount == Money(minorUnits: minorUnits, currencyCode: "CAD"))
