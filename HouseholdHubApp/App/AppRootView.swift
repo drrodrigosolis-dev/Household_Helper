@@ -80,6 +80,8 @@ struct AppRootView: View {
                 """
             )
         }
+        // Dragging a form down puts the keyboard away, on every screen (audit A-004).
+        .scrollDismissesKeyboard(.interactively)
         .preferredColorScheme(colorScheme)
         .tint(accent)
         .fontDesign(funTheme == nil ? nil : .rounded)
@@ -131,7 +133,7 @@ struct AppRootView: View {
     }
 
     private var tabs: some View {
-        TabView(selection: $router.tab) {
+        TabView(selection: tabSelection) {
             Tab("Dashboard", systemImage: tabSymbol(.dashboard, "house"), value: AppRouter.AppTab.dashboard) {
                 DashboardView()
             }
@@ -157,6 +159,18 @@ struct AppRootView: View {
             OnboardingView { needsOnboarding = false }
                 .interactiveDismissDisabled()
         }
+    }
+
+    /// The tab binding; a tap on the selected tab is a reselect (audit A-012).
+    private var tabSelection: Binding<AppRouter.AppTab> {
+        Binding(
+            get: { router.tab },
+            set: { tab in
+                if tab == router.tab {
+                    router.reselect(tab)
+                }
+                router.tab = tab
+            })
     }
 
     /// First launch: seed system categories, then ask for currency and starting balance until onboarding is done.

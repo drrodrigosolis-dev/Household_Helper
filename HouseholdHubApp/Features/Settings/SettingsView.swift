@@ -35,7 +35,7 @@ struct SettingsView: View {
                 NavigationLink {
                     DataView()
                 } label: {
-                    Label("Backup and export", systemImage: "externaldrive")
+                    Label("Data", systemImage: "externaldrive")
                 }
                 .accessibilityIdentifier("settings.data")
                 NavigationLink {

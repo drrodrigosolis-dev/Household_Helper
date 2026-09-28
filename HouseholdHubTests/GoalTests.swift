@@ -235,6 +235,8 @@ struct GoalTests {
             GoalDraft(name: "Bike", target: cad(80_000), accountID: savings, wishlistItemID: wish), now: now)
 
         await #expect(throws: GoalError.usedByGoals(count: 1)) { try await ledger.deleteAccount(savings) }
+        // Audit A-022: the refusal is known before the user is asked to confirm.
+        #expect(try await ledger.deletionBlocker(forAccount: savings) == .usedByGoals(count: 1))
         await #expect(throws: GoalError.usedByGoals(count: 1)) {
             _ = try await ledger.deleteWishlistItem(wish, now: now)
         }
@@ -247,6 +249,7 @@ struct GoalTests {
 
         try await ledger.deleteGoal(goal)
         _ = try await ledger.deleteWishlistItem(wish, now: now)
+        #expect(try await ledger.deletionBlocker(forAccount: savings) == nil)
         try await ledger.deleteAccount(savings)
         let context = fixture.context()
         #expect(try context.fetchCount(FetchDescriptor<SavingsGoal>()) == 0)

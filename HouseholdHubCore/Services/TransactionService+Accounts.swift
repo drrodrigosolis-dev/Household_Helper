@@ -73,6 +73,22 @@ extension TransactionService {
 
     /// Deletes an account nothing references (Sprint 10 decision 4); otherwise it is refused and the caller offers
     /// archiving. The default account can't be deleted, nor one a savings goal uses (Sprint 12 decision 6).
+    /// What would stop `deleteAccount`, checked before the user is asked to confirm (audit A-022: the confirmation came
+    /// first, then the refusal). Nil when the account can be deleted; `deleteAccount` checks again.
+    public func deletionBlocker(forAccount id: UUID) throws -> AccountDeletionBlocker? {
+        let settings = try requireSettings()
+        _ = try requireAccount(id)
+        if settings.defaultAccountID == id {
+            return .isDefault
+        }
+        let references = try accountReferenceCount(id)
+        if references > 0 {
+            return .inUse(referenceCount: references)
+        }
+        let goals = try goalCount(usingAccount: id)
+        return goals > 0 ? .usedByGoals(count: goals) : nil
+    }
+
     public func deleteAccount(_ id: UUID) throws {
         begin()
         let settings = try requireSettings()
@@ -187,4 +203,11 @@ extension TransactionService {
         try requireUsableAccount(destination, allowArchived: destination == current?.1)
         return (source, destination)
     }
+}
+
+/// Why an account can't be deleted (see `TransactionService.deletionBlocker(forAccount:)`).
+public enum AccountDeletionBlocker: Equatable, Sendable {
+    case isDefault
+    case inUse(referenceCount: Int)
+    case usedByGoals(count: Int)
 }

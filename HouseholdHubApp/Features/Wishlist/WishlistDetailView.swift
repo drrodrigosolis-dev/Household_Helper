@@ -13,6 +13,8 @@ struct WishlistDetailView: View {
     @Query private var tasks: [TaskItem]
     @Query private var goals: [SavingsGoal]
     @Query(sort: \Account.sortOrder) private var accounts: [Account]
+    /// The expense (and any refunds) recorded for this item, so the purchased row opens it (audit A-016).
+    @Query private var purchases: [TransactionRecord]
     @State private var goalStatus: GoalStatus?
     @State private var goalEditor: GoalEditorView.Mode?
 
@@ -23,6 +25,8 @@ struct WishlistDetailView: View {
 
     init(itemID: UUID) {
         _matches = Query(filter: #Predicate<WishlistItem> { $0.id == itemID })
+        let linked: UUID? = itemID
+        _purchases = Query(filter: #Predicate<TransactionRecord> { $0.wishlistItemID == linked })
     }
 
     var body: some View {
@@ -133,8 +137,17 @@ struct WishlistDetailView: View {
                         .accessibilityIdentifier("wishlist.markPurchased")
                 }
                 if item.status == .purchased {
-                    Label("Recorded in Budget as an expense", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.secondary)
+                    if let expense = purchases.first(where: { $0.id == item.purchasedTransactionID }) {
+                        NavigationLink {
+                            TransactionEditorView(record: expense)
+                        } label: {
+                            Label("Recorded in Budget as an expense", systemImage: "checkmark.circle.fill")
+                        }
+                        .accessibilityIdentifier("wishlist.purchaseExpense")
+                    } else {
+                        Label("Recorded in Budget as an expense", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 if item.status == .archived {
                     Button("Restore", systemImage: "tray.and.arrow.up") { setArchived(false, item) }

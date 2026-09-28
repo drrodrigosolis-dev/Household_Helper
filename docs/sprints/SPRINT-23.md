@@ -21,17 +21,17 @@ message with defaults; local re-verifies by finding ID.
 | A-007 | medium | fix (owner: default) | Multi-select in Transactions: Set category / Delete (confirmed). | ☐ | ☐ |
 | A-008 | medium | not a bug (pending finger) | RefundUITests opens Refund… on a wishlist purchase with a real synthesized tap and passes on CI; likely the tap tool (the audit's own caveat). Local to confirm with a long press. | — | ☐ |
 | A-009 | medium | not a bug (pending finger) | BudgetsUITests taps `budgets.addEmpty` and passes; same caveat. | — | ☐ |
-| A-010 | low | fix | Account picker in Mark Purchased (with more than one account). | ☐ | ☐ |
-| A-011 | low | fix | Re-tapping the Budget tab at the top restores the large title and search. | ☐ | ☐ |
-| A-012 | low | fix | Re-tapping a tab pops it to its root. | ☐ | ☐ |
+| A-010 | low | not a bug (local to re-check) | The sheet already shows "Paid from" when there is more than one active account (`wishlist.purchase.account`); the walk's fresh install had one. | ☐ | ☐ |
+| A-011 | low | won't fix | iOS's own tab re-tap scrolls to top; there is no public API to re-expand a collapsed large title or show a hidden search field. A pull-down shows both (standard iOS). | ☐ | ☐ |
+| A-012 | low | fix (local to verify) | More uses a path the router clears on re-tap. Needs a check that iOS 26 reports the re-tap to the selection binding. | ☐ | ☐ |
 | A-013 | low | fix (owner: default) | Hide the floating + on Recurring and Budgets (their toolbar + stays). | ☐ | ☐ |
 | A-014 | low | fix | Hide the floating + while searching; bottom inset already on lists (re-check Budget). | ☐ | ☐ |
 | A-015 | low | fix | Transaction editor Save disabled until something changes. | ☐ | ☐ |
 | A-016 | low | fix | "Recorded in Budget" opens the expense. | ☐ | ☐ |
 | A-017 | low | **feature, this sprint (owner)** | Budgets: previous months with spent/limit and rollover. | ☐ | ☐ |
 | A-018 | low | **feature, this sprint (owner)** | Analytics: tap a slice/bar to see its transactions; change vs last month. | ☐ | ☐ |
-| A-019 | low | fix | Add actions on the Wishlist and Recurring empty states. | ☐ | ☐ |
-| A-020 | low | fix | Recurring editor lists the next three dates. | ☐ | ☐ |
+| A-019 | low | fix | Wishlist empty state gets "Add item" (`wishlist.addEmpty`); Recurring already had one (`recurring.addEmpty`). | ☐ | ☐ |
+| A-020 | low | fix | Recurring editor lists the next three dates; Starts defaults to the start of today. | ☐ | ☐ |
 | A-021 | low | fix (owner: default, row renamed "Data") | §24 names the screen "Data"; make the row match. | ☐ | ☐ |
 | A-022 | low | fix | Account delete checks use first, then confirms. | ☐ | ☐ |
 | A-023 | low | needs finger | Carried from L-018; WALK-QUEUE. | — | ☐ |

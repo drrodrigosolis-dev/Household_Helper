@@ -3291,6 +3291,16 @@
         }
       }
     },
+    "Next": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Próximas"
+          }
+        }
+      }
+    },
     "Next %@": {
       "localizations": {
         "es": {

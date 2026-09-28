@@ -42,7 +42,8 @@ struct RecurringEditorView: View {
     @State private var dayOfMonth = Calendar.current.component(.day, from: .now)
     @State private var ordinal = 1
     @State private var month = Calendar.current.component(.month, from: .now)
-    @State private var startDate = Date.now
+    /// Start of today: a bill set up today is due today (audit A-001).
+    @State private var startDate = HouseholdCalendar(timeZone: .current).startOfDay(for: .now)
     @State private var errorMessage: String?
     @State private var isSaving = false
     /// The series being edited; nil when creating one.
@@ -195,6 +196,13 @@ struct RecurringEditorView: View {
                     DatePicker("Starts", selection: $startDate, displayedComponents: [.date, .hourAndMinute])
                     Text(RecurrenceFormat.describe(rule))
                         .foregroundStyle(.secondary)
+                    if !nextDates.isEmpty {
+                        // The next dates, so a start that skips this period is visible before saving (audit A-020).
+                        LabeledContent("Next") {
+                            Text(nextDates.map { $0.formatted(date: .abbreviated, time: .omitted) }.formatted())
+                        }
+                        .accessibilityIdentifier("recurringEditor.nextDates")
+                    }
                 }
                 if let errorMessage {
                     ErrorText(errorMessage)
@@ -219,6 +227,16 @@ struct RecurringEditorView: View {
                 }
             }
         }
+    }
+
+    /// The next three occurrences from today (or the start, if later).
+    private var nextDates: [Date] {
+        let calendar = HouseholdCalendar(timeZone: .current)
+        let from = max(calendar.startOfDay(for: .now), startDate)
+        let window = DateInterval(start: from, duration: 3 * 366 * 24 * 3600)
+        let dates = RecurrenceEngine().occurrences(
+            of: rule, start: startDate, end: endDate, in: window, calendar: calendar)
+        return Array(dates.prefix(3))
     }
 
     /// A purchase names its store; a bill shows one only if it already has one (a restored or older series), so saving

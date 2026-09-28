@@ -110,7 +110,7 @@ struct AccountsView: View {
         .accessibilityIdentifier("account.row")
         .swipeActions(edge: .trailing) {
             if account.id != defaultID {
-                Button("Delete") { pendingDelete = account }
+                Button("Delete") { requestDelete(account) }
                     .tint(.red)
                 Button(archiveTitle(account)) { setArchived(account, !account.isArchived) }
                     .tint(.orange)
@@ -137,7 +137,7 @@ struct AccountsView: View {
                 Button("Make Default", systemImage: "star") { makeDefault(account) }
             }
             Button(archiveTitle(account), systemImage: "archivebox") { setArchived(account, !account.isArchived) }
-            Button("Delete", systemImage: "trash", role: .destructive) { pendingDelete = account }
+            Button("Delete", systemImage: "trash", role: .destructive) { requestDelete(account) }
         }
     }
 
@@ -180,6 +180,26 @@ struct AccountsView: View {
         balances = try? await services.transactions.balances(
             now: .now, calendar: HouseholdCalendar(timeZone: .current),
             includePendingInProjection: settings.first?.includePendingInProjection ?? false)
+    }
+
+    /// Refuses up front when the account can't be deleted, and asks to confirm only when it can (audit A-022).
+    private func requestDelete(_ account: Account) {
+        guard let services else { return }
+        let id = account.id
+        Task {
+            switch try? await services.transactions.deletionBlocker(forAccount: id) {
+            case .inUse?:
+                inUse = account
+            case .usedByGoals?:
+                errorMessage = String(
+                    localized: "A savings goal uses that account. Change or delete the goal, or archive the account.")
+            case .isDefault?:
+                errorMessage = String(localized: "That account couldn't be deleted.")
+            case nil:
+                // Deletable, or the check failed: the confirmed delete checks again.
+                pendingDelete = account
+            }
+        }
     }
 
     private func delete(_ account: Account) {

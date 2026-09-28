@@ -65,9 +65,12 @@ struct DashboardView: View {
     /// The five latest entries across transactions, wishlist changes, and task changes (spec §24.2).
     private var activity: [Activity] {
         let all =
-            recent.map(Activity.transaction) + recentWishes.map(Activity.wishlist) + recentTasks.map(Activity.task)
+            recent.map(Activity.transaction) + wishActivity.map(Activity.wishlist) + recentTasks.map(Activity.task)
         return Array(all.sorted { $0.date > $1.date }.prefix(5))
     }
+
+    /// A purchased item is already in the list as its expense (audit A-002: it showed twice).
+    private var wishActivity: [WishlistItem] { recentWishes.filter { $0.status != .purchased } }
 
     private var includePending: Bool { settings.first?.includePendingInProjection ?? false }
 

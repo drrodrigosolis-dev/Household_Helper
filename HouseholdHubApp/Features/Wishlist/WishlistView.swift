@@ -124,6 +124,12 @@ struct WishlistView: View {
                 EmptyStateLabel(Text(emptyTitle), systemImage: "heart")
             } description: {
                 Text("Add things you're saving for. Mark them purchased to record the expense.")
+            } actions: {
+                // Only when the list is truly empty; with filters hiding items, the chips are the way back.
+                if items.isEmpty {
+                    Button("Add item") { isAdding = true }
+                        .accessibilityIdentifier("wishlist.addEmpty")
+                }
             }
         } else if layout == .grid {
             ScrollView {
