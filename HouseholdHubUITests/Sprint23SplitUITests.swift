@@ -96,6 +96,33 @@ final class Sprint23SplitUITests: XCTestCase {
         captureScreen(app, named: "sprint23-duplicate-list-light")
     }
 
+    /// The number pad's Done sits in the focused row, so the field just above the keyboard stays tappable (it used to
+    /// float over Split's part 2 amount and swallow the tap), and Done still puts the keypad away (audit A-004).
+    @MainActor
+    func testKeypadDoneLeavesTheNextFieldTappableAndHidesTheKeypad() {
+        let app = launchApp()
+        addViaQuickAdd(app, "100 hardware")
+        openTransaction(app, containing: "hardware")
+        let split = app.buttons["editor.split"]
+        XCTAssertTrue(scrollUntilExists(app, split), "Split… missing from the editor")
+        split.tap()
+        let amounts = app.textFields.matching(identifier: "split.row.amount")
+        XCTAssertTrue(amounts.firstMatch.waitForExistence(timeout: 5), "Split sheet did not open")
+
+        amounts.element(boundBy: 0).tap()
+        let done = app.buttons["keyboard.done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5), "The focused row offers Done")
+        replaceText(in: amounts.element(boundBy: 1), with: "40")
+        XCTAssertEqual(app.buttons.matching(identifier: "keyboard.done").count, 1, "One Done, in the focused row")
+        captureScreen(app, named: "sprint23-split-keypad-done-light")
+
+        // Done only shows while a field is focused (the keypad is up), so its going away means the keypad went too.
+        done.tap()
+        let unfocused = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: done)
+        XCTAssertEqual(XCTWaiter().wait(for: [unfocused], timeout: 10), .completed, "Done hides the keypad")
+        XCTAssertEqual(amounts.element(boundBy: 1).value as? String, "40", "Part 2 kept what was typed")
+    }
+
     // MARK: Helpers
 
     @MainActor
