@@ -468,3 +468,46 @@ Waiting to play; Playing is empty). So the spring-load still repeats while resti
 Screenshot `l018-springload-once.png`.
 
 ## Re L-020 — taken (bb5e396); no phone install
+
+## Re L-020 step 1 — lint clean, build OK; unit 387 pass / 1 FAIL (5f90b10)
+PersistenceTests (V2→V3 on disk, V1→V3), RecurringPurchaseTests and BackupTests all **pass**. One failure, a stale literal:
+```
+HouseholdHubTests / refundsRoundTripThroughABackup(): Expectation failed: exported.schemaVersion == 3 → 4
+```
+RefundTests.swift:354 expects backup format 3; `BackupDTO.currentSchemaVersion` is now 4 (Sprint 22). Use
+`BackupDTO.currentSchemaVersion` instead of the literal.
+
+## Re L-020 step 5 — frozen schema hashes
+`Schema.Entity` has no public `versionHash` (compile error), so I used Core Data's:
+`NSManagedObjectModel.makeManagedObjectModel(for: SchemaVn.models)!.entities` → `entity.versionHash.base64EncodedString()`.
+At **fd7e67e** (scratch worktree, test not committed, worktree removed):
+```
+V1 Account z8vYhvnjK/te4y7y6DljMmwO+2iy1UuwpSEpB6yfsqE=
+V1 AppSettings PclbrgFUgnyPFx/XBhB/qKu92jpbLQm1COGAXlhf8DA=
+V1 BoardColumn otW/nUsNm6JmixgMPaSfXzQKcN4TpRQPPUGsn7jnXCc=
+V1 CategoryBudget VAEI6gouN4/Rxh1sazObIrp0WmXZkaJGB1U2nLhNQ+A=
+V1 CategoryRecord cUsNCAgPc2gpLihb3KPSdaNKvFO7/B4U9Vl+JpBMpUw=
+V1 Merchant s6+cFd3vZXSEfg7LVPwvIgyni9MzWu0zbh7rFZUjNzU=
+V1 RecurringTransaction oijWj8kd4Qliu8X7ya4opWf6YHpcszEX9uqplqLYJdA=
+V1 SavingsGoal mUZ5lA3rraIbpy7Wa46GGYVKa+Y0V370fRnsYN0UATY=
+V1 SubtaskItem vZQ3n0NYJGO8BxsXX4uo3anzMtE0fKjDyV46vRtmHnU=
+V1 TaskItem zSCRBvZul4FQCWPnYOzgXEGlpyDbzbi73NGZo+Dhulo=
+V1 TransactionRecord 9eg/co5II3NEWXB1AlD8Tjiu7K1d4lP9xi5cCoyiE20=
+V1 WishlistItem bPgBJmmAIe2iJw9B3LFaHmdIJSBZZgJ+vxJH74SqYPo=
+V2 Account z8vYhvnjK/te4y7y6DljMmwO+2iy1UuwpSEpB6yfsqE=
+V2 AppSettings PclbrgFUgnyPFx/XBhB/qKu92jpbLQm1COGAXlhf8DA=
+V2 BoardColumn otW/nUsNm6JmixgMPaSfXzQKcN4TpRQPPUGsn7jnXCc=
+V2 CategoryBudget VAEI6gouN4/Rxh1sazObIrp0WmXZkaJGB1U2nLhNQ+A=
+V2 CategoryRecord cUsNCAgPc2gpLihb3KPSdaNKvFO7/B4U9Vl+JpBMpUw=
+V2 Merchant s6+cFd3vZXSEfg7LVPwvIgyni9MzWu0zbh7rFZUjNzU=
+V2 RecurringTransaction oijWj8kd4Qliu8X7ya4opWf6YHpcszEX9uqplqLYJdA=
+V2 SavingsGoal mUZ5lA3rraIbpy7Wa46GGYVKa+Y0V370fRnsYN0UATY=
+V2 SubtaskItem vZQ3n0NYJGO8BxsXX4uo3anzMtE0fKjDyV46vRtmHnU=
+V2 TaskItem zSCRBvZul4FQCWPnYOzgXEGlpyDbzbi73NGZo+Dhulo=
+V2 TransactionRecord 2g9ao8KCDDqQBAa3ERmZEHquayXhZfIjTQzbqhK+Nm0=
+V2 WishlistItem bPgBJmmAIe2iJw9B3LFaHmdIJSBZZgJ+vxJH74SqYPo=
+```
+Same dump on **today's head** (temporary test, deleted, not committed): V1 and V2 are **byte-identical** to the lists above,
+so nothing frozen has drifted. SchemaV3 differs only in `RecurringTransaction` → `Ah+kRpqWLOcB/TVzas/mI6QzL9RoRU2wsiRDA2BS7M4=`
+(TransactionRecord is V2's `2g9ao8K…`; the rest are V1's). Only TransactionRecord differs V1→V2, as intended.
+FrozenSchemaTests: yours to add (the snippet above is all it needs). UI tests (step 2) and the spring-load re-try (step 3) next.
