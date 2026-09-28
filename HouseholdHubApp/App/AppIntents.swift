@@ -120,7 +120,8 @@ struct HouseholdHubShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: AddTaskIntent(),
             phrases: [
-                "Add a task in \(.applicationName)", "Add a \(.applicationName) task", "New task in \(.applicationName)",
+                "Add a task in \(.applicationName)", "Add a \(.applicationName) task",
+                "New task in \(.applicationName)",
             ], shortTitle: "Add Task", systemImageName: "checklist")
     }
 }
