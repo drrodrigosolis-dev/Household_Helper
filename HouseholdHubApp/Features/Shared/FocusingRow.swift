@@ -20,14 +20,17 @@ struct FocusingRow<Field: View>: View {
                 // A number pad has no Return key: Done puts it away (audit A-004). It sits in the focused row rather
                 // than above the keyboard, where iOS 26 floats it over the row just above and swallowed taps meant
                 // for that field (Split's part 2 amount). Only the focused row shows it, so a form has one Done.
-                if isFocused {
-                    Button("Done", systemImage: "keyboard.chevron.compact.down") { isFocused = false }
-                        .labelStyle(.iconOnly)
-                        // Borderless: only the button's own area acts, so a tap elsewhere in the row still focuses.
-                        .buttonStyle(.borderless)
-                        .accessibilityHint("Hides the keyboard")
-                        .accessibilityIdentifier("keyboard.done")
-                }
+                // Its space is always kept: inserting it on focus shrank the field under the finger that had just
+                // tapped its trailing edge, and the field lost focus again (CI run 36385300924).
+                Button("Done", systemImage: "keyboard.chevron.compact.down") { isFocused = false }
+                    .labelStyle(.iconOnly)
+                    // Borderless: only the button's own area acts, so a tap elsewhere in the row still focuses.
+                    .buttonStyle(.borderless)
+                    .opacity(isFocused ? 1 : 0)
+                    .allowsHitTesting(isFocused)
+                    .accessibilityHidden(!isFocused)
+                    .accessibilityHint("Hides the keyboard")
+                    .accessibilityIdentifier("keyboard.done")
             }
         }
         .contentShape(Rectangle())
