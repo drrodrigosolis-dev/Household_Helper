@@ -40,24 +40,28 @@ struct EntryTimeAndPhraseTests {
 
     // MARK: The time grammar
 
-    @Test(arguments: [
+    static let englishTimeCases: [(String, Int)] = [
         ("3pm", 900), ("3 pm", 900), ("3:30pm", 930), ("3:30 p.m.", 930), ("15:30", 930), ("at 3pm", 900),
         ("at 15:30", 930), ("noon", 720), ("midnight", 0), ("12am", 0), ("12pm", 720), ("3 PM", 900),
         ("At Noon.", 720), ("at midnight", 0), ("9:05AM,", 545), ("3:30", 210), ("0:15", 15),
-    ] as [(String, Int)])
+    ]
+
+    @Test(arguments: englishTimeCases)
     func englishTimes(text: String, minutes: Int) {
         let tokens = Self.words(text)
         let match = TimeOfDayParser.firstMatch(in: tokens)
         #expect(match == TimeOfDayParser.Match(minutes: minutes, tokens: 0..<tokens.count))
     }
 
-    @Test(arguments: [
+    static let spanishTimeCases: [(String, Int)] = [
         ("a las 3", 180), ("a las 15:30", 930), ("a las 3pm", 900), ("3 de la tarde", 900), ("8 de la mañana", 480),
         ("10 de la noche", 1320), ("mediodía", 720), ("medianoche", 0), ("A LAS 3", 180), ("MEDIODIA", 720),
         ("a las 3 de la tarde", 900), ("12 de la noche", 0), ("12 de la tarde", 720), ("al mediodía", 720),
         ("a medianoche", 0), ("a la 1", 60), ("a las 0", 0), ("a las 23", 1380), ("5 de la madrugada", 300),
         ("8 de la manana", 480),
-    ] as [(String, Int)])
+    ]
+
+    @Test(arguments: spanishTimeCases)
     func spanishTimes(text: String, minutes: Int) {
         let tokens = Self.words(text)
         let match = TimeOfDayParser.firstMatch(in: tokens)
@@ -88,7 +92,7 @@ struct EntryTimeAndPhraseTests {
 
     // MARK: Task lines (batch add)
 
-    @Test(arguments: [
+    static let taskLineTimes: [(String, String, Int, Int)] = [
         ("call plumber 4pm", "call plumber", 0, 960),
         ("call plumber 2pm", "call plumber", 1, 840),
         ("call plumber 3pm", "call plumber", 1, 900),
@@ -101,7 +105,9 @@ struct EntryTimeAndPhraseTests {
         ("pagar renta a las 3", "pagar renta", 1, 180),
         ("take out trash midnight", "take out trash", 1, 0),
         ("Buy 3 eggs at 5:30 PM", "Buy 3 eggs", 0, 1050),
-    ] as [(String, String, Int, Int)])
+    ]
+
+    @Test(arguments: taskLineTimes)
     func taskLinesReadATime(text: String, title: String, daysAhead: Int, minutes: Int) throws {
         let line = TaskLineParser(calendar: calendar).parse(text, now: now)
         #expect(line.title == title)
@@ -135,11 +141,13 @@ struct EntryTimeAndPhraseTests {
 
     // MARK: Siri tasks
 
-    @Test(arguments: [
+    static let siriTaskTimes: [(String, String, Int, Int)] = [
         ("call the plumber friday at 3pm.", "call the plumber", 0, 900),
         ("Llamar al fontanero a las 5 de la tarde", "Llamar al fontanero", 0, 1020),
         ("water plants at 7:30 am", "water plants", 1, 450),
-    ] as [(String, String, Int, Int)])
+    ]
+
+    @Test(arguments: siriTaskTimes)
     func siriTasksReadATime(text: String, title: String, daysAhead: Int, minutes: Int) throws {
         let draft = try TaskEntry.draft(text: text, now: now, calendar: calendar)
         #expect(draft.title == title)
@@ -180,10 +188,12 @@ struct EntryTimeAndPhraseTests {
         #expect(parsed.description == "coffee")
     }
 
-    @Test(arguments: [
+    static let quickAddNonTimes: [(String, Int64, String)] = [
         ("buy 3 eggs", Int64(300), "buy eggs"), ("40 room 25:00", 4_000, "room 25:00"),
         ("40 at 3 guys", 4_000, "at 3 guys"),
-    ] as [(String, Int64, String)])
+    ]
+
+    @Test(arguments: quickAddNonTimes)
     func quickAddLeavesWhatIsNotATime(text: String, minorUnits: Int64, description: String) {
         let parsed = parser.parse(text, now: now)
         #expect(parsed.amount == Money(minorUnits: minorUnits, currencyCode: "CAD"))
