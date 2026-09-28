@@ -61,6 +61,14 @@ struct TransactionEditorView: View {
 
     private var amount: Money? { LedgerFormat.parseAmount(amountText, currencyCode: record.currencyCode) }
 
+    /// Sprint 23 (A-015): Save waits until an editable field differs from the stored record.
+    private var hasChanges: Bool {
+        let edits = TransactionEdits(
+            type: type, amount: amount, occurredAt: occurredAt, status: status, categoryID: categoryID,
+            merchant: merchant, notes: notes, accountID: accountID)
+        return edits != TransactionEdits(record: record)
+    }
+
     /// Active categories valid for the chosen type, plus the current one even if it was archived since.
     private var pickableCategories: [CategoryRecord] {
         categories.filter { ($0.id == categoryID || !$0.isArchived) && $0.kind.allows(type) }
@@ -137,7 +145,7 @@ struct TransactionEditorView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") { Task { await save() } }
-                    .disabled(amount == nil || isSaving)
+                    .disabled(amount == nil || isSaving || !hasChanges)
                     .accessibilityIdentifier("editor.save")
             }
         }
@@ -303,5 +311,40 @@ struct TransactionEditorView: View {
         } catch {
             errorMessage = String(localized: "Changes couldn't be saved. Check the amount and category.")
         }
+    }
+}
+
+/// The transaction editor's editable fields, compared with the stored record so Save waits for a change (Sprint 23,
+/// A-015). Merchant and notes compare as the service stores them: trimmed, with empty meaning none.
+struct TransactionEdits: Equatable {
+    var type: TransactionType
+    /// Nil while the typed amount doesn't parse; that already disables Save.
+    var amount: Money?
+    var occurredAt: Date
+    var status: TransactionStatus
+    var categoryID: UUID?
+    var merchant: String
+    var notes: String
+    var accountID: UUID?
+
+    init(
+        type: TransactionType, amount: Money?, occurredAt: Date, status: TransactionStatus, categoryID: UUID?,
+        merchant: String, notes: String, accountID: UUID?
+    ) {
+        self.type = type
+        self.amount = amount
+        self.occurredAt = occurredAt
+        self.status = status
+        self.categoryID = categoryID
+        self.merchant = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.notes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.accountID = accountID
+    }
+
+    init(record: TransactionRecord) {
+        self.init(
+            type: record.type, amount: record.amount, occurredAt: record.occurredAt, status: record.status,
+            categoryID: record.categoryID, merchant: record.merchantNameSnapshot ?? "", notes: record.notes ?? "",
+            accountID: record.accountID)
     }
 }
