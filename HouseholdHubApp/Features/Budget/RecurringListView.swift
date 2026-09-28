@@ -33,6 +33,8 @@ struct RecurringListView: View {
                 List {
                     if !suggestions.visible.isEmpty {
                         Section("Suggestions") {
+                            // Inline above the cards: a popover in a list row often never showed (Sprint 24 CI).
+                            TipView(RecurringSuggestionsTip())
                             ForEach(suggestions.visible) { suggestion in
                                 suggestionRow(suggestion).themedRow()
                             }
@@ -96,7 +98,6 @@ struct RecurringListView: View {
         .padding(.vertical, 4)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("recurring.suggestion")
-        .popoverTip(RecurringSuggestionsTip())
     }
 
     private func row(_ item: RecurringTransaction) -> some View {

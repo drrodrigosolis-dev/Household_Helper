@@ -266,10 +266,11 @@ private struct TransactionEditorContent: View {
                     .disabled(hasChanges || isSaving)
                     .accessibilityIdentifier("editor.unsplit")
             } else if canBeSplit {
+                // Inline, as its own row: a popover anchored in a form row often never showed (CI run 36442544785).
+                TipView(SplitTip())
                 Button("Split…", systemImage: "square.split.2x1") { isSplitting = true }
                     .disabled(hasChanges || isSaving)
                     .accessibilityIdentifier("editor.split")
-                    .popoverTip(SplitTip())
             }
             if canBeDuplicated {
                 Button("Duplicate", systemImage: "plus.square.on.square") { Task { await duplicate() } }
@@ -372,10 +373,10 @@ private struct TransactionEditorContent: View {
                     .accessibilityIdentifier("editor.removeFromWishlist")
                 }
             } else {
+                TipView(RefundTip())
                 Button("Refund…", systemImage: "arrow.uturn.backward") { isRefunding = true }
                     .disabled(refundSummary == nil)
                     .accessibilityIdentifier("editor.refund")
-                    .popoverTip(RefundTip())
             }
         } header: {
             Text("Refunds")

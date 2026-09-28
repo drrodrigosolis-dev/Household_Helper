@@ -55,6 +55,8 @@ struct BudgetsListView: View {
                     Section {
                         monthStepper
                             .themedRow()
+                        // Inline under the arrows: a popover in a list row often never showed (Sprint 24 CI).
+                        TipView(BudgetHistoryTip())
                     }
                     Section {
                         if let statuses {
@@ -147,7 +149,6 @@ struct BudgetsListView: View {
             }
             .disabled(!navigator.canGoForward(from: month))
             .accessibilityIdentifier("budgets.nextMonth")
-            .popoverTip(BudgetHistoryTip())
         }
         // Two buttons in one row: without this, a tap anywhere in the row would trigger both.
         .buttonStyle(.borderless)

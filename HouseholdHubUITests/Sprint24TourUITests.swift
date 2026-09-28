@@ -39,7 +39,8 @@ final class Sprint24TourUITests: XCTestCase {
     func testTourInDarkModeAtLargeText() {
         let app = launchApp(variant: .dark, extraArguments: Self.tour + Self.largeText)
         startFromOffer(app)
-        walkTour(app, variant: "dark-largeText")
+        // No data here: an empty Budget or Wishlist points at its empty-state message, never at the whole screen.
+        walkTour(app, variant: "dark-largeText") { stop in assertSpotlightIsNotTheWholeScreen(app, stop: stop) }
     }
 
     /// Skip ends the tour at once; the app underneath works again and the offer doesn't come back.
@@ -121,7 +122,7 @@ final class Sprint24TourUITests: XCTestCase {
         )
     }
 
-    /// The first stop's figures have no single identifier; the spotlight must at least be a part of the screen.
+    /// The spotlight is a part of the screen, not all of it: what stops 3–5 did before (CI run 36442544785).
     @MainActor
     private func assertSpotlightIsNotTheWholeScreen(_ app: XCUIApplication, stop: Int) {
         let spotlight = app.descendants(matching: .any)["tour.spotlight"]

@@ -9,9 +9,13 @@ enum TourTarget: Hashable, Sendable {
     /// The first row of the transactions list: what "tap one to edit it" points at (owner's phone walk: a whole-screen
     /// spotlight pointed at nothing).
     case budgetRow
+    /// Budget's "No transactions" message, when there is no row to point at yet.
+    case budgetEmpty
     case wishlist
     /// The first wishlist item, where Mark Purchased is reached.
     case wishlistRow
+    /// Wishlist's empty message and its Add item button.
+    case wishlistEmpty
     case tasksBoard
     /// The first board column, where cards are dragged from.
     case tasksColumn
@@ -36,12 +40,12 @@ struct TourStep: Identifiable, Sendable {
 
     var id: TourTarget { target }
 
-    /// What the spotlight looks for, most specific first: a screen's first row or column when it has one, else the
-    /// whole list (an empty Budget, Wishlist or board).
+    /// What the spotlight looks for, most specific first: a screen's first row or column when it has one, else its
+    /// empty-state message, and the whole list only as a last resort (CI run 36442544785 showed whole-screen cut-outs).
     var targets: [TourTarget] {
         switch target {
-        case .budgetList: [.budgetRow, .budgetList]
-        case .wishlist: [.wishlistRow, .wishlist]
+        case .budgetList: [.budgetRow, .budgetEmpty, .budgetList]
+        case .wishlist: [.wishlistRow, .wishlistEmpty, .wishlist]
         case .tasksBoard: [.tasksColumn, .tasksBoard]
         default: [target]
         }
