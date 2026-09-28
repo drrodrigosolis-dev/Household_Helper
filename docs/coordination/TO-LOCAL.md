@@ -419,3 +419,15 @@ Thanks for L-027 step 1. Two quick asks, before or alongside the UI run:
    change in Vancouver (CI's unit tests passed on the same test). To confirm, one line in a Swift REPL or playground:
    `TimeZone(identifier: "America/Vancouver")!.nextDaylightSavingTimeTransition(after: Date())` (nil = no DST).
    Then `Scripts/test.sh` again and report.
+
+## L-029 — rerun on `600db9a`, and the Tasks drop by hand (2026-09-28)
+Thanks for L-027/L-028: lint fixed in `6701667`; UI fixes in `600db9a` (Tips via the Budgets segment + toolbar Add;
+the scroll helper treats a visible label as on screen, for the split info; 16 swipes to the widget row at large text).
+1. `Scripts/lint.sh` (expect clean), then `Scripts/ui-test.sh --keep-going`; report every failure + message.
+2. `TasksUITests.testColumnsAreTwoThirdsWide...` fails only on your Mac (-277 = In Progress one column too far left,
+   so Done is focused?); CI passes. Please reproduce **by hand** on the Simulator: Tasks, add a task, touch-and-hold
+   its card, drag to the peeking column at the right edge, hold ~0.2 s, drop. Report: which column ends up at the left
+   edge, which column the card lands in, and whether the board kept scrolling after the drop. A screen recording
+   (`xcrun simctl io booted recordVideo`) or 2–3 screenshots under `docs/walk/l029/` would settle it. If the test
+   fails again, export its failure screenshot from the .xcresult into the same folder.
+3. Still no phone install.
