@@ -47,7 +47,7 @@ struct TasksView: View {
                 .searchable(text: $searchText, prompt: "Search tasks")
                 .quickAddAccess()
                 .navigationTitle("Tasks")
-                .themedScreen(decorated: true)
+                .themedScreen(decorated: true, toolbarTrailing: true)
                 .navigationDestination(for: UUID.self) { id in
                     TaskDetailView(taskID: id)
                 }
@@ -159,18 +159,21 @@ struct TasksView: View {
     /// under a finger that stays still, so the column a drop would land in is outlined (`columnView`).
     ///
     /// Once per entry (L-018: a finger resting on the right edge went two columns, as the next one slid under it):
-    /// after a column springs into focus, the next spring-load waits until the drag is back over the focused column or
-    /// off the board. To travel further, move back onto the focused column and out to the edge again.
+    /// after a column springs into focus, the next spring-load waits until the drag is back over the focused column.
+    /// To travel further, move back onto the focused column and out to the edge again. Nothing else re-arms it: with a
+    /// finger held still, the targets under it go quiet after the slide (no callback reports the column that slid in),
+    /// so "over nothing" is not evidence the drag left (L-019 walk: re-arming on it still went two columns). A drop
+    /// re-arms it, and the next drag starts over the focused column, which does too.
     private func springLoad(_ column: UUID?) {
         springTask?.cancel()
         springTask = nil
-        guard let column, column != focusedColumn else {
-            // Re-armed only once the slide has settled and the drag stays here: mid-slide the finger crosses the
-            // focused column and the targets flicker off.
+        guard let column else { return }
+        guard column != focusedColumn else {
+            // Only once the slide has settled and the drag stays here: mid-slide the finger crosses this column.
             let wait = max(0.3, springSettles.timeIntervalSinceNow + 0.3)
             springTask = Task {
                 try? await Task.sleep(for: .seconds(wait))
-                guard !Task.isCancelled, hoveredColumn == nil || hoveredColumn == focusedColumn else { return }
+                guard !Task.isCancelled, hoveredColumn == focusedColumn else { return }
                 springArmed = true
             }
             return
@@ -181,6 +184,8 @@ struct TasksView: View {
             guard !Task.isCancelled, hoveredColumn == column else { return }
             springArmed = false
             springSettles = .now.addingTimeInterval(0.6)
+            // The targets are stale once the board slides; the ones still under the drag report in again as it moves.
+            dropTargets = [:]
             focus(column)
         }
     }
@@ -380,7 +385,7 @@ struct TaskCard: View {
             .foregroundStyle(.secondary)
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color(uiColor: .systemBackground)))
+        .themedCard(cornerRadius: 12, standard: Color(uiColor: .systemBackground))
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("task.card")

@@ -310,6 +310,8 @@ struct ThemeTexture: View {
 struct ThemeBackdrop: View {
     let theme: ThemeSpec
     let decorated: Bool
+    /// Off on screens with toolbar buttons at the top right.
+    var topTrailing = true
 
     var body: some View {
         ThemeTexture(background: theme.background)
@@ -319,10 +321,12 @@ struct ThemeBackdrop: View {
                         ThemeDrawing(piece: .cornerTopLeading, height: 96)
                             .offset(x: -10, y: -4)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        ThemeDrawing(piece: .cornerTopTrailing, height: 62)
-                            .padding(.top, 56)
-                            .padding(.trailing, 24)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        if topTrailing {
+                            ThemeDrawing(piece: .cornerTopTrailing, height: 62)
+                                .padding(.top, 56)
+                                .padding(.trailing, 24)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        }
                         ThemeDrawing(piece: .cornerBottomLeading, height: 44)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                         ThemeDrawing(piece: .cornerBottomTrailing, height: 34)

@@ -95,15 +95,22 @@ extension View {
         modifier(ThemedSurface(cornerRadius: cornerRadius, standard: AnyShapeStyle(standard)))
     }
 
+    /// A card inside a surface (a task on its column): the theme's page color with a chalk edge, so it stands apart
+    /// from the column around it (L-019 walk: solid black on the chalkboard); `standard` with themes off.
+    func themedCard(cornerRadius: CGFloat, standard: Color) -> some View {
+        modifier(ThemedCard(cornerRadius: cornerRadius, standard: standard))
+    }
+
     /// A list row drawn as a chalk-edged card on the theme's page (Sprint 21); the system row with themes off.
     func themedRow() -> some View {
         modifier(ThemedRow())
     }
 
     /// The theme's page behind a screen (Sprint 21: chalkboard or paper). Every pushed or presented screen applies it
-    /// next to its title; a tab's first screen passes `decorated` for the corner drawings.
-    func themedScreen(decorated: Bool = false) -> some View {
-        modifier(ThemedScreen(decorated: decorated))
+    /// next to its title; a tab's first screen passes `decorated` for the corner drawings, and `toolbarTrailing` when
+    /// buttons sit at its top right, where the top corner drawing would clash with them (L-019 walk).
+    func themedScreen(decorated: Bool = false, toolbarTrailing: Bool = false) -> some View {
+        modifier(ThemedScreen(decorated: decorated, toolbarTrailing: toolbarTrailing))
     }
 }
 
@@ -134,6 +141,23 @@ private struct ThemedSurface: ViewModifier {
                 .overlay { ChalkBorder(cornerRadius: cornerRadius) }
         } else {
             content.background(standard, in: shape)
+        }
+    }
+}
+
+private struct ThemedCard: ViewModifier {
+    @Environment(\.funTheme) private var theme
+    let cornerRadius: CGFloat
+    let standard: Color
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius)
+        if let theme {
+            content
+                .background(theme.background, in: shape)
+                .overlay { ChalkBorder(cornerRadius: cornerRadius) }
+        } else {
+            content.background(shape.fill(standard))
         }
     }
 }
@@ -186,10 +210,13 @@ struct EmptyStateLabel: View {
 private struct ThemedScreen: ViewModifier {
     @Environment(\.funTheme) private var theme
     let decorated: Bool
+    let toolbarTrailing: Bool
 
     func body(content: Content) -> some View {
         if let theme {
-            content.containerBackground(for: .navigation) { ThemeBackdrop(theme: theme, decorated: decorated) }
+            content.containerBackground(for: .navigation) {
+                ThemeBackdrop(theme: theme, decorated: decorated, topTrailing: !toolbarTrailing)
+            }
         } else {
             content
         }
