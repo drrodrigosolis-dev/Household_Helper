@@ -25,6 +25,10 @@ struct TasksView: View {
     /// Drop targets under a drag right now (a column, or a card), each mapped to its column. Kept as a set rather
     /// than one value because entering a card and leaving its column arrive in no fixed order.
     @State private var dropTargets: [UUID: UUID] = [:]
+    /// False after a spring-load until the drag returns to the focused column (see `springLoad`).
+    @State private var springArmed = true
+    /// When the last spring-load's slide has finished.
+    @State private var springSettles = Date.distantPast
     @State private var springTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.funTheme) private var theme
@@ -144,17 +148,39 @@ struct TasksView: View {
     /// The column a drag is over, if any.
     private var hoveredColumn: UUID? { dropTargets.values.first }
 
+    /// The column a drop would land in now (see `drop`): outlined while dragging.
+    private var dropColumn: UUID? {
+        guard let hoveredColumn else { return nil }
+        return springArmed ? hoveredColumn : (focusedColumn ?? hoveredColumn)
+    }
+
     /// Spring-loading (Sprint 18): a drag that rests on a peeking column (or the left edge, for the previous one) for
-    /// 0.6 s brings it into focus, so a task can travel
-    /// across several columns in one drag. SwiftUI has no edge auto-scroll while dragging. The slide moves the next
-    /// column under a finger that stays still, so the column a drop would land in is outlined (`columnView`).
+    /// 0.6 s brings it into focus. SwiftUI has no edge auto-scroll while dragging. The slide moves the next column
+    /// under a finger that stays still, so the column a drop would land in is outlined (`columnView`).
+    ///
+    /// Once per entry (L-018: a finger resting on the right edge went two columns, as the next one slid under it):
+    /// after a column springs into focus, the next spring-load waits until the drag is back over the focused column or
+    /// off the board. To travel further, move back onto the focused column and out to the edge again.
     private func springLoad(_ column: UUID?) {
         springTask?.cancel()
         springTask = nil
-        guard let column, column != focusedColumn else { return }
+        guard let column, column != focusedColumn else {
+            // Re-armed only once the slide has settled and the drag stays here: mid-slide the finger crosses the
+            // focused column and the targets flicker off.
+            let wait = max(0.3, springSettles.timeIntervalSinceNow + 0.3)
+            springTask = Task {
+                try? await Task.sleep(for: .seconds(wait))
+                guard !Task.isCancelled, hoveredColumn == nil || hoveredColumn == focusedColumn else { return }
+                springArmed = true
+            }
+            return
+        }
+        guard springArmed else { return }
         springTask = Task {
             try? await Task.sleep(for: .milliseconds(600))
             guard !Task.isCancelled, hoveredColumn == column else { return }
+            springArmed = false
+            springSettles = .now.addingTimeInterval(0.6)
             focus(column)
         }
     }
@@ -199,7 +225,7 @@ struct TasksView: View {
         .frame(maxHeight: .infinity, alignment: .top)
         .themedSurface(cornerRadius: 16, standard: Color(uiColor: .secondarySystemBackground))
         .overlay {
-            if hoveredColumn == column.id {
+            if dropColumn == column.id {
                 RoundedRectangle(cornerRadius: 16).strokeBorder(.tint, lineWidth: 3)
             }
         }
@@ -274,11 +300,16 @@ struct TasksView: View {
 
     /// Returns whether the drop was handled. Uses the `isTargeted:` drop API (deprecated only from iOS 27.2) because
     /// the iOS 26 session API reports hovering only from iOS 27.
+    ///
+    /// Right after a spring-load the finger is over a column that slid in under it; the drop goes to the column that
+    /// sprang into focus, as the outline showed (L-018: a rest-then-drop on the right edge landed a column too far).
     private func drop(_ items: [String], into columnID: UUID, at index: Int) -> Bool {
+        let target = springArmed ? columnID : (focusedColumn ?? columnID)
         dropTargets = [:]
+        springArmed = true
         guard let id = items.first.flatMap(UUID.init(uuidString:)), let task = tasks.first(where: { $0.id == id })
         else { return false }
-        move(task, to: columnID, at: index)
+        move(task, to: target, at: target == columnID ? index : Int.max)
         return true
     }
 

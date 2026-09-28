@@ -267,10 +267,10 @@ struct BatchAddTests {
             #expect(abs(restored.createdAt.timeIntervalSince(original.createdAt)) < 0.001)
         }
 
-        let names = try ModelContext(target).fetch(
-            FetchDescriptor<WishlistItem>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
-        ).map(\.name)
-        #expect(names == ["bike", "headphones", "sofa"])
+        // One batch shares one `createdAt`, so there is no order to keep: compare as a set (L-018).
+        let names = try ModelContext(target).fetch(FetchDescriptor<WishlistItem>()).map(\.name)
+        #expect(Set(names) == ["bike", "headphones", "sofa"])
+        #expect(names.count == 3)
         let titles = try ModelContext(target).fetch(FetchDescriptor<TaskItem>(sortBy: [SortDescriptor(\.sortOrder)]))
             .map(\.title)
         #expect(titles == ["one", "two", "three"])
