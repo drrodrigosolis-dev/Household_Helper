@@ -1,6 +1,7 @@
 import HouseholdHubCore
 import SwiftData
 import SwiftUI
+import TipKit
 
 /// Transaction detail and edit (spec §7.2). Saves through `TransactionService.update`; provenance is kept. An expense
 /// offers Refund… (Sprint 20); a refund edits its amount, date, status and note through `updateRefund`. Sprint 23
@@ -268,6 +269,7 @@ private struct TransactionEditorContent: View {
                 Button("Split…", systemImage: "square.split.2x1") { isSplitting = true }
                     .disabled(hasChanges || isSaving)
                     .accessibilityIdentifier("editor.split")
+                    .popoverTip(SplitTip())
             }
             if canBeDuplicated {
                 Button("Duplicate", systemImage: "plus.square.on.square") { Task { await duplicate() } }
@@ -373,6 +375,7 @@ private struct TransactionEditorContent: View {
                 Button("Refund…", systemImage: "arrow.uturn.backward") { isRefunding = true }
                     .disabled(refundSummary == nil)
                     .accessibilityIdentifier("editor.refund")
+                    .popoverTip(RefundTip())
             }
         } header: {
             Text("Refunds")

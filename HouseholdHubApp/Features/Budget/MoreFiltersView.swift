@@ -1,5 +1,6 @@
 import HouseholdHubCore
 import SwiftUI
+import TipKit
 
 /// Sprint 23 (F6): the filters a menu can't hold — an amount range in the household currency and custom dates.
 struct MoreFiltersView: View {
@@ -56,6 +57,11 @@ struct MoreFiltersView: View {
 
     var body: some View {
         Form {
+            // Sprint 24: not a popoverTip on the filter menu that opens this sheet (iOS 26.1: unreliable on a
+            // toolbar Menu button); an inline tip here instead, where a search worth saving has usually just been
+            // built.
+            TipView(SavedSearchesTip())
+                .accessibilityIdentifier("filter.savedSearchesTip")
             Section {
                 FocusingRow("Minimum") {
                     TextField("Any", text: $minimumText)

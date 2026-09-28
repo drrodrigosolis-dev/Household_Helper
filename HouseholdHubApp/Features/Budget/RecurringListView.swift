@@ -1,6 +1,7 @@
 import HouseholdHubCore
 import SwiftData
 import SwiftUI
+import TipKit
 
 /// Budget › Recurring (spec §24.2): series definitions with their next due date. Posting an occurrence creates
 /// exactly one transaction (§9.4). A series can be edited (future occurrences only) and deleted while nothing has
@@ -95,6 +96,7 @@ struct RecurringListView: View {
         .padding(.vertical, 4)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("recurring.suggestion")
+        .popoverTip(RecurringSuggestionsTip())
     }
 
     private func row(_ item: RecurringTransaction) -> some View {

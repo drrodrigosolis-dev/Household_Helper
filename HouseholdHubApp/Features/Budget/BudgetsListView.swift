@@ -2,6 +2,7 @@ import Combine
 import HouseholdHubCore
 import SwiftData
 import SwiftUI
+import TipKit
 
 /// Budget › Budgets (Sprint 11): each budgeted category's month — spent, what is available (the limit plus what
 /// rolled over), and what is left or over. Tapping a row edits it; + adds one. Sprint 23 (A-017): previous months
@@ -94,6 +95,9 @@ struct BudgetsListView: View {
             NavigationStack { BudgetEditorView(mode: mode) }
         }
         .task(id: month) { await refresh() }
+        // Sprint 24: the month arrows are visible from the first look at this screen, so their tip waits for a
+        // second visit rather than competing with the first-run tour.
+        .task { await BudgetHistoryTip.screenSeen.donate() }
         .onReceive(storeSaves) { _ in Task { await refresh() } }
     }
 
@@ -143,6 +147,7 @@ struct BudgetsListView: View {
             }
             .disabled(!navigator.canGoForward(from: month))
             .accessibilityIdentifier("budgets.nextMonth")
+            .popoverTip(BudgetHistoryTip())
         }
         // Two buttons in one row: without this, a tap anywhere in the row would trigger both.
         .buttonStyle(.borderless)

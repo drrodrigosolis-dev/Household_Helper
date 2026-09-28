@@ -1,6 +1,7 @@
 import HouseholdHubCore
 import SwiftData
 import SwiftUI
+import TipKit
 
 /// Budget tab (spec §24.2): Transactions / Recurring segments; transactions filtered by period, category, status.
 struct BudgetView: View {
@@ -84,7 +85,10 @@ struct BudgetView: View {
                         } label: {
                             isSelecting ? Text("Done") : Text("Select")
                         }
+                        // An explicit buttonStyle (iOS 26: a toolbar Button with none can fail to show its popover).
+                        .buttonStyle(.plain)
                         .accessibilityIdentifier("transactions.select")
+                        .popoverTip(BulkSelectTip())
                     }
                     // Transfers need two accounts (Sprint 10 decision 8).
                     if !isSelecting, accounts.filter({ !$0.isArchived }).count > 1 {
@@ -103,6 +107,13 @@ struct BudgetView: View {
             .onChange(of: router.budgetSegment) {
                 isSelecting = false
                 isSearching = false
+            }
+            // Sprint 24: Bulk select and Saved searches sit on controls visible from the first look at Transactions,
+            // so their tips wait for a second (or third) visit rather than competing with the first-run tour.
+            .task(id: router.budgetSegment) {
+                if router.budgetSegment == .transactions {
+                    await BulkSelectTip.screenSeen.donate()
+                }
             }
             .sheet(isPresented: $isPresentingQuickAdd) { QuickAddView() }
             .sheet(isPresented: $isPresentingTransfer) {

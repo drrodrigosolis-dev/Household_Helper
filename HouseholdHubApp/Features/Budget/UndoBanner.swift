@@ -1,6 +1,7 @@
 import HouseholdHubCore
 import Observation
 import SwiftUI
+import TipKit
 import UIKit
 
 /// Sprint 23 (F3): the Undo offer after a delete or a bulk category edit. It holds the Core snapshot in memory for a
@@ -96,6 +97,7 @@ struct UndoBannerView: View {
                 Button("Undo", action: undo)
                     .font(.subheadline.weight(.semibold))
                     .accessibilityIdentifier("undo.button")
+                    .popoverTip(UndoTip())
             }
         }
         .padding(.horizontal, 16)
