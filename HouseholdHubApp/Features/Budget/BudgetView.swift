@@ -25,8 +25,17 @@ struct BudgetView: View {
     @State private var isSearching = false
     /// Sprint 23 (A-007): the transaction list's Select mode.
     @State private var isSelecting = false
+    /// Sprint 23 (F3): the Undo banner after a delete or bulk edit in Transactions.
+    @State private var undoCenter = UndoCenter()
+    /// Sprint 23 (F6): searches saved on this device, listed at the top of the filter menu.
+    @State private var savedSearches = SavedSearches.store.all()
+    @State private var isShowingMoreFilters = false
+    @State private var isManagingSearches = false
+    @State private var isNamingSearch = false
+    @State private var newSearchName = ""
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
     @Query(sort: \Account.sortOrder) private var accounts: [Account]
+    @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
 
     var body: some View {
         @Bindable var router = router
@@ -35,6 +44,7 @@ struct BudgetView: View {
                 switch router.budgetSegment {
                 case .transactions:
                     TransactionListView(filter: router.budgetFilter, search: appliedSearch, isSelecting: $isSelecting)
+                        .environment(undoCenter)
                         .searchable(text: $searchText, isPresented: $isSearching, prompt: "Search transactions")
                         .refreshable { isPresentingQuickAdd = true }
                         .task(id: searchText) { await applySearch(searchText) }
@@ -90,12 +100,52 @@ struct BudgetView: View {
             .sheet(isPresented: $isPresentingTransfer) {
                 NavigationStack { TransferEditorView() }
             }
+            .sheet(isPresented: $isShowingMoreFilters) {
+                NavigationStack {
+                    MoreFiltersView(filter: $router.budgetFilter, currencyCode: currencyCode)
+                }
+            }
+            .sheet(isPresented: $isManagingSearches) {
+                NavigationStack { SavedSearchesView(searches: $savedSearches) }
+                    .presentationDetents([.medium, .large])
+            }
+            .alert("Save search", isPresented: $isNamingSearch) {
+                TextField("Name", text: $newSearchName)
+                    .accessibilityIdentifier("savedSearch.name")
+                Button("Save") { saveSearch() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Keeps the search text and filters under this name, on this iPhone.")
+            }
         }
+    }
+
+    /// The household currency, which amount filters are typed in.
+    private var currencyCode: String {
+        settings.first?.currencyCode ?? Locale.current.currency?.identifier ?? "USD"
+    }
+
+    /// Picking a period replaces custom dates set in More filters (Sprint 23, F6).
+    private func periodBinding(_ filter: Binding<TransactionFilter>) -> Binding<TransactionFilter.Period> {
+        Binding(
+            get: { filter.wrappedValue.period },
+            set: { period in
+                filter.wrappedValue.period = period
+                filter.wrappedValue.dateRange = nil
+            })
     }
 
     private func filterMenu(filter: Binding<TransactionFilter>) -> some View {
         Menu {
-            Picker("Period", selection: filter.period) {
+            // Sprint 23 (F6): saved searches first, each re-applying its text and filters.
+            if !savedSearches.isEmpty {
+                Section("Saved searches") {
+                    ForEach(savedSearches) { saved in
+                        Button(saved.name, systemImage: "bookmark") { apply(saved) }
+                    }
+                }
+            }
+            Picker("Period", selection: periodBinding(filter)) {
                 Text("All time").tag(TransactionFilter.Period.all)
                 Text("This week").tag(TransactionFilter.Period.thisWeek)
                 Text("This month").tag(TransactionFilter.Period.thisMonth)
@@ -123,6 +173,16 @@ struct BudgetView: View {
                     Text(LedgerFormat.statusLabel(status)).tag(TransactionStatus?.some(status))
                 }
             }
+            Button("More filters…", systemImage: "slider.horizontal.3") { isShowingMoreFilters = true }
+            if filter.wrappedValue.isActive || !searchText.isEmpty {
+                Button("Save search…", systemImage: "bookmark") {
+                    newSearchName = ""
+                    isNamingSearch = true
+                }
+            }
+            if !savedSearches.isEmpty {
+                Button("Saved searches…", systemImage: "list.bullet") { isManagingSearches = true }
+            }
             if filter.wrappedValue.isActive {
                 Button("Clear filters", role: .destructive) { filter.wrappedValue = TransactionFilter() }
             }
@@ -132,6 +192,19 @@ struct BudgetView: View {
         }
         .accessibilityValue(filter.wrappedValue.isActive ? Text("On") : Text("Off"))
         .accessibilityIdentifier("budget.filter")
+    }
+
+    /// Keeps the current search text and filter under the typed name; an existing name is replaced.
+    private func saveSearch() {
+        SavedSearches.store.save(name: newSearchName, text: searchText, filter: router.budgetFilter)
+        savedSearches = SavedSearches.store.all()
+    }
+
+    /// Re-applies a saved search: its filter, and its text straight away, without the typing pause.
+    private func apply(_ saved: SavedSearch) {
+        router.budgetFilter = saved.filter
+        searchText = saved.text
+        appliedSearch = saved.text
     }
 
     /// Hands the typed search to the list after a short pause; a newer keystroke cancels the wait. Clearing the field
