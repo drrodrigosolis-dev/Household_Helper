@@ -12,11 +12,18 @@ extension XCTestCase {
     @MainActor
     /// - Parameter language: an app language such as "es" (Sprint 16 walk); formats still follow the region.
     /// - Parameter theme: a Sprint 19 style's stored name, such as "toyBox".
+    /// - Parameter tips: Sprint 24 — forces every contextual tip on, from a freshly reset datastore
+    ///   (`-uiTestingTips`), for `Sprint24TipsUITests`. Every other walk leaves this false, so tips stay hidden and
+    ///   never cover a control mid-test.
     func launchApp(
-        onboarded: Bool = true, variant: WalkVariant = .light, language: String? = nil, theme: String? = nil
+        onboarded: Bool = true, variant: WalkVariant = .light, language: String? = nil, theme: String? = nil,
+        tips: Bool = false
     ) -> XCUIApplication {
         let app = XCUIApplication()
         var arguments = ["-uiTesting"]
+        if tips {
+            arguments.append("-uiTestingTips")
+        }
         if let theme {
             arguments += ["-funTheme", theme]
         }
