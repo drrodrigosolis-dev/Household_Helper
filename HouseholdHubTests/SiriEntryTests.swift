@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import Synchronization
 import Testing
 
 @testable import HouseholdHubCore
@@ -172,6 +173,34 @@ struct FakeSiriModel: SiriDraftModel {
     }
 }
 
+/// A model that keeps working after it is cancelled, as a model that ignores cancellation would.
+final class StubbornSiriModel: SiriDraftModel {
+    let transactionGuess: SiriTransactionGuess
+    let duration: Duration
+    /// Set when the model returns its (late) answer.
+    let finished = Mutex(false)
+
+    init(transactionGuess: SiriTransactionGuess, duration: Duration) {
+        self.transactionGuess = transactionGuess
+        self.duration = duration
+    }
+
+    func transaction(_ text: String, categoryNames: [String]) async throws -> SiriTransactionGuess {
+        let end = ContinuousClock.now + duration
+        while ContinuousClock.now < end {
+            // `try?` swallows the cancellation, so the loop runs on after the caller gives up.
+            try? await Task.sleep(for: .milliseconds(10))
+            await Task.yield()
+        }
+        finished.withLock { $0 = true }
+        return transactionGuess
+    }
+
+    func wishlist(_ text: String) async throws -> SiriWishlistGuess {
+        throw FakeSiriModel.NoAnswer()
+    }
+}
+
 /// Sprint 25 owner answer 3: the on-device model's draft is used only when it passes the grammar's own checks;
 /// otherwise, and whenever it throws or is late, the deterministic draft is.
 struct SiriRefinementTests {
@@ -266,6 +295,19 @@ struct SiriRefinementTests {
         #expect(ContinuousClock.now - started < .seconds(10))
     }
 
+    @Test func theTimeoutHoldsWhenTheModelIgnoresCancellation() async throws {
+        let model = StubbornSiriModel(transactionGuess: Self.guess("40"), duration: .seconds(1))
+        let started = ContinuousClock.now
+        let refined = try await refine(Self.safeway, model, timeout: .milliseconds(50))
+        let elapsed = ContinuousClock.now - started
+        #expect(!refined.fromModel)
+        #expect(refined.draft.amount == Self.cad(4_000))
+        #expect(elapsed < .milliseconds(700))
+        // The model's late answer arrives after the call returned and is dropped (a second resume would trap).
+        try await Task.sleep(for: .milliseconds(1_300))
+        #expect(model.finished.withLock { $0 })
+    }
+
     @Test func unknownOrWrongKindCategoriesAreDroppedNotGuessed() async throws {
         for name in ["Food", "Salary"] {
             let model = FakeSiriModel(transactionGuess: Self.guess("40", category: name))
@@ -312,12 +354,31 @@ struct SiriRefinementTests {
         #expect(refined.draft.occurredAt <= Self.now)
     }
 
-    @Test func incomeComesFromTheModelOrTheSentencesSign() async throws {
-        let paid = try await refine(
-            "got paid 1200", FakeSiriModel(transactionGuess: Self.guess("1200", kind: "income")))
-        #expect(paid.fromModel && paid.draft.type == .income)
-        let signed = try await refine("+ 50 refund", FakeSiriModel(transactionGuess: Self.guess("50")))
-        #expect(signed.fromModel && signed.draft.type == .income)
+    struct KindCase: Sendable, CustomTestStringConvertible {
+        let text: String
+        let amount: String
+        let modelKind: String
+        let type: TransactionType
+        var testDescription: String { "\(text) / model says \(modelKind)" }
+    }
+
+    /// §25.2: the type is the grammar's. The model can't make an expense income, nor income an expense.
+    static let kindCases = [
+        KindCase(text: "gasto 40 comida ayer", amount: "40", modelKind: "income", type: .expense),
+        KindCase(text: safeway, amount: "40", modelKind: "income", type: .expense),
+        KindCase(text: "got paid 1200", amount: "1200", modelKind: "income", type: .expense),
+        KindCase(text: "+ 1200 paycheck", amount: "1200", modelKind: "expense", type: .income),
+        KindCase(text: "+ 50 refund", amount: "50", modelKind: "", type: .income),
+        KindCase(text: "received 1200 from Ana", amount: "1200", modelKind: "expense", type: .income),
+        KindCase(text: "ingreso 300 venta", amount: "300", modelKind: "expense", type: .income),
+    ]
+
+    @Test(arguments: kindCases)
+    func theTypeAlwaysComesFromTheGrammar(_ entry: KindCase) async throws {
+        let model = FakeSiriModel(transactionGuess: Self.guess(entry.amount, kind: entry.modelKind))
+        let refined = try await refine(entry.text, model)
+        #expect(refined.fromModel)
+        #expect(refined.draft.type == entry.type)
     }
 
     @Test func nothingIsDraftedWithoutAnAmountOrBeforeSetup() async throws {
@@ -341,13 +402,89 @@ struct SiriRefinementTests {
     }
 
     @Test func aValidWishlistAnswerIsUsed() async throws {
-        let text = "I'd love the Sony headphones, they cost 149"
+        let text = "I'd love the Sony headphones for 149"
         let refined = try await refineWish(text, SiriWishlistGuess(name: "Sony headphones", price: "149"))
         #expect(refined.fromModel)
         #expect(refined.draft == WishlistEntryDraft(name: "Sony headphones", price: Self.cad(14_900)))
         let unpriced = try await refineWish("a new iPhone 17", SiriWishlistGuess(name: "iPhone 17", price: ""))
         #expect(unpriced.fromModel)
         #expect(unpriced.draft == WishlistEntryDraft(name: "iPhone 17", price: nil))
+    }
+
+    struct PriceCase: Sendable, CustomTestStringConvertible {
+        let text: String
+        let guess: SiriWishlistGuess
+        let expected: WishlistEntryDraft
+        let fromModel: Bool
+        var testDescription: String { "\(text) / \(guess.name), \(guess.price)" }
+    }
+
+    /// Only the grammar's "for/por <amount>" is a price: the model can't pick another number, nor drop that one.
+    static let priceCases = [
+        // A number in the name is not a price, whatever the model's name.
+        PriceCase(
+            text: "a new iPhone 17", guess: SiriWishlistGuess(name: "new iPhone", price: "17"),
+            expected: WishlistEntryDraft(name: "a new iPhone 17", price: nil), fromModel: false),
+        PriceCase(
+            text: "a new iPhone 17", guess: SiriWishlistGuess(name: "iPhone 17", price: "17"),
+            expected: WishlistEntryDraft(name: "a new iPhone 17", price: nil), fromModel: false),
+        // No "for <amount>": a price the model read elsewhere in the sentence is refused.
+        PriceCase(
+            text: "the Sony headphones they cost 149", guess: SiriWishlistGuess(name: "Sony headphones", price: "149"),
+            expected: WishlistEntryDraft(name: "the Sony headphones they cost 149", price: nil), fromModel: false),
+        // The grammar's price is kept when the model leaves it out.
+        PriceCase(
+            text: "headphones for 149", guess: SiriWishlistGuess(name: "headphones", price: ""),
+            expected: WishlistEntryDraft(name: "headphones", price: cad(14_900)), fromModel: true),
+        PriceCase(
+            text: "audífonos por 149 dólares", guess: SiriWishlistGuess(name: "audífonos", price: "149"),
+            expected: WishlistEntryDraft(name: "audífonos", price: cad(14_900)), fromModel: true),
+        PriceCase(
+            text: "lamp 2 for 45", guess: SiriWishlistGuess(name: "lamp", price: "2"),
+            expected: WishlistEntryDraft(name: "lamp 2", price: cad(4_500)), fromModel: false),
+    ]
+
+    @Test(arguments: priceCases)
+    func theOnlyWishlistPriceIsTheGrammars(_ entry: PriceCase) async throws {
+        let refined = try await refineWish(entry.text, entry.guess)
+        #expect(refined.fromModel == entry.fromModel)
+        #expect(refined.draft == entry.expected)
+    }
+
+    struct NameCase: Sendable, CustomTestStringConvertible {
+        let text: String
+        let name: String
+        let accepted: Bool
+        var testDescription: String { "\(text) / \(name)" }
+    }
+
+    /// Every word of two or more letters in the model's name is one the person said, after case and accent folding.
+    static let nameCases = [
+        NameCase(text: "headphones for 149", name: "Sony WH-1000XM5 headphones", accepted: false),
+        NameCase(text: "headphones for 149", name: "Headphones", accepted: true),
+        NameCase(text: "audifonos rojos por 149", name: "Audífonos Rojos", accepted: true),
+        NameCase(text: "a red lamp for 20", name: "red lamp, a", accepted: true),
+        NameCase(text: "a red lamp for 20", name: "red floor lamp", accepted: false),
+        NameCase(text: "a red lamp for 20", name: "a", accepted: false),
+    ]
+
+    @Test(arguments: nameCases)
+    func aWishlistNameUsesOnlyTheSentencesWords(_ entry: NameCase) async throws {
+        let grammar = try WishlistEntry.draft(text: entry.text, settings: SiriEntryTests.settings())
+        let refined = try await refineWish(entry.text, SiriWishlistGuess(name: entry.name, price: ""))
+        #expect(refined.fromModel == entry.accepted)
+        #expect(refined.draft.name == (entry.accepted ? entry.name : grammar.name))
+        #expect(refined.draft.price == grammar.price)
+    }
+
+    @Test func aMerchantWithAWordThePersonDidntSayFallsBack() async throws {
+        let model = FakeSiriModel(transactionGuess: Self.guess("40", merchant: "Safeway Market"))
+        let refined = try await refine(Self.safeway, model)
+        #expect(refined.fromModel)
+        #expect(refined.draft.merchantName == "I spent on groceries at Safeway")
+        let named = FakeSiriModel(transactionGuess: Self.guess("40", merchant: "safeway"))
+        let spoken = try await refine(Self.safeway, named)
+        #expect(spoken.draft.merchantName == "safeway")
     }
 
     @Test(arguments: [
