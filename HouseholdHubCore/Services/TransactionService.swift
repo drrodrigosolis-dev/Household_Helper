@@ -254,8 +254,13 @@ public actor TransactionService {
 
     // MARK: Transactions
 
+    /// Refused with `StoreWriteError.restoreInProgress` while a restore runs (`RestoreGate`).
     @discardableResult
     public func create(_ draft: TransactionDraft, now: Date) throws -> UUID {
+        try RestoreGate.shared(for: modelContainer).write { try insertTransaction(draft, now: now) }
+    }
+
+    private func insertTransaction(_ draft: TransactionDraft, now: Date) throws -> UUID {
         begin()
         try draft.validate()
         let settings = try requireSettings()

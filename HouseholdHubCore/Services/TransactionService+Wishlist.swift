@@ -4,8 +4,13 @@ import SwiftData
 /// Wishlist writes live on the transaction service because a purchase (spec §8.1) and a deletion (§8.2) touch both a
 /// wishlist item and a transaction: one serial context makes each of them a single atomic save with no second writer.
 extension TransactionService {
+    /// Refused with `StoreWriteError.restoreInProgress` while a restore runs (`RestoreGate`).
     @discardableResult
     public func createWishlistItem(_ draft: WishlistDraft, now: Date) throws -> UUID {
+        try RestoreGate.shared(for: modelContainer).write { try insertWishlistItem(draft, now: now) }
+    }
+
+    private func insertWishlistItem(_ draft: WishlistDraft, now: Date) throws -> UUID {
         begin()
         try draft.validate()
         let settings = try requireSettings()

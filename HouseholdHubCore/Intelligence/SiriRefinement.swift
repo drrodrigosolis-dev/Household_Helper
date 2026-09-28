@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// What the on-device model proposed for a spoken transaction (Sprint 25). Every field is raw text the validator
 /// decides on; an empty string means "not said".
@@ -60,7 +61,8 @@ public struct RefinedDraft<Draft: Equatable & Sendable>: Equatable, Sendable {
 /// Validation: the amount must be positive, in the household currency with no extra decimals, and one of the
 /// numbers the person actually said (the model may choose between them, never invent one); the date comes from the
 /// §25 day words in the sentence (the model may pick which), so it is today or up to six days back, never in the
-/// future; the category must be an existing one allowed for the type; the merchant must use the sentence's own words.
+/// future; the type is always the grammar's (§25.2); the category must be an existing one allowed for the type; every
+/// word of the merchant or wishlist name must be one of the sentence's own; a wishlist price must be the grammar's.
 public enum SiriRefinement {
     /// The model's answer is abandoned after this long and the grammar's draft is used.
     public static let modelTimeout: Duration = .seconds(6)
@@ -100,9 +102,10 @@ public enum SiriRefinement {
         else { throw SiriEntryError.notSetUp }
         let normalized = SiriText.normalize(text)
         let fallback = Result { try WishlistEntry.draft(text: normalized, settings: settings) }
-        if let model, !normalized.isEmpty {
+        // The model is asked only when the grammar reads the sentence, so its price is checked against the grammar's.
+        if let model, case .success(let grammar) = fallback {
             let guess = await withTimeout(timeout) { try? await model.wishlist(normalized) }
-            if let guess, let draft = validWishlist(guess, note: normalized, currency: currency) {
+            if let guess, let draft = validWishlist(guess, note: normalized, grammar: grammar, currency: currency) {
                 return RefinedDraft(draft: draft, fromModel: true)
             }
         }
@@ -118,14 +121,13 @@ public enum SiriRefinement {
         guard let amount = spokenAmount(guess.amount, note: note, currency: currency) else { return nil }
         let parser = QuickAddParser(currency: currency, categories: [], calendar: calendar)
         let parsed = parser.parse(note, now: now)
-        // A sign or income word in the sentence wins; otherwise the model's kind, and only these two.
-        let type: TransactionType
-        switch guess.kind.trimmingCharacters(in: .whitespaces).lowercased() {
-        case "income": type = .income
-        case "expense", "": type = parsed.type
-        default: return nil
+        // The type always comes from the §25.2 grammar: income only with a leading "+" or an income word ("income",
+        // "received", "ingreso", "recibido"), expense otherwise ("gasto" included). The model can't turn an expense
+        // into income or income into an expense; an answer that isn't one of the two kinds is refused outright.
+        guard ["income", "expense", ""].contains(guess.kind.trimmingCharacters(in: .whitespaces).lowercased()) else {
+            return nil
         }
-        let finalType = parsed.type == .income ? TransactionType.income : type
+        let finalType = parsed.type
         let categoryName = guess.category.trimmingCharacters(in: .whitespaces)
         var categoryID: UUID?
         if !categoryName.isEmpty {
@@ -148,7 +150,7 @@ public enum SiriRefinement {
             }
         }
         guard occurredAt <= now else { return nil }
-        let merchant = QuickAddSuggestionValidator.description(guess.merchant, note: note) ?? parsed.description
+        let merchant = spokenMerchant(guess.merchant, note: note) ?? parsed.description
         var draft = TransactionDraft.quickAdd(
             amount: amount, type: finalType, occurredAt: occurredAt, categoryID: categoryID, description: merchant,
             isAIClassified: categoryID != nil, accountID: nil)
@@ -156,14 +158,24 @@ public enum SiriRefinement {
         return draft
     }
 
-    static func validWishlist(_ guess: SiriWishlistGuess, note: String, currency: Currency) -> WishlistEntryDraft? {
+    /// The model's wishlist answer checked against the grammar's own reading of the sentence (`grammar`).
+    ///
+    /// Price rule (the stricter of the two considered): only the grammar's "for/por <amount>" is ever a price. When
+    /// the grammar found one, the model may repeat it or leave the price empty, and the grammar's price is kept either
+    /// way; any other amount refuses the answer. When the grammar found none, a model price refuses the answer, so a
+    /// number in the name ("a new iPhone 17") is never read as a price and the grammar keeps it in the name.
+    static func validWishlist(
+        _ guess: SiriWishlistGuess, note: String, grammar: WishlistEntryDraft, currency: Currency
+    ) -> WishlistEntryDraft? {
         guard let name = spokenName(guess.name, note: note) else { return nil }
         let priceText = guess.price.trimmingCharacters(in: .whitespaces)
         if priceText.isEmpty {
-            return WishlistEntryDraft(name: name, price: nil)
+            return WishlistEntryDraft(name: name, price: grammar.price)
         }
-        guard let price = spokenAmount(priceText, note: note, currency: currency) else { return nil }
-        return WishlistEntryDraft(name: name, price: price)
+        guard let said = grammar.price, spokenAmount(priceText, note: note, currency: currency) == said else {
+            return nil
+        }
+        return WishlistEntryDraft(name: name, price: said)
     }
 
     /// A positive amount in the §25 grammar that is one of the numbers written in `note`, within the plan limit and
@@ -178,34 +190,101 @@ public enum SiriRefinement {
 
     static let maxNameLength = 80
 
-    /// A single short line that shares a word with the note (digits allowed: "iPhone 17"), with no hidden characters.
+    /// A single short line with no hidden characters whose every word of two or more letters or digits, after case
+    /// and diacritic folding, is one of the sentence's own words ("iPhone 17" from "a new iPhone 17"). A word the
+    /// person didn't say ("Sony" added to "headphones for 149") refuses the name.
     static func spokenName(_ proposed: String, note: String) -> String? {
         let text = proposed.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, text.count <= maxNameLength, !text.contains(where: \.isNewline),
             !text.unicodeScalars.contains(where: { [.control, .format].contains($0.properties.generalCategory) })
         else { return nil }
-        func words(_ string: String) -> Set<String> {
-            Set(
-                QuickAddParser.fold(string).split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
-                    .filter { $0.count >= 2 })
-        }
-        return words(text).isDisjoint(with: words(note)) ? nil : text
+        let proposedWords = spokenWords(text)
+        guard !proposedWords.isEmpty, proposedWords.isSubset(of: spokenWords(note)) else { return nil }
+        return text
     }
 
-    /// `work`'s result, or nil once `duration` passes. The losing child is cancelled; `LanguageModelSession` stops
-    /// generating when its task is cancelled.
+    /// The Quick Add description rules (no digits, no number words, no hidden characters) plus the name rule above:
+    /// every word of the merchant is one the person said.
+    static func spokenMerchant(_ proposed: String, note: String) -> String? {
+        guard let text = QuickAddSuggestionValidator.description(proposed, note: note),
+            spokenName(text, note: note) != nil
+        else { return nil }
+        return text
+    }
+
+    /// Folded words of two or more letters or digits.
+    static func spokenWords(_ text: String) -> Set<String> {
+        Set(
+            QuickAddParser.fold(text).split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
+                .filter { $0.count >= 2 })
+    }
+
+    /// `work`'s result, or nil once `duration` passes, even when `work` ignores cancellation: it runs in an
+    /// unstructured task raced against a timer, and whichever finishes first resumes the caller, exactly once. At the
+    /// timeout the work is cancelled (`LanguageModelSession` stops generating then) and a later answer is dropped.
+    /// Cancelling the caller also returns nil at once.
     static func withTimeout<T: Sendable>(
         _ duration: Duration, _ work: @escaping @Sendable () async -> T?
     ) async -> T? {
-        await withTaskGroup(of: T?.self) { group in
-            group.addTask { await work() }
-            group.addTask {
-                try? await Task.sleep(for: duration)
+        let answer = FirstAnswer<T>()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                answer.arm(continuation)
+                let worker = Task {
+                    let value = await work()
+                    answer.resume(value)
+                }
+                Task {
+                    try? await Task.sleep(for: duration)
+                    answer.resume(nil)
+                    worker.cancel()
+                }
+            }
+        } onCancel: {
+            answer.resume(nil)
+        }
+    }
+}
+
+/// Resumes one continuation with the first answer it is given and drops every later one (`SiriRefinement`'s
+/// timeout). An answer given before the continuation is armed is kept and delivered when it is.
+final class FirstAnswer<T: Sendable>: Sendable {
+    private enum Phase: Sendable {
+        case pending
+        case armed(CheckedContinuation<T?, Never>)
+        case answered(T?)
+        case resumed
+    }
+
+    private let phase = Mutex<Phase>(.pending)
+
+    func arm(_ continuation: CheckedContinuation<T?, Never>) {
+        let early: T?? = phase.withLock { current in
+            if case .answered(let value) = current {
+                current = .resumed
+                return .some(value)
+            }
+            current = .armed(continuation)
+            return .none
+        }
+        if let early {
+            continuation.resume(returning: early)
+        }
+    }
+
+    func resume(_ value: T?) {
+        let waiting: CheckedContinuation<T?, Never>? = phase.withLock { current in
+            switch current {
+            case .pending:
+                current = .answered(value)
+                return nil
+            case .armed(let continuation):
+                current = .resumed
+                return continuation
+            case .answered, .resumed:
                 return nil
             }
-            let first = await group.next() ?? nil
-            group.cancelAll()
-            return first
         }
+        waiting?.resume(returning: value)
     }
 }
