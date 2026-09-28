@@ -48,7 +48,9 @@ final class Sprint24TipsUITests: XCTestCase {
         let closed = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == false"), object: app.navigationBars["Transaction"])
         XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 10), .completed, "Editor should close")
-        app.buttons["Budgets"].tap()
+        let segment = app.segmentedControls.buttons["Budgets"]
+        XCTAssertTrue(segment.waitForExistence(timeout: 10), "Budget's Budgets segment missing")
+        segment.tap()
         // With no budget the screen is its empty state, which has no month arrows (CI run 36465178943).
         addDiningBudget(app, limit: "200")
         let monthArrows = app.buttons["budgets.nextMonth"]
@@ -61,8 +63,12 @@ final class Sprint24TipsUITests: XCTestCase {
     /// From an empty Budgets screen: a Dining budget, saved.
     @MainActor
     private func addDiningBudget(_ app: XCUIApplication, limit: String) {
-        let add = app.buttons["budgets.addEmpty"]
-        XCTAssertTrue(add.waitForExistence(timeout: 10), "Empty budgets should offer Add budget")
+        // The toolbar's Add budget, there with or without budgets (L-027: the empty state's button wasn't found).
+        let add = app.buttons["budgets.add"]
+        if !add.waitForExistence(timeout: 10) {
+            captureScreen(app, named: "sprint24-tips-no-add-budget")
+        }
+        XCTAssertTrue(add.exists, "Budgets should offer Add budget")
         add.tap()
         let picker = app.buttons["budgetEditor.category"]
         XCTAssertTrue(picker.waitForExistence(timeout: 5), "Budget editor did not open")

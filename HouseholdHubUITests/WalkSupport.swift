@@ -76,15 +76,19 @@ extension XCTestCase {
     /// Scrolls up until `element` exists. Lists create rows lazily, so at the largest text sizes a section below the
     /// first screen isn't in the accessibility tree until scrolled to (run 36211055316).
     ///
-    /// Stops only once the element is on screen (hittable), swiping slowly toward it: a fast swipe keeps coasting
-    /// after the element appears and carries it off the top of a lazy list again (run 36435820743: the editor's split
-    /// row was found, then gone a second later).
+    /// Stops only once the element is on screen, swiping slowly toward it: a fast swipe keeps coasting after the
+    /// element appears and carries it off the top of a lazy list again (run 36435820743: the editor's split row was
+    /// found, then gone a second later). On screen means hittable, or, for text that isn't a control (a `Label` row
+    /// can report not hittable while plainly visible, L-027's split info), inside the window.
     @MainActor
     func scrollUntilExists(_ app: XCUIApplication, _ query: XCUIElement, maxSwipes: Int = 8) -> Bool {
         // Position and hittability need one element; a query can match several (run 36453971771).
         let element = query.firstMatch
+        let onScreen = {
+            element.isHittable || (app.windows.firstMatch.frame.contains(element.frame) && !element.frame.isEmpty)
+        }
         for _ in 0..<maxSwipes {
-            if element.waitForExistence(timeout: 2), element.isHittable {
+            if element.waitForExistence(timeout: 2), onScreen() {
                 return true
             }
             // Loaded but off screen: it sits above the middle once the list scrolled past it.
@@ -94,7 +98,7 @@ extension XCTestCase {
                 app.swipeUp(velocity: .slow)
             }
         }
-        return element.waitForExistence(timeout: 5) && element.isHittable
+        return element.waitForExistence(timeout: 5) && onScreen()
     }
 
     /// Records a transaction through the real Quick Add sheet.
