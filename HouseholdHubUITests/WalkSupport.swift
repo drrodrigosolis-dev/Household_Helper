@@ -80,7 +80,9 @@ extension XCTestCase {
     /// after the element appears and carries it off the top of a lazy list again (run 36435820743: the editor's split
     /// row was found, then gone a second later).
     @MainActor
-    func scrollUntilExists(_ app: XCUIApplication, _ element: XCUIElement, maxSwipes: Int = 8) -> Bool {
+    func scrollUntilExists(_ app: XCUIApplication, _ query: XCUIElement, maxSwipes: Int = 8) -> Bool {
+        // Position and hittability need one element; a query can match several (run 36453971771).
+        let element = query.firstMatch
         for _ in 0..<maxSwipes {
             if element.waitForExistence(timeout: 2), element.isHittable {
                 return true

@@ -27,7 +27,10 @@ final class Sprint24TourUITests: XCTestCase {
             case 2: assertSpotlight(app, surrounds: app.buttons["quickadd.button"].firstMatch, stop: stop)
             case 3: assertSpotlight(app, surrounds: transactionRow(app, containing: "coffee"), stop: stop)
             case 4: assertSpotlight(app, surrounds: wishlistRow(app, containing: "Headphones"), stop: stop)
-            case 5: assertSpotlight(app, surrounds: columnHeader(app, "To Do"), stop: stop)
+            case 5:
+                // The spotlight is the whole first column; its header is a small part of it.
+                assertSpotlight(app, surrounds: columnHeader(app, "To Do"), stop: stop, maxAreaRatio: .infinity)
+                assertSpotlightIsNotTheWholeScreen(app, stop: stop)
             case 6: assertSpotlight(app, surrounds: app.buttons["Settings"].firstMatch, stop: stop)
             default: assertSpotlightIsNotTheWholeScreen(app, stop: stop)
             }
@@ -98,28 +101,39 @@ final class Sprint24TourUITests: XCTestCase {
 
     // MARK: Helpers
 
-    /// The spotlight's cut-out (a UI-test-only element) covers at least 80 % of `element`: the stop points at it.
+    /// The spotlight's cut-out (a UI-test-only element) and `element` overlap almost entirely (80 % of the smaller
+    /// of the two), and the spotlight is at most `maxAreaRatio` times the element's size, so a whole-screen spotlight
+    /// fails. The cell a row sits in is wider than the row's content the spotlight hugs (run 36453971771), so this
+    /// doesn't demand the spotlight cover the whole cell.
     @MainActor
-    private func assertSpotlight(_ app: XCUIApplication, surrounds element: XCUIElement, stop: Int) {
+    private func assertSpotlight(
+        _ app: XCUIApplication, surrounds element: XCUIElement, stop: Int, maxAreaRatio: CGFloat = 4
+    ) {
         XCTAssertTrue(element.waitForExistence(timeout: 10), "Stop \(stop): the control it talks about is missing")
         let spotlight = app.descendants(matching: .any)["tour.spotlight"]
         // The spotlight waits a moment after a tab change, then moves to its target.
         let deadline = Date.now.addingTimeInterval(5)
-        var covered: CGFloat = 0
+        var points = false
         repeat {
             if spotlight.exists {
-                let target = element.frame
-                let overlap = spotlight.frame.intersection(target)
-                covered = overlap.isNull ? 0 : (overlap.width * overlap.height) / max(target.width * target.height, 1)
+                points = Self.surrounds(spotlight.frame, element.frame, maxAreaRatio: maxAreaRatio)
             }
-            if covered >= 0.8 { break }
+            if points { break }
             Thread.sleep(forTimeInterval: 0.25)
         } while Date.now < deadline
-        XCTAssertGreaterThanOrEqual(
-            covered, 0.8,
+        XCTAssertTrue(
+            points,
             "Stop \(stop): the spotlight \(spotlight.exists ? String(describing: spotlight.frame) : "is missing") "
                 + "doesn't surround \(element.frame)"
         )
+    }
+
+    private static func surrounds(_ spotlight: CGRect, _ target: CGRect, maxAreaRatio: CGFloat) -> Bool {
+        let overlap = spotlight.intersection(target)
+        guard !overlap.isNull else { return false }
+        let area = { (rect: CGRect) in rect.width * rect.height }
+        let smaller = max(min(area(spotlight), area(target)), 1)
+        return area(overlap) / smaller >= 0.8 && area(spotlight) <= area(target) * maxAreaRatio
     }
 
     /// The spotlight is a part of the screen, not all of it: what stops 3–5 did before (CI run 36442544785).

@@ -128,12 +128,17 @@ final class Sprint23UndoUITests: XCTestCase {
         more.tap()
         let minimum = app.textFields["filter.minimumAmount"]
         XCTAssertTrue(minimum.waitForExistence(timeout: 5), "More filters did not open")
-        let current = (minimum.value as? String) ?? ""
         let placeholder = minimum.placeholderValue ?? ""
         if text.isEmpty {
-            if !current.isEmpty, current != placeholder {
+            // Cleared, then checked like `replaceText`: one more try only if the field still holds text (run
+            // 36453971771: the deletes were typed but Apply stayed off).
+            for _ in 0..<2 {
+                let value = (minimum.value as? String) ?? ""
+                guard !value.isEmpty, value != placeholder else { break }
                 minimum.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
-                minimum.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 2))
+                minimum.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count + 2))
+                let cleared = NSPredicate(format: "value == '' OR value == %@", placeholder)
+                _ = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: cleared, object: minimum)], timeout: 5)
             }
         } else {
             replaceText(in: minimum, with: text)

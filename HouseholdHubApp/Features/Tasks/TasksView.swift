@@ -110,12 +110,11 @@ struct TasksView: View {
             .contentMargins(.trailing, proxy.size.width - columnWidth - Self.edge, for: .scrollContent)
             .scrollTargetBehavior(.viewAligned)
             .scrollPosition(id: $focusedColumn, anchor: .leading)
-            // Held still after a spring-load until the drop: no swipe, and no drag auto-scroll if it honours this.
-            .scrollDisabled(springColumn != nil)
             .overlay(alignment: .leading) { previousColumnStrip }
         }
         .onChange(of: hoveredColumn) { _, column in springLoad(column) }
-        // Anything else that moves the board while a spring-load holds it (the drag auto-scroll) is undone.
+        // Anything else that moves the board while a spring-load holds it (the drag auto-scroll) is undone. Scrolling
+        // isn't disabled instead: that also stopped the spring-load's own scroll (CI run 36453971771).
         .onChange(of: focusedColumn) { _, column in
             if let springColumn, column != springColumn { focus(springColumn) }
         }
