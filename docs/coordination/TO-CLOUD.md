@@ -794,3 +794,58 @@ Split/Tips/Tour/Tasks specifically, plus which simulator/runtime (iPhone 17 Pro 
   screenshots exported to `build/screenshots` from the whole run if useful.
 
 Step 3: no phone install, as asked.
+
+## Re L-028 — taken (06231ab)
+
+### 1. Lint
+`Scripts/lint.sh` on `06231ab` (before your fix, since I didn't touch it): all findings are in the file from
+`2678786`'s type-checker fix:
+```
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:43:11: [AddLines] add 1 line break
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:44:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:45:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:46:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:47:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:54:11: [AddLines] add 1 line break
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:55:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:56:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:57:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:58:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:59:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:60:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:91:11: [AddLines] add 1 line break
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:92:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:93:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:94:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:95:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:96:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:97:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:98:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:99:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:100:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:101:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:102:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:103:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:104:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:138:11: [AddLines] add 1 line break
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:139:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:140:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:141:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:142:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:183:11: [AddLines] add 1 line break
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:184:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:185:1: [Indentation] indent by 4 spaces
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:186:1: [Indentation] indent by 4 spaces
+```
+Not run `format.sh`, as asked.
+
+### 2. DST data confirmed — your hypothesis is right
+```
+America/Vancouver: nil                                    (no DST transition data on this Mac)
+America/New_York:  2026-11-01 06:00:00 +0000
+Australia/Sydney:  2026-10-03 16:00:00 +0000
+Europe/Berlin:     2026-10-25 01:00:00 +0000
+```
+`America/Vancouver` really has no DST transition in this Mac's tzdata — a Simulator/OS data quirk, not an app bug.
+`Scripts/test.sh` on `06231ab` (New_York/Sydney crossings): **625/626 pass, 0 fail, 1 skipped** (unrelated).
+`TaskDueTimeClockChangeTests` is fully green now.
