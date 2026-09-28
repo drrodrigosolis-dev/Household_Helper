@@ -34,20 +34,12 @@ extension TransactionService {
     /// The category each merchant named in `descriptions` was last filed under by hand (Sprint 23, A-006), keyed by
     /// `Merchant.normalize(_:)`; names without one, and archived categories, are left out. The preview offers these
     /// as suggestions; nothing here applies them. One fetch of merchants and one of categories for the whole file.
+    /// Quick Add reads the same learned categories (`learnedCategories`), so both offer the same one for a name.
     public func importCategorySuggestions(for descriptions: [String]) throws -> [String: UUID] {
         let keys = Set(descriptions.map { Merchant.normalize($0) }.filter { !$0.isEmpty })
         guard !keys.isEmpty else { return [:] }
         let active = Set(try modelContext.fetch(FetchDescriptor<CategoryRecord>()).filter { !$0.isArchived }.map(\.id))
-        let merchants = try modelContext.fetch(FetchDescriptor<Merchant>(sortBy: [SortDescriptor(\.createdAt)]))
-        var suggestions: [String: UUID] = [:]
-        for merchant in merchants where keys.contains(merchant.normalizedName) {
-            // Names aren't unique; the oldest merchant with a usable category speaks for the name.
-            guard suggestions[merchant.normalizedName] == nil, let category = merchant.defaultCategoryID,
-                active.contains(category)
-            else { continue }
-            suggestions[merchant.normalizedName] = category
-        }
-        return suggestions
+        return try learnedCategories(for: keys, usable: active)
     }
 
     /// Records every row as a posted transaction with source `imported`, all or nothing: any refusal (an archived or

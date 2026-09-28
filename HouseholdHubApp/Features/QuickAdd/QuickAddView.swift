@@ -79,7 +79,8 @@ extension View {
 /// Quick Add sheet (spec §24.3): one autofocused field parsed by the §25 grammar, progressive details, and a
 /// Save button that stays disabled until the draft is valid. The Wishlist segment turns the same text into a
 /// wishlist item: the amount becomes the estimated price and the description the name. The Task segment makes a
-/// task: the description becomes the title and a date word ("tomorrow") the due date.
+/// task: the description becomes the title and a date word ("tomorrow") the due date. An expense's or income's
+/// description is its merchant ("12 pizza place" → merchant "pizza place"), as in an import (Sprint 23).
 struct QuickAddView: View {
     enum Entry: Hashable {
         case expense
@@ -113,8 +114,8 @@ struct QuickAddView: View {
     @State private var typeFromText = false
     @State private var amountFromText = false
     @State private var categoryFromText = false
-    /// What the quick text (or a suggestion) last put in the notes field; notes follow the text only while they still
-    /// hold exactly that, so a note the user typed in Details is never overwritten.
+    /// What the quick text (or a suggestion) last put in the description field (Merchant, Name or Title); it follows
+    /// the text only while it still holds exactly that, so what the user typed in Details is never overwritten.
     @State private var notesFromText = ""
     /// Fields filled by a suggestion (merchant history or the on-device model), shown as such until edited.
     @State private var suggestedFields: Set<String> = []
@@ -270,7 +271,7 @@ struct QuickAddView: View {
         switch entry {
         case .wishlist: "Name"
         case .task: "Title"
-        case .expense, .income: "Notes"
+        case .expense, .income: "Merchant"
         }
     }
 
@@ -445,9 +446,10 @@ struct QuickAddView: View {
             errorMessage = String(localized: "\(category.name) can't be used for this type. Choose another category.")
             return
         }
-        let draft = TransactionDraft(
-            amount: amount, type: type, occurredAt: occurredAt, categoryID: categoryID,
-            notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
+        // The description names the merchant, as an imported row's does (Sprint 23): the same merchant, and the
+        // category it learned, whichever way the entry came in.
+        let draft = TransactionDraft.quickAdd(
+            amount: amount, type: type, occurredAt: occurredAt, categoryID: categoryID, description: trimmedNotes,
             isAIClassified: modelCategoryID != nil && modelCategoryID == categoryID, accountID: accountID)
         do {
             try await services.transactions.create(draft, now: .now)

@@ -208,16 +208,18 @@ public actor TransactionService {
 
     /// Deterministic category suggestion (Sprint 7 default 2): the category the user last filed the merchant that
     /// `text` names under (its learned default, Sprint 23), else the one most often used with it, ties broken by the
-    /// most recent use; only an active category of the right kind is returned.
+    /// most recent use; only an active category of the right kind is returned. The learned default is read exactly as
+    /// the import preview reads it (`learnedCategories`), so Quick Add and an import offer the same category.
     public func suggestedCategory(forMerchantText text: String, type: TransactionType) throws -> UUID? {
         let key = Merchant.normalize(text)
         guard !key.isEmpty else { return nil }
-        let merchants = FetchDescriptor<Merchant>(predicate: #Predicate { $0.normalizedName == key })
+        let merchants = FetchDescriptor<Merchant>(
+            predicate: #Predicate { $0.normalizedName == key }, sortBy: [SortDescriptor(\.createdAt)])
         guard let merchant = try modelContext.fetch(merchants).first else { return nil }
         let usable = Set(
             try modelContext.fetch(FetchDescriptor<CategoryRecord>()).filter { !$0.isArchived && $0.kind.allows(type) }
                 .map(\.id))
-        if let learned = merchant.defaultCategoryID, usable.contains(learned) {
+        if let learned = try learnedCategories(for: [key], usable: usable)[key] {
             return learned
         }
         let merchantID: UUID? = merchant.id
@@ -824,9 +826,31 @@ public actor TransactionService {
         return Merchant.normalize(trimmed).isEmpty ? nil : trimmed
     }
 
+    /// The learned category of each normalized merchant name in `keys` that has one in `usable`. Names aren't unique;
+    /// the oldest merchant with a usable category speaks for the name. Quick Add (`suggestedCategory`) and the import
+    /// preview (`importCategorySuggestions`) both read it here, so the same text gets the same suggestion.
+    func learnedCategories(for keys: Set<String>, usable: Set<UUID>) throws -> [String: UUID] {
+        guard !keys.isEmpty, !usable.isEmpty else { return [:] }
+        var descriptor = FetchDescriptor<Merchant>(sortBy: [SortDescriptor(\.createdAt)])
+        if keys.count == 1, let only = keys.first {
+            descriptor.predicate = #Predicate<Merchant> { $0.normalizedName == only }
+        }
+        var learned: [String: UUID] = [:]
+        for merchant in try modelContext.fetch(descriptor) where keys.contains(merchant.normalizedName) {
+            guard learned[merchant.normalizedName] == nil, let category = merchant.defaultCategoryID,
+                usable.contains(category)
+            else { continue }
+            learned[merchant.normalizedName] = category
+        }
+        return learned
+    }
+
+    /// The oldest merchant with `name`'s normalized name, else a new one. Every path that records a merchant (a new
+    /// entry, Quick Add, an edit, an import, a series) comes through here, so a name always lands on the same one.
     func findOrCreateMerchant(named name: String, now: Date) throws -> Merchant {
         let key = Merchant.normalize(name)
-        let descriptor = FetchDescriptor<Merchant>(predicate: #Predicate { $0.normalizedName == key })
+        let descriptor = FetchDescriptor<Merchant>(
+            predicate: #Predicate { $0.normalizedName == key }, sortBy: [SortDescriptor(\.createdAt)])
         if let existing = try modelContext.fetch(descriptor).first {
             return existing
         }
