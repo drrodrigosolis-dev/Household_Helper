@@ -12,6 +12,11 @@ struct MonthSummarySection: View {
         summary.interval.start.formatted(.dateTime.month(.wide).year())
     }
 
+    /// The figure is after refunds; with refunds in the month the label says so, as the Summary does.
+    private var expensesTitle: LocalizedStringKey {
+        summary.refunds.isZero ? "Expenses" : "Expenses (net of refunds)"
+    }
+
     private func name(_ id: UUID?) -> String {
         categories.first { $0.id == id }?.name ?? String(localized: "Uncategorized")
     }
@@ -23,7 +28,7 @@ struct MonthSummarySection: View {
                 .accessibilityIdentifier("analytics.monthSummary")
             if summary.hasActivity {
                 LabeledContent("Income") { AmountText(summary.income.formatted()) }
-                LabeledContent("Expenses") { AmountText(summary.expense.formatted()) }
+                LabeledContent(expensesTitle) { AmountText(summary.expense.formatted()) }
                     .accessibilityIdentifier("analytics.monthSummary.expenses")
                 LabeledContent("Net") { AmountText(summary.net.formatted()) }
                     .accessibilityIdentifier("analytics.monthSummary.net")
