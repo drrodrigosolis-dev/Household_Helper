@@ -96,6 +96,9 @@ private struct FilteredTransactions: View {
     @Query private var records: [TransactionRecord]
     @Query private var categories: [CategoryRecord]
     @Query(sort: \Account.sortOrder) private var accounts: [Account]
+    /// Purchased wishlist items, to name refunds of their purchases (`refundNames`).
+    @Query(filter: #Predicate<WishlistItem> { $0.purchasedTransactionID != nil })
+    private var purchasedItems: [WishlistItem]
     let limit: Int
     let loadMore: () -> Void
     let search: SearchQuery
@@ -183,14 +186,15 @@ private struct FilteredTransactions: View {
     }
 
     private func list(_ shown: [TransactionRecord]) -> some View {
-        List(selection: selectionBinding) {
+        let names = refundNames
+        return List(selection: selectionBinding) {
             if let errorMessage {
                 ErrorText(errorMessage)
             }
             ForEach(Self.days(shown, calendar: calendar), id: \.day) { section in
                 Section {
                     ForEach(section.records) { record in
-                        row(record).themedRow()
+                        row(record, refundedName: names[record.id]).themedRow()
                     }
                 } header: {
                     Text(dayLabel(section.day))
@@ -210,19 +214,44 @@ private struct FilteredTransactions: View {
             })
     }
 
+    /// Names for refunds without a merchant or note, by refund ID: the wishlist item whose purchase each refunds,
+    /// else the purchase's own merchant or note when it is loaded. One pass for the whole list, not a query per row.
+    private var refundNames: [UUID: String] {
+        let refunds = records.filter {
+            $0.type == .refund && $0.refundOfTransactionID != nil && $0.merchantNameSnapshot == nil && $0.notes == nil
+        }
+        guard !refunds.isEmpty else { return [:] }
+        var items: [UUID: String] = [:]
+        for item in purchasedItems {
+            if let purchase = item.purchasedTransactionID { items[purchase] = item.name }
+        }
+        let loaded = Dictionary(records.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var names: [UUID: String] = [:]
+        for refund in refunds {
+            guard let purchaseID = refund.refundOfTransactionID else { continue }
+            let purchase = loaded[purchaseID]
+            if let name = items[purchaseID] ?? purchase?.merchantNameSnapshot ?? purchase?.notes {
+                names[refund.id] = name
+            }
+        }
+        return names
+    }
+
     /// Rows are selectable only in Select mode; otherwise a tap opens the editor.
     private var selectionBinding: Binding<Set<UUID>>? {
         isSelecting ? $selection : nil
     }
 
     @ViewBuilder
-    private func row(_ record: TransactionRecord) -> some View {
+    private func row(_ record: TransactionRecord, refundedName: String?) -> some View {
         let category = categories.first { $0.id == record.categoryID }
         if isSelecting {
-            TransactionRow(record: record, category: category, accounts: accounts)
+            TransactionRow(
+                record: record, category: category, accounts: accounts, refundedName: refundedName)
                 .tag(record.id)
         } else {
-            TransactionRow(record: record, category: category, accounts: accounts)
+            TransactionRow(
+                record: record, category: category, accounts: accounts, refundedName: refundedName)
                 .contentShape(Rectangle())
                 .onTapGesture { editing = record }
                 .accessibilityAddTraits(.isButton)
@@ -499,26 +528,10 @@ struct TransactionRow: View {
     /// Every account, so a row can name its own when there is more than one (Sprint 10 decision 7).
     var accounts: [Account] = []
     @Environment(\.dynamicTypeSize) private var typeSize
-    /// Sprint 23 hand check: a refund with no merchant or note of its own (typically one on a wishlist purchase
-    /// entered with neither) is named after what it refunds instead of falling back to "Transaction". Looked up by
-    /// `refundOfTransactionID`, the existing link; empty for every row that isn't such a refund.
-    @Query private var refundedPurchase: [TransactionRecord]
-    @Query private var refundedWishlistItem: [WishlistItem]
-
-    init(record: TransactionRecord, category: CategoryRecord?, accounts: [Account] = []) {
-        self.record = record
-        self.category = category
-        self.accounts = accounts
-        if record.type == .refund, let purchaseID = record.refundOfTransactionID {
-            _refundedPurchase = Query(filter: #Predicate<TransactionRecord> { $0.id == purchaseID })
-            let purchasedID: UUID? = purchaseID
-            _refundedWishlistItem = Query(
-                filter: #Predicate<WishlistItem> { $0.purchasedTransactionID == purchasedID })
-        } else {
-            _refundedPurchase = Query(filter: #Predicate<TransactionRecord> { _ in false })
-            _refundedWishlistItem = Query(filter: #Predicate<WishlistItem> { _ in false })
-        }
-    }
+    /// Sprint 23 hand check: what a refund with no merchant or note of its own gives money back for (the wishlist
+    /// item its purchase completed, else the purchase's merchant or note), so it isn't titled "Transaction". The list
+    /// works it out once for all rows (`refundNames`); nil for every other row.
+    var refundedName: String?
 
     /// Transfers and refunds show what they are; everything else shows its category's icon.
     static func badgeIcon(_ type: TransactionType) -> String? {
@@ -531,17 +544,6 @@ struct TransactionRow: View {
 
     private func accountName(_ id: UUID?) -> String? {
         accounts.first { $0.id == id }?.name
-    }
-
-    /// What a nameless refund gives money back for: the wishlist item its purchase completed, else the purchase's
-    /// own merchant or note. Nil when this isn't a refund, or its purchase and item are both gone.
-    private var refundedName: String? {
-        guard record.type == .refund else { return nil }
-        if let item = refundedWishlistItem.first { return item.name }
-        if let purchase = refundedPurchase.first {
-            return purchase.merchantNameSnapshot ?? purchase.notes
-        }
-        return nil
     }
 
     /// True once `title` already reads "Refund · <name>", so `subtitle` does not say "Refund" a second time.

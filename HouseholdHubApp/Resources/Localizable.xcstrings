@@ -91,6 +91,16 @@
         }
       }
     },
+    "%@ – %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ – %@"
+          }
+        }
+      }
+    },
     "%@ → %@": {
       "localizations": {
         "es": {
@@ -1537,6 +1547,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Elige a dónde irían las tareas; esta columna está vacía."
+          }
+        }
+      }
+    },
+    "Clear All Filters": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar todos los filtros"
           }
         }
       }
@@ -5241,6 +5261,16 @@
         }
       }
     },
+    "Refund · %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reembolso · %@"
+          }
+        }
+      }
+    },
     "Refunded": {
       "localizations": {
         "es": {
@@ -5347,6 +5377,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "¿Quitar este presupuesto?"
+          }
+        }
+      }
+    },
+    "Removes this filter": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quita este filtro"
           }
         }
       }
@@ -8083,6 +8123,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "“%@” no es una fecha en el formato elegido."
+          }
+        }
+      }
+    },
+    "≤ %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≤ %@"
+          }
+        }
+      }
+    },
+    "≥ %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≥ %@"
           }
         }
       }
