@@ -184,3 +184,31 @@ availability conditions, deprecations, fallback. Verified against official Apple
   `aSchemaV1StoreOnDiskMigratesToTheCurrentSchemaWithEveryRecord` runs a V1 store through all three stages. Backup
   format v5 carries the group (v1 to v4 files still read, nothing split; an older file with a group is refused).
 - **Fallback:** as for SchemaV2: `StoreUnavailableView`, nothing deleted; a backup before installing the build.
+
+## TipKit — contextual tips (Sprint 24, 2026-09-28)
+- **API:** `import TipKit` (system framework, no extra `project.yml` entry needed, same as `Charts`). `Tip` is a
+  plain protocol (`id: String`, `title: Text`, `message: Text?`, `image: Image?`, `rules: [Rule]`,
+  `options: [any Option]`); most members have default implementations, so a tip needs only `title`/`message` (we add
+  an explicit `id` for stability and for the unit test). `Tips.configure([.displayFrequency(.immediate)])` loads the
+  datastore once at app start (`applicationDefault` datastore location, i.e. no App Group). `.popoverTip(_:)` and
+  `TipView(_:)` render a tip; `#Rule(expression) { … }` with a `static let event = Tips.Event(id:)` and
+  `$0.donations.count >= N` gates a tip on how many times something happened; `Tips.Event.donate()` is `async`,
+  non-throwing. `Tips.resetDatastore()` and `Tips.configure(_:)` both `throws`; a reset only takes effect for tips
+  configured again afterward, so we reset before configuring, never after. `Tips.showAllTipsForTesting()` /
+  `hideAllTipsForTesting()` are iOS 17+, same floor as the rest of TipKit — no extra availability check needed.
+  Minimum OS: iOS 17.0; project floor iOS 26, so no `#available` gate is needed anywhere in this codebase. No
+  entitlement, no paid membership, works under a free Personal Team (spec §11.2).
+- **iOS 26 pitfalls (community reports, not yet in Apple's own docs) — verify again after each Xcode/iOS update:**
+  1. A `popoverTip` can reappear on every tab switch instead of showing once (Apple Developer Forums thread 805796,
+     Feedback FB20904972). Mitigation: every Sprint 24 tip sets `options: [MaxDisplayCount(1)]`.
+  2. A `popoverTip` on a toolbar `Button` with no explicit `buttonStyle` can fail to show. Mitigation: `Select`
+     (`BudgetView`, Bulk select tip) gets an explicit `.buttonStyle(.plain)`; `.bottomBar` placement is avoided for
+     every tipped control.
+  3. iOS 26.1: `popoverTip` reportedly does not show on a toolbar `Menu` button. Mitigation: the Saved searches tip is
+     not attached to Budget's filter `Menu`; it is an inline `TipView` in the More filters sheet instead (reached
+     from the same menu, and where a search worth saving has usually just been built).
+- **Fallback:** every tip is a plain, dismissible popover or inline card; none of the 10 features it documents
+  depends on the tip appearing. If TipKit fails silently (`try?` on `configure`/`resetDatastore`), the feature itself
+  still works; only the hint is missing.
+- **Decision:** ship with the mitigations above rather than waiting on an Apple fix; re-check this section against
+  the release-note history the next time Xcode or the iOS SDK version changes.
