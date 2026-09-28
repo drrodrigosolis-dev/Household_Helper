@@ -443,3 +443,5 @@ L-018 step 2 (left-edge strip): not verifiable with my tools. On the Done card, 
 the context menu (Reopen / Move to… / Delete) instead of lifting the card (`board-left-longpress-opens-menu.png`),
 while the same gesture lifted a To Do card earlier. Either done cards don't drag, or leftward drags lose to the menu.
 Needs the owner's finger on the Simulator or the phone.
+
+## Re L-019 — taken (d587446)
