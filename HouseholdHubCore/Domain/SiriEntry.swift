@@ -95,8 +95,9 @@ public enum WishlistEntry {
 /// included; the task goes to the first column (owner answer 2).
 public enum TaskEntry {
     public static func draft(text: String) throws -> TaskDraft {
-        let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            .trimmingCharacters(in: CharacterSet(charactersIn: ".")).trimmingCharacters(in: .whitespaces)
+        // Dictation ends the sentence with a period; it isn't part of the title.
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: ".")).trimmingCharacters(in: .whitespaces)
         guard !title.isEmpty else { throw SiriEntryError.emptyText }
         return TaskDraft(title: title)
     }
