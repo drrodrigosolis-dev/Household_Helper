@@ -21,6 +21,7 @@ struct MoreView: View {
                     Label("Settings", systemImage: "gearshape")
                 }
                 .themedRow()
+                .tourTarget(.settings)
             }
             .navigationDestination(for: Destination.self) { destination in
                 switch destination {

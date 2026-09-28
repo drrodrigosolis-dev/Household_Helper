@@ -63,6 +63,7 @@ struct BudgetView: View {
                     BudgetsListView()
                 }
             }
+            .tourTarget(.budgetList)
             .safeAreaInset(edge: .top) {
                 Picker("View", selection: $router.budgetSegment) {
                     Text("Transactions").tag(Segment.transactions)

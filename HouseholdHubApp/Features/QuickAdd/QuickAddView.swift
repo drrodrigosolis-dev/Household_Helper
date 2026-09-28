@@ -62,6 +62,7 @@ private struct QuickAddAccess: ViewModifier {
             .overlay(alignment: .bottomTrailing) {
                 if showsButton {
                     QuickAddButton { isPresenting = true }
+                        .tourTarget(.quickAdd)
                         .padding(.trailing, 20)
                         .padding(.bottom, 12)
                 }

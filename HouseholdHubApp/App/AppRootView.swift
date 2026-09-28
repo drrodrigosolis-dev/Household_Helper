@@ -152,12 +152,18 @@ struct AppRootView: View {
         }
         .environment(router)
         .overlay { CelebrationOverlay() }
+        // Sprint 24: the first-run tour's spotlight, over the tab bar too.
+        .overlay { TourOverlay() }
         .task { await bootstrap() }
         .sheet(isPresented: $router.isQuickAddPresented) { QuickAddView() }
         .onChange(of: needsOnboarding, initial: true) { router.isOnboarding = needsOnboarding }
         .sheet(isPresented: $needsOnboarding) {
-            OnboardingView { needsOnboarding = false }
-                .interactiveDismissDisabled()
+            OnboardingView {
+                needsOnboarding = false
+                // A fresh install: the tour starts once setup is done (Sprint 24).
+                TourController.shared.onboardingFinished()
+            }
+            .interactiveDismissDisabled()
         }
     }
 
@@ -190,6 +196,8 @@ struct AppRootView: View {
         }
         let settings = try? await services.transactions.settingsSnapshot()
         needsOnboarding = settings?.onboardingCompleted != true
+        // An install set up before the tour existed is offered it once on the Dashboard (Sprint 24).
+        TourController.shared.appLaunched(onboardingCompleted: !needsOnboarding)
         await WidgetSync.refresh(services)
     }
 }
