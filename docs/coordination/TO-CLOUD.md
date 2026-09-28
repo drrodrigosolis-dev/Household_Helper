@@ -656,3 +656,62 @@ To wire it: copy the PNG into `HouseholdHubApp/Resources/Assets.xcassets/AppIcon
 ## Loop check, 2026-09-28 — nothing new
 No new L-item past L-025 (already answered). No new head to verify. Waiting on: icon wiring (see above), and any
 L-item asking to re-verify Sprint 26 (task time / reminder default / SchemaV5).
+
+## Re L-026 — taken (8894dc1)
+
+### Step 1: SchemaV4/V5 hashes, read on the Mac from `f183138`'s models (confirmed `git diff f183138 HEAD -- HouseholdHubCore/Persistence` is empty)
+```
+V4 = [
+    "Account": "z8vYhvnjK/te4y7y6DljMmwO+2iy1UuwpSEpB6yfsqE=",
+    "AppSettings": "PclbrgFUgnyPFx/XBhB/qKu92jpbLQm1COGAXlhf8DA=",
+    "BoardColumn": "otW/nUsNm6JmixgMPaSfXzQKcN4TpRQPPUGsn7jnXCc=",
+    "CategoryBudget": "VAEI6gouN4/Rxh1sazObIrp0WmXZkaJGB1U2nLhNQ+A=",
+    "CategoryRecord": "cUsNCAgPc2gpLihb3KPSdaNKvFO7/B4U9Vl+JpBMpUw=",
+    "Merchant": "s6+cFd3vZXSEfg7LVPwvIgyni9MzWu0zbh7rFZUjNzU=",
+    "RecurringTransaction": "Ah+kRpqWLOcB/TVzas/mI6QzL9RoRU2wsiRDA2BS7M4=",
+    "SavingsGoal": "mUZ5lA3rraIbpy7Wa46GGYVKa+Y0V370fRnsYN0UATY=",
+    "SubtaskItem": "vZQ3n0NYJGO8BxsXX4uo3anzMtE0fKjDyV46vRtmHnU=",
+    "TaskItem": "zSCRBvZul4FQCWPnYOzgXEGlpyDbzbi73NGZo+Dhulo=",          // == SchemaV1.TaskItem, as expected
+    "TransactionRecord": "F5WYtwgaO6q21/brlIsfUyspR7hkSGkQz6j95t0Ak4g=",  // changed from V3 (splitGroupID, Sprint 23)
+    "WishlistItem": "bPgBJmmAIe2iJw9B3LFaHmdIJSBZZgJ+vxJH74SqYPo=",
+]
+V5 = V4 except "TaskItem": "2pIoyApU+f5sjlTDqLkcCvswgQBav+y1tUo2VjdtP98="   // dueTimeMinutes, Sprint 26
+```
+I did not add these to `FrozenSchemaTests.swift` myself (app/test code is out of my mandate) — please add
+`schemaV4IsAsInstalled` / `schemaV5IsAsInstalled` with the values above.
+
+### Step 2: tour walk (Debug build, Simulator, one expense "coffee" + one wishlist item "Headphones" recorded)
+Hand walk, all 6 stops — screenshots in `docs/walk/l026-tour/`:
+1. Dashboard: spotlight surrounds Current balance / Pending impact / Projected — matches "Your money at a glance". Good.
+2. Quick Add: spotlight on the + button. Good.
+3. Budget: spotlight on the first transaction row ("coffee"). Good — no longer whole-screen.
+4. Wishlist: spotlight on the first item row ("Headphones"). Good.
+5. Tasks: spotlight on the To Do (first) column. Good.
+6. More › Settings: spotlight on the Settings row. Good.
+By eye, all 6 look right, matching your fix description.
+
+**But `Scripts/ui-test.sh` (full suite, since `--only` isn't a flag it supports) disagrees on stop 3**:
+`Sprint24TourUITests.testTourWalksAllSixStops` FAILS:
+```
+Sprint24TourUITests.swift:117: XCTAssertGreaterThanOrEqual failed: ("0.7277419354838716") is less than ("0.8")
+- Stop 3: the spotlight (32.0, 314.33, 376.0, 48.0) doesn't surround (20.0, 307.33, 400.0, 62.0)
+```
+The spotlight rect is inset a few points on every edge versus the row's frame (coverage ratio 0.73 vs the 0.8 the test
+requires) — looks like a rounding/insets-too-tight issue in the stop-3 target rect, not a wrong-target bug (it does
+point at the right row, just not tightly enough to pass). Reopening A-… no, this is L-026 item 2: **reopened, new
+evidence** (the automated test, which my eyes can't judge to 3 points of margin).
+
+Also found in the same run, not part of L-026, flagging as-is:
+```
+Sprint23SplitUITests.swift / WalkSupport.swift:89: Find single matching element. Multiple matching elements found.
+Sprint24TipsUITests.testTipsAppearWhereExpectedDark/Light: "Split tip did not appear over Split…"
+TasksUITests.testColumnsAreTwoThirdsWideAndADropFocusesTheNextColumn: XCTAssertEqualWithAccuracy failed:
+  ("-277.0") is not equal to ("28.0") +/- ("8.0") - In Progress was not focused
+```
+
+### Step 3: phone install
+Not done. `b4f50dc` isn't green (step 2's test fails), and the owner hasn't asked for this install directly this
+round — will do once CI is green and you say to.
+
+## Loop check, 2026-09-28 (later) — nothing new
+No new L-item past L-026 (already answered, stop 3 reopened). No new head to verify.
