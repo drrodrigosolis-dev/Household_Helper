@@ -1,0 +1,22 @@
+{
+  "theme": "airplanes",
+  "note": "Owner's art sheets (2026-09-28, two pages of crayon drawings for all four themes); not committed.",
+  "boards": {
+    "sheet1": {"width": 1536, "height": 1024},
+    "sheet2": {"width": 1312, "height": 1199}
+  },
+  "pieces": {
+    "cornerTopLeading": {"board": "sheet1", "box": [1380, 10, 1492, 170]},
+    "cornerTopTrailing": {"board": "sheet1", "box": [1222, 116, 1362, 212], "isolate": true, "fill": true},
+    "cornerBottomLeading": {"board": "sheet2", "box": [992, 580, 1206, 668], "isolate": true, "fill": true},
+    "cornerBottomTrailing": {"board": "sheet1", "box": [1448, 350, 1504, 408]},
+    "header1": {"board": "sheet1", "box": [800, 140, 1180, 328], "isolate": true, "fill": true},
+    "header2": {"board": "sheet1", "box": [1238, 208, 1488, 356], "isolate": true},
+    "header3": {"board": "sheet1", "box": [986, 370, 1176, 510], "isolate": true, "fill": true},
+    "header4": {"board": "sheet1", "box": [1018, 42, 1128, 112], "isolate": true, "fill": true},
+    "star": {"board": "sheet1", "box": [922, 412, 976, 472]},
+    "starSmall": {"board": "sheet1", "box": [1190, 370, 1250, 428]},
+    "ornamentWide": {"board": "sheet2", "box": [1196, 486, 1296, 632], "isolate": true},
+    "ornamentActivity": {"board": "sheet2", "box": [1010, 516, 1140, 600], "isolate": true, "fill": true}
+  }
+}

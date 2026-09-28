@@ -3,10 +3,22 @@ import SwiftUI
 import UIKit
 
 /// Sprint 21: the drawings, doodles and chalk surfaces that dress a theme (owner's Toy Box mockup, decision 30).
-/// Drawings come from the theme's art board (`Assets.xcassets/ThemeArt`, cut by `Scripts/cut-theme-art.py`); a theme
-/// whose board has not been cut yet draws the same spots with code doodles instead.
+/// Drawings come from the owner's art boards (`Assets.xcassets/ThemeArt`, cut by `Scripts/cut-theme-art.py` from
+/// `docs/theme-art/<theme>.json`); a piece a theme has no drawing for is drawn as a code doodle instead.
+///
+/// Each case is a spot the app draws in, not a subject: Toy Box's `header1` is its bear, Dinosaurs' its long-neck.
 enum ThemePiece: String, CaseIterable {
-    case sun, cloud, bear, kite, puzzle, rocket, star, underline, car, starSmall, blocks, heartOutline, rainbow
+    /// The corner drawings on a tab's first screen (Toy Box: sun, cloud, rainbow, heart).
+    case cornerTopLeading, cornerTopTrailing, cornerBottomLeading, cornerBottomTrailing
+    /// The row of drawings under the Dashboard title, left to right.
+    case header1, header2, header3, header4
+    /// Small accents beside card titles.
+    case star, starSmall
+    /// Under the Dashboard title.
+    case underline
+    /// Beside the 30-day projection (Toy Box: the car) and on Recent activity (the blocks).
+    case ornamentWide, ornamentActivity
+    /// The floating Quick Add button.
     case addButton
 }
 
@@ -247,8 +259,8 @@ struct ThemeDrawing: View {
 
     private static func fallbackColor(_ piece: ThemePiece, _ theme: ThemeSpec) -> Color {
         switch piece {
-        case .star, .starSmall, .sun: ThemeInk.yellow
-        case .cloud, .kite: ThemeInk.blue
+        case .star, .starSmall, .cornerTopLeading: ThemeInk.yellow
+        case .cornerTopTrailing, .header2: ThemeInk.blue
         default: theme.accent
         }
     }
@@ -304,16 +316,16 @@ struct ThemeBackdrop: View {
             .overlay {
                 if decorated {
                     ZStack {
-                        ThemeDrawing(piece: .sun, height: 96)
+                        ThemeDrawing(piece: .cornerTopLeading, height: 96)
                             .offset(x: -10, y: -4)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        ThemeDrawing(piece: .cloud, height: 62)
+                        ThemeDrawing(piece: .cornerTopTrailing, height: 62)
                             .padding(.top, 56)
                             .padding(.trailing, 24)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                        ThemeDrawing(piece: .rainbow, height: 44)
+                        ThemeDrawing(piece: .cornerBottomLeading, height: 44)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                        ThemeDrawing(piece: .heartOutline, height: 34)
+                        ThemeDrawing(piece: .cornerBottomTrailing, height: 34)
                             .padding(.trailing, 14)
                             .padding(.bottom, 6)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
@@ -333,7 +345,7 @@ struct ThemeHeaderStrip: View {
     @Environment(\.themeAnimates) private var animates
     @Environment(\.dynamicTypeSize) private var typeSize
     private static let row: [(ThemePiece, CGFloat)] = [
-        (.star, 20), (.bear, 60), (.starSmall, 16), (.kite, 58), (.puzzle, 50), (.starSmall, 14), (.rocket, 58),
+        (.star, 20), (.header1, 60), (.starSmall, 16), (.header2, 58), (.header3, 50), (.starSmall, 14), (.header4, 58),
     ]
 
     var body: some View {

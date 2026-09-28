@@ -5,32 +5,40 @@ import UIKit
 
 @testable import HouseholdHub
 
-/// Sprint 21: the Toy Box drawings are in the catalog under the names the cutter writes, a theme without a board
-/// falls back to doodles, and the hand-drawn card edge stays on its card.
+/// Sprint 21: every theme's drawings are in the catalog under the names the cutter writes (a missing one is drawn as
+/// a doodle), and the hand-drawn card edge stays on its card.
 @MainActor
 struct ThemeArtTests {
-    nonisolated static let pieces = ThemePiece.allCases
+    /// What each theme's boards don't have (it draws a doodle there): only Toy Box's mockup had a crayon add button,
+    /// and only Toy Box and Love Mom have an underline stroke.
+    nonisolated static let missing: [FunTheme: Set<ThemePiece>] = [
+        .toyBox: [],
+        .loveMom: [.addButton],
+        .airplanes: [.addButton, .underline],
+        .dinosaurs: [.addButton, .underline],
+        .winter: [.addButton, .underline],
+    ]
 
-    @Test(arguments: pieces)
-    func toyBoxHasEveryDrawing(_ piece: ThemePiece) throws {
-        let spec = try #require(FunTheme.toyBox.spec)
-        #expect(UIImage(named: spec.artName(piece)) != nil, "\(spec.artName(piece)) is missing from ThemeArt")
+    @Test(arguments: FunTheme.allCases.filter { $0 != .off })
+    func everyThemeHasItsDrawings(_ theme: FunTheme) throws {
+        let spec = try #require(theme.spec)
+        let gaps = try #require(Self.missing[theme], "\(theme) has no entry")
+        for piece in ThemePiece.allCases {
+            let exists = UIImage(named: spec.artName(piece)) != nil
+            #expect(exists == !gaps.contains(piece), "\(spec.artName(piece)) exists: \(exists)")
+        }
     }
 
     @Test func assetNamesMatchTheCutter() throws {
         let spec = try #require(FunTheme.toyBox.spec)
         #expect(spec.artName(.addButton) == "toybox-addButton")
-        #expect(try #require(FunTheme.loveMom.spec).artName(.sun) == "lovemom-sun")
+        #expect(try #require(FunTheme.loveMom.spec).artName(.header1) == "lovemom-header1")
     }
 
-    /// Until the owner's boards for the other themes are cut, they draw doodles.
-    @Test func themesWithoutABoardUseTheirDoodle() throws {
-        for theme in [FunTheme.airplanes, .dinosaurs, .loveMom, .winter] {
-            let spec = try #require(theme.spec)
-            #expect(spec.art(.bear) == nil, "\(theme) has no art board yet")
-        }
+    @Test func eachThemeHasItsOwnDoodle() throws {
         #expect(try #require(FunTheme.loveMom.spec).doodle == .heart)
         #expect(try #require(FunTheme.winter.spec).doodle == .snowflake)
+        #expect(try #require(FunTheme.toyBox.spec).doodle == .star)
     }
 
     @Test(arguments: [CGSize(width: 340, height: 120), CGSize(width: 44, height: 20), CGSize(width: 1, height: 1)])

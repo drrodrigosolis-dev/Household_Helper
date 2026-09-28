@@ -34,8 +34,8 @@ balances and a notification photo; the repo is public): only the cut drawings ar
 | 2 | Chalk components: background texture, chalk border card, doodles, crayon button (`ThemeArt.swift`) | ☐ | ☐ |
 | 3 | Dashboard to the mockup (Toy Box dark), then light | ☐ | ☐ |
 | 4 | Budget, Wishlist, Tasks, More/Settings, sheets | ☐ | ☐ |
-| 5 | Other themes: layout now, art when boards arrive | ☐ | ☐ |
+| 5 | Other themes: art from the owner's two sheets (2026-09-28), cut into `lovemom`, `airplanes`, `winter`, `dinosaurs`; pieces renamed to roles (`header1`, `cornerTopLeading`, ...); `fill` keeps white bodies solid on dark, `isolate` drops neighbours | ☐ | ☐ |
 | 6 | Screenshots per theme × light/dark; contrast and Reduce Motion audit | ☐ | ☐ |
 
 ## Owner action
-One art board per remaining theme (prompt in the chat message of 2026-09-28 and in `docs/walk/sprint-21/PROMPTS.md`).
+Done 2026-09-28: the owner sent two sheets covering all four themes. Was: one art board per remaining theme (prompt in the chat message of 2026-09-28 and in `docs/walk/sprint-21/PROMPTS.md`).

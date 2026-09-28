@@ -196,7 +196,7 @@ struct DashboardView: View {
                     AmountText(summary.balance.projected.formatted(), font: figureFont(.title2)).fontDesign(nil)
                     if theme != nil && !typeSize.isAccessibilitySize {
                         Spacer(minLength: 8)
-                        ThemeDrawing(piece: .car, height: 40)
+                        ThemeDrawing(piece: .ornamentWide, height: 40)
                     }
                 }
                 Toggle("Include pending", isOn: pendingBinding)
@@ -321,7 +321,7 @@ struct DashboardView: View {
     }
 
     private var recentCard: some View {
-        DashboardCard(title: "Recent activity", identifier: "dashboard.recent", ornament: .blocks) {
+        DashboardCard(title: "Recent activity", identifier: "dashboard.recent", ornament: .ornamentActivity) {
             router.showBudget(.transactions)
         } content: {
             if activity.isEmpty {
@@ -430,7 +430,7 @@ private struct DashboardCard<Content: View>: View {
                         .themedFont(.headline)
                     Spacer()
                     if let ornament, theme != nil, !typeSize.isAccessibilitySize {
-                        ThemeDrawing(piece: ornament, height: ornament == .blocks ? 34 : 22)
+                        ThemeDrawing(piece: ornament, height: ornament == .ornamentActivity ? 34 : 22)
                     }
                     Image(systemName: "chevron.right")
                         .font(.footnote)
