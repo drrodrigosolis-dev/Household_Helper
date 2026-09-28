@@ -332,3 +332,200 @@ Apple recipe.
   `MaxDisplayCount(1)` from the start rather than waiting to hit it), and whether the modal VoiceOver region
   correctly blocks interaction with dimmed controls in the Simulator's accessibility inspector (record in
   `docs/research/open-questions.md` if the Phase 10 accessibility audit finds it does not).
+
+## App Intents / Siri / Apple Intelligence on iOS 26 — Sprint 25 research, 2026-09-28
+Scope: whether/how to add Siri phrases for wishlist and task-board actions and a spoken "Add headphones for 149 to
+my wishlist" utterance, and whether anything needs a paid account. Apple docs consulted via
+developer.apple.com/documentation/appintents (the DocC JSON endpoint, `.../tutorials/data/documentation/...json`,
+was used to read exact platform/version metadata) and the cited WWDC session pages. No blog is used as a fact
+source below; two are cited only to corroborate reading of an official page (marked "interpretation").
+
+**1a. `AppShortcutsProvider` phrases and parameters**
+- A phrase is built from fixed text plus, optionally, `\(.applicationName)` and **`AppEntity`/`AppEnum`
+  parameters only** — never a `String`, numeric, or other free-form parameter embedded in the phrase text. Source:
+  https://developer.apple.com/documentation/appintents/appshortcut and
+  https://developer.apple.com/documentation/appintents/app-shortcuts (App Shortcuts article), corroborated by
+  https://developer.apple.com/videos/play/wwdc2023/10102/ ("Spotlight your app with App Shortcuts", the session that
+  introduces phrase parameters) and the WWDC25 example in
+  https://developer.apple.com/videos/play/wwdc2025/244/ ("Get to know App Intents"), which shows
+  `"Navigate to \(\.$navigationOption) in \(.applicationName)"` with `navigationOption` typed as an `AppEnum`.
+  `AppEntity`/`AppEnum` also gained a synonyms addition to `DisplayRepresentation` at WWDC25 so a phrase parameter's
+  spoken values can have extra synonyms — still enumerated values, not free text.
+  `AppShortcutsProvider`, `AppShortcut`: iOS 16.0+ (unchanged in 26); no entitlement.
+- The app's own `LogTransactionIntent` already relies on the one condition this implies: its `text: String`
+  parameter is **not** in the phrase (`"Log a transaction in \(.applicationName)"` has no embedded parameter), so
+  Siri asks for it afterwards via `requestValueDialog` rather than trying to parse it out of the trigger phrase.
+  This is the documented pattern for any parameter that is not an `AppEntity`/`AppEnum`.
+
+**1b. "Add headphones for 149 to my wishlist in Household Hub" — what Siri can capture in one utterance**
+- Because a phrase parameter must be an `AppEntity`/`AppEnum`, **neither the item name ("headphones") nor the
+  amount (149) can be declared as an embedded phrase parameter** — an `AppEntity`/`AppEnum` is a predefined,
+  finite set of values (categories, accounts, columns), not open text or a decimal typed at speech time. There is
+  no documented, supported way to have Siri capture a specific free-text word and a specific number out of one
+  utterance for a custom (non-`@AssistantIntent`) intent; that is not what App Shortcuts parameters are for.
+  Source: same App Shortcuts pages above; also `requestValue(_:)`
+  (https://developer.apple.com/documentation/appintents/intentparametercontext/requestvalue(_:)) exists precisely
+  because App Intents expects most parameters to be filled by a follow-up turn, not by NL-parsing the trigger
+  phrase.
+- The only documented and already-proven way to get this whole sentence in one breath is the pattern
+  `LogTransactionIntent` already uses: a **fixed phrase with no embedded parameter** ("Add to my wishlist in
+  Household Hub") whose single `@Parameter var text: String` has a `requestValueDialog`; Siri asks for it once if
+  the person only said the trigger phrase, but if the person appends the rest in the same utterance ("Add to my
+  wishlist in Household Hub, headphones for 149") the spoken remainder is delivered as that parameter's value
+  without a follow-up turn, because it is App Intents filling one already-declared `String` parameter, not Siri
+  parsing a wishlist item + a price out of the phrase. The **app's own text** then parses "headphones for 149"
+  (name + amount), the same job `ShortcutEntry.draft` already does for `LogTransactionIntent`'s Quick Add grammar
+  (`HouseholdHubApp/App/AppIntents.swift`). A wishlist add would need its own small grammar (or reuse of the
+  Quick Add money parser) for "<name> for <amount>", plus a confirmation dialog before saving (§8.1: a wishlist
+  purchase is a data-safety change, so a *creation* draft should still be confirmed, matching
+  `requestConfirmation` already used for money in `LogTransactionIntent`).
+- A follow-up prompt (`requestValue`) is only reachable this way if the person leaves out the free-text part
+  entirely; Apple does not document a way to make Siri ask two separate follow-up questions (one for the item name,
+  one for the price) out of a single `String` parameter — that split has to happen in the app's own parser after
+  the one dictated string comes back, exactly as today.
+
+**1c. `AppEntity` + `EntityQuery` for categories, accounts, wishlist items, task columns**
+- `AppEntity` (a Siri/Shortcuts-visible, identifiable, `DisplayRepresentation`-able concept) and `EntityQuery`
+  (`entities(for:)` to resolve by ID, `suggestedEntities()` for a default list; `EntityStringQuery` adds
+  `entities(matching:)` for typed/spoken search) are both iOS 16.0+, no entitlement. Sources:
+  https://developer.apple.com/documentation/appintents/appentity,
+  https://developer.apple.com/documentation/appintents/entityquery,
+  https://developer.apple.com/documentation/appintents/entitystringquery.
+- Fit for this app: `CategoryRecord`, the transaction `Account`/wallet concept, wishlist items, and Kanban columns
+  are all small, enumerable, identifiable domain objects already backed by SwiftData — a natural `AppEntity` +
+  `EntityQuery` per type (queried through the existing services, never a raw `ModelContext`, per CLAUDE.md §4).
+  These would be used as **disambiguation/selection parameters** in future intents (e.g. "Move task to Done in
+  Household Hub" with `column` as an `AppEntity` phrase parameter, or a category picker inside a
+  `requestDisambiguation` step) — not as a way to smuggle free text into a phrase.
+
+**1d. `requestConfirmation` for money**
+- `AppIntent.requestConfirmation(actionName:dialog:)` (and its `conditions:`/`content:` overloads) shows the person
+  a system confirmation (voice + on-screen) before `perform()` continues; `LogTransactionIntent` already calls it
+  before writing a transaction. The overload list was confirmed via WebSearch against
+  https://developer.apple.com/documentation/AppIntents/AppIntent/requestConfirmation(conditions:actionName:dialog:)
+  and sibling pages (the individual overload page did not render through the docs JSON endpoint used elsewhere in
+  this research, so this fact is corroborated by the overload's canonical URL plus the parent
+  https://developer.apple.com/documentation/appintents/appintent page rather than a captured JSON body — flagged
+  as the one fact in this section with weaker sourcing). iOS 16.0+, no entitlement. Same call should gate a
+  wishlist-add's amount and a "delete task"/"delete transaction" intent if one is ever added, per CLAUDE.md §5
+  ("never silently delete financial history").
+
+**1e. Opening the app vs. running in the background**
+- `IntentModes`/`AppIntent.supportedModes` is **iOS 26.0+** exactly — introduced with this app's deployment target,
+  not before. Source: https://developer.apple.com/documentation/appintents/intentmodes and
+  https://developer.apple.com/documentation/appintents/appintent/supportedmodes (platform metadata read via the
+  docs JSON endpoint: `iOS 26.0` on both pages, not beta). `OpenQuickAddIntent` uses `.foreground(.immediate)`
+  (must open the app), `LogTransactionIntent` uses `.background` (never opens the app; the dialog/confirmation is
+  spoken, and the transaction is written entirely off-screen). A wishlist-add and a task-add intent should also be
+  `.background` — a person adding an item to a list by voice does not expect the app to jump to the foreground —
+  while an intent that needs to show a screen (e.g. "open the wishlist") stays `.foreground`. No entitlement either
+  way; this is a runtime behavior flag, not a capability.
+
+**1f. Localized phrases — `AppShortcuts.xcstrings`**
+- The App Shortcuts phrase strings must live in a String Catalog file **named exactly `AppShortcuts.xcstrings`**
+  in the app target (not `Localizable.xcstrings`) for the system to localize trigger phrases per-language;
+  confirmed by interpretation of Apple's WWDC23 String Catalogs session
+  (https://developer.apple.com/videos/play/wwdc2023/10155/, "Discover String Catalogs") plus the naming convention
+  documented on `AppShortcutPhrase`
+  (https://developer.apple.com/documentation/appintents/appshortcutphrase) — the exact "must be named
+  AppShortcuts.xcstrings" phrasing was read from a developer's write-up
+  (https://sowenjub.me/writes/localizing-app-shortcuts-with-app-intents/, interpretation only) and matches what is
+  already in this repo. **This file already exists**: `HouseholdHubApp/Resources/AppShortcuts.xcstrings`, source
+  language `en`, currently holding the two existing phrases ("Log a transaction in ${applicationName}", "Quick Add
+  in ${applicationName}"). New phrases (wishlist add, task add) need entries added here, and Spanish entries per
+  Sprint 25's plan — this is ordinary String Catalog editing, not a new capability.
+
+**2a. App Intent domains / assistant schemas — is there a finance/list/task schema?**
+- `AssistantSchemas` (the enum Apple ships the fixed domain contracts under; supersedes the older
+  `AssistantIntent`/`AssistantEntity`/`AssistantSchema` types, which the page itself lists as "Previous schema
+  types") was read directly from
+  https://developer.apple.com/tutorials/data/documentation/appintents/assistantschemas.json (DocC JSON for
+  https://developer.apple.com/documentation/appintents/assistantschemas) to get the exhaustive protocol list rather
+  than trust a rendered summary. The listed domains are: **Books, Browser, Camera, Files, Journal, Mail, Photos,
+  Presentation, Reader, Spreadsheet, System, VisualIntelligence, Whiteboard, WordProcessor.**
+- **There is no schema for finance, budgeting, expenses, to-do lists, tasks, reminders, or Kanban boards.** A
+  household budget/wishlist/task app has no `@AssistantIntent(schema:)`/`@AssistantEntity(schema:)` domain to
+  conform to; every intent this app ships is (and, for the foreseeable iOS 26 timeframe, must remain) a plain
+  custom `AppIntent` exposed only through its own `AppShortcutsProvider`, not through one of Apple's fixed
+  cross-app domains. `AssistantIntent(schema:)`: iOS 16.0+ per its own page
+  (https://developer.apple.com/documentation/appintents/assistantintent(schema:)), but that only matters for the
+  fourteen domains above.
+
+**2b. Siri's on-screen awareness / personal context**
+- On-screen entity awareness ("people can ask Siri/ChatGPT about content visible on screen", `NSUserActivity`
+  entity association, and a newer "View Annotations API") is described in WWDC25's
+  https://developer.apple.com/videos/play/wwdc2025/275/ ("Explore new advances in App Intents") and
+  https://developer.apple.com/documentation/appintents/making-onscreen-content-available-to-siri-and-apple-intelligence
+  (page title/topic confirmed by search; the DocC JSON endpoint 404s for this particular article page, so its
+  exact "introduced at" platform number could not be read the same way as the API references above — recorded as
+  an open question below rather than guessed). The View Annotations API is discussed again a year later at
+  WWDC26 (https://developer.apple.com/videos/play/wwdc2026/343/, "Explore advanced App Intents features for Siri
+  and Apple Intelligence", and https://developer.apple.com/videos/play/wwdc2026/240/, "Build intelligent Siri
+  experiences with App Schemas") — i.e. **this is a live, still-evolving area (WWDC26 already shipped its own
+  session on it, months after iOS 26's release), not a single one-time iOS 26.0 feature**, and this project's
+  floor is iOS 26 exactly. **Recommendation: treat on-screen awareness as shipped-but-still-growing; adopt only
+  the entity/`AppEntity` + `EntityQuery` plumbing already planned for 1c (which is what feeds it) and do not chase
+  the newer WWDC26 View Annotations API surface until the toolchain/OS floor is checked against it — flagged as an
+  open question below.**
+
+**2c. Free-form speech ("I spent 40 on groceries at Safeway yesterday") to structured parameters**
+- Apple's documented mechanism for a spoken sentence to become structured intent parameters is: (a) the fourteen
+  fixed `AssistantSchemas` domains, none of which fit finance (see 2a), or (b) a single free-text `String`/decimal
+  parameter that the **app itself** parses after Siri hands it over as one dictated value (1b above). There is no
+  documented API by which a third-party, non-schema app intent gets Apple Intelligence to split an arbitrary
+  sentence into named parameters (amount, merchant, date) before `perform()` runs. **This app must keep doing what
+  it already does**: one free-text parameter in, its own deterministic grammar (`ShortcutEntry`, §25) — or, per
+  CLAUDE.md §6, the on-device Foundation Models parser — out.
+
+**2d. Foundation Models framework as an in-intent fallback parser**
+- `FoundationModels` (the on-device ~3B-parameter language model framework backing Apple Intelligence) is
+  **iOS 26.0+ exactly**, confirmed via
+  https://developer.apple.com/tutorials/data/documentation/foundationmodels.json (platform metadata: iOS 26.0,
+  not beta). No entitlement beyond the framework import; it only produces output when Apple Intelligence is
+  enabled and the device supports it (A17 Pro/M-series or newer — a device/runtime condition, not an entitlement,
+  so `SystemLanguageModel.availability` must be checked at call time with a deterministic fallback, per CLAUDE.md
+  §6). Nothing here changes the app's existing rule: **Foundation Models only refines/interprets a draft; it never
+  writes to SwiftData, and there is no cloud fallback.** Using it inside an intent's `perform()` to turn a dictated
+  wishlist sentence into a name+amount draft — still shown back to the person via `requestConfirmation` before the
+  transaction/wishlist row is created — is consistent with §6 and does not need anything beyond what 1b already
+  requires.
+
+**3. Entitlements and free Personal Team**
+- **No entitlement file exists in this repo** (`find . -iname "*.entitlements"` is empty), and the app already
+  ships two working App Shortcuts (`LogTransactionIntent`, `OpenQuickAddIntent`) with no entitlement added for
+  them — consistent with `AppShortcutsProvider`/`AppShortcut`/`AppEntity`/`EntityQuery`/`AppIntent` all being
+  plain Swift-framework APIs (iOS 16.0+) that need no capability toggle in Xcode's Signing & Capabilities and no
+  provisioning-profile entry. The `com.apple.developer.siri` entitlement that shows up in older material is a
+  **SiriKit** (the pre-iOS 16, `INIntent`-based framework) requirement, not an App Intents one; this app uses only
+  App Intents. **No paid Apple Developer Program is needed for any of §1 or §2's App Intents/App Shortcuts/
+  Foundation Models work**, and none of it needs App Groups (out of scope per CLAUDE.md §2 regardless).
+- **App Shortcuts on a free-team Simulator/device build**: the App Shortcuts phrases, Spotlight surfacing, and
+  Shortcuts-app entries are a function of the app being installed and `AppShortcutsProvider.appShortcuts` being
+  read at launch — nothing here is gated behind provisioning. This matches the "Today (baseline)" note in
+  `docs/sprints/SPRINT-25.md` that the two existing intents already work. **Open question for the owner (recorded
+  below): has "Log a transaction in Household Hub" actually been tried by voice on the owner's free-Personal-Team
+  device build, or only through the Shortcuts app?** — Siri itself (vs. the Shortcuts app) sometimes needs the
+  device's own Siri/dictation to be enabled, which is a device setting, not a signing capability, but is worth the
+  owner confirming since Siri cannot run in CI.
+
+**4. Testing**
+- **Unit-testable (CI, Swift Testing, per CLAUDE.md §8):** everything an intent's `perform()` delegates to a
+  service — `ShortcutEntry.draft`/a new wishlist-add grammar's parsing, `TransactionService`/a `WishlistService`
+  write path, the lock-check branch (`isLockEnabled`), and the `Failure` cases' mapping — exactly as
+  `LogTransactionIntent`'s logic is already tested indirectly through `ShortcutEntry` and the transaction service,
+  never through `AppIntent.perform()` itself (the Siri/App Intents runtime cannot run headlessly in CI or the
+  Simulator — there is no documented API to invoke an `AppIntent` end-to-end in an XCTest/Swift Testing target the
+  way `perform()` would really run under Siri).
+- **Hand-check only, on a real device (WALK-QUEUE, cannot run in CI):** the actual phrases spoken to Siri
+  (including in Spanish once localized), `requestValueDialog`/`requestValue` follow-up turns, `requestConfirmation`
+  wording and the Face ID/passcode prompt it triggers when the lock is on, whether Siri actually offers the
+  shortcut after first launch (donation/Spotlight surfacing timing is not deterministic), and the exact behavior
+  described in 1b (whether a person's one-breath "trigger phrase + free text" utterance is delivered as a single
+  parameter value the way `LogTransactionIntent` already assumes it is) — this last one is the load-bearing
+  assumption the whole "one sentence" plan rests on and should be the first thing checked on the phone before
+  building a wishlist grammar around it.
+
+**Open questions → recorded in `docs/research/open-questions.md`:** the exact `introducedAt` OS version for
+"Making onscreen content available to Siri and Apple Intelligence" (DocC JSON endpoint 404s for this article page)
+and whether the owner has confirmed `LogTransactionIntent` responds to actual spoken Siri (not just the Shortcuts
+app) on their free-Personal-Team device build.
