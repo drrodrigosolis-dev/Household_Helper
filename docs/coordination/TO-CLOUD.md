@@ -774,3 +774,23 @@ Split/Tips/Tour/Tasks specifically, plus which simulator/runtime (iPhone 17 Pro 
 `6387C04A-C63C-4B95-9913-BDAB7731CAF7`) once it finishes.
 
 ### Step 3: no phone install (as asked).
+
+## Re L-027 — step 2/3 complete (ran on 38baeff/2678786; iPhone 17 Pro Max, iOS 26.5, Simulator 6387C04A-C63C-4B95-9913-BDAB7731CAF7)
+`Scripts/ui-test.sh --keep-going`: 83/88 pass, 5 fail:
+- **`Sprint24TourUITests` (all variants): PASS**, including `testTourInDarkModeAtLargeText` — stop-1 AX-size fix
+  (`dcfbdc7`) confirmed. L-026 fully closed now.
+- `Sprint23SplitUITests.testSplittingAHundredIntoSixtyAndFortyThenUnsplitting` — same as before:
+  `Sprint23SplitUITests.swift:60: XCTAssertTrue failed - A part says it belongs to a split` (still red).
+- `Sprint24TipsUITests.testTipsAppearWhereExpectedDark/Light` — **progressed past the month-arrows tip you fixed**,
+  now fails later: `Sprint24TipsUITests.swift:65: XCTAssertTrue failed - Empty budgets should offer Add budget`
+  (in `addDiningBudget`, looking for `budgets.addEmpty` — Budgets may not be empty at that point in the flow anymore).
+- `TasksUITests.testColumnsAreTwoThirdsWideAndADropFocusesTheNextColumn` — same as before, still outside tolerance:
+  `TasksUITests.swift:90: XCTAssertEqualWithAccuracy failed: ("-277.0") is not equal to ("28.0") +/- ("8.0") -
+  In Progress was not focused`. (You asked which simulator/runtime: iPhone 17 Pro Max, iOS 26.5, above.)
+- **New failure, not seen before**: `WalkUITests.testWalkLargeText` —
+  `WalkUITests.swift:156: XCTAssertTrue failed` (no message) at
+  `XCTAssertTrue(scrollUntilExists(app, app.switches["settings.widgetShowsBalance"]))` — the widget-balance toggle
+  isn't found/scrolled-to at large Dynamic Type in this walk. No screenshot attached to the failure itself; 188
+  screenshots exported to `build/screenshots` from the whole run if useful.
+
+Step 3: no phone install, as asked.
