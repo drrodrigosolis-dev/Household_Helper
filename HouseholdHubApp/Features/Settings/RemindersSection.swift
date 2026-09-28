@@ -1,14 +1,35 @@
+import HouseholdHubCore
 import SwiftUI
 
 /// Settings › Reminders (Sprint 14): two switches, both off until turned on. Turning one on asks for notification
 /// permission; if it is refused the switch goes back off and says where to allow it. Sprint 23 F7 adds budget alerts,
-/// on by default (they arrive once notifications are allowed).
+/// on by default (they arrive once notifications are allowed). Sprint 26 adds the "Reminder default time" (9:00 until
+/// changed) for tasks without a time and for bills; changing it reschedules, like the switches.
 struct RemindersSection: View {
     @Environment(\.services) private var services
     @AppStorage(ReminderSync.tasksKey) private var tasksDue = false
     @AppStorage(ReminderSync.billsKey) private var billsDue = false
     @AppStorage(ReminderSync.budgetAlertsKey) private var budgetAlerts = true
+    @AppStorage(ReminderSync.defaultTimeKey) private var defaultTime = TimeOfDay.defaultReminderMinutes
     @State private var permissionDenied = false
+
+    private var calendar: HouseholdCalendar { HouseholdCalendar(timeZone: .current) }
+
+    /// The stored minutes, or 9:00 if the stored value can't be a time of day.
+    private var defaultMinutes: Int {
+        TimeOfDay.isValid(defaultTime) ? defaultTime : TimeOfDay.defaultReminderMinutes
+    }
+
+    private var defaultTimeText: String {
+        TimeOfDay.date(minutes: defaultMinutes, onDayOf: .now, calendar: calendar)
+            .formatted(date: .omitted, time: .shortened)
+    }
+
+    private var defaultTimeBinding: Binding<Date> {
+        Binding(
+            get: { TimeOfDay.date(minutes: defaultMinutes, onDayOf: .now, calendar: calendar) },
+            set: { date in defaultTime = TimeOfDay.minutes(of: date, calendar: calendar) })
+    }
 
     var body: some View {
         Section {
@@ -16,6 +37,8 @@ struct RemindersSection: View {
                 .accessibilityIdentifier("settings.remindTasks")
             Toggle("Bills due tomorrow", isOn: binding($billsDue))
                 .accessibilityIdentifier("settings.remindBills")
+            DatePicker("Reminder default time", selection: defaultTimeBinding, displayedComponents: .hourAndMinute)
+                .accessibilityIdentifier("settings.reminderDefaultTime")
             Toggle("Budget alerts", isOn: binding($budgetAlerts))
                 .accessibilityIdentifier("settings.budgetAlerts")
             if permissionDenied {
@@ -27,9 +50,14 @@ struct RemindersSection: View {
             Text("Reminders")
         } footer: {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Reminders arrive at 9:00 on this device. They show names only, never amounts.")
+                Text("A task with a time reminds at that time. Other tasks and bills remind at \(defaultTimeText).")
+                    .accessibilityIdentifier("settings.reminderDefaultTimeNote")
+                Text("Reminders arrive on this device. They show names only, never amounts.")
                 Text("Budget alerts come once a month per category, at 80 and at 100 percent of its budget.")
             }
+        }
+        .onChange(of: defaultTime) {
+            Task { await ReminderSync.refresh(services) }
         }
     }
 

@@ -410,7 +410,7 @@ struct TaskCard: View {
     private var details: some View {
         Text("\(WishlistFormat.priorityText(task.priority)) priority")
         if let due = task.dueDate {
-            Label(due.formatted(date: .abbreviated, time: .omitted), systemImage: "calendar")
+            Label(TaskDueFormat.text(due: due, minutes: task.dueTimeMinutes), systemImage: "calendar")
         }
         if task.recurrenceRuleData != nil {
             Label("Repeats", systemImage: "repeat")

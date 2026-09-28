@@ -1,10 +1,11 @@
 import HouseholdHubCore
 import UserNotifications
 
-/// Local reminders (Sprint 14, owner decision 23): tasks due today and recurring bills due tomorrow, at 9:00, each
-/// kind behind its own switch (off until turned on), on this device only: the switches are device preferences, not
-/// backed-up data. No push server; nothing leaves the device. Rebuilt from the store whenever the app goes to the
-/// background or a switch changes, so edits are picked up without tracking each one.
+/// Local reminders (Sprint 14, owner decision 23): tasks due today and recurring bills due tomorrow, each kind behind
+/// its own switch (off until turned on), on this device only: the switches are device preferences, not backed-up
+/// data. No push server; nothing leaves the device. Rebuilt from the store whenever the app goes to the background or
+/// a setting changes, so edits are picked up without tracking each one. Sprint 26: a task with a due time reminds at
+/// it; other tasks and bills at the "Reminder default time" (9:00 until changed), also a device preference.
 ///
 /// Sprint 23 F7: budget alerts when a category reaches 80 % and 100 % of its budget, once each per category per
 /// month. On by default, but they only arrive once notifications are allowed (turning any switch on asks). Which ones
@@ -18,6 +19,13 @@ enum ReminderSync {
     /// Budget alerts default to on (Sprint 23 F7); `bool(forKey:)` would read a missing value as off.
     static var budgetAlertsOn: Bool {
         UserDefaults.standard.object(forKey: budgetAlertsKey) as? Bool ?? true
+    }
+    /// Sprint 26: the "Reminder default time", minutes after midnight (540 = 9:00 until the user sets one). A task
+    /// without a time and every bill remind at it; a task with a time reminds at its own.
+    static let defaultTimeKey = "reminders.defaultTime"
+    static var defaultTimeMinutes: Int {
+        let stored = UserDefaults.standard.object(forKey: defaultTimeKey) as? Int
+        return stored.flatMap { TimeOfDay.isValid($0) ? $0 : nil } ?? TimeOfDay.defaultReminderMinutes
     }
     /// How far ahead bills are looked at; the plan keeps the 60 soonest reminders anyway.
     private static let billDays = 62
@@ -44,7 +52,8 @@ enum ReminderSync {
         guard !ProcessInfo.processInfo.arguments.contains(LaunchArguments.uiTesting), let services else { return }
         let defaults = UserDefaults.standard
         let settings = ReminderSettings(
-            tasksDue: defaults.bool(forKey: tasksKey), billsDue: defaults.bool(forKey: billsKey))
+            tasksDue: defaults.bool(forKey: tasksKey), billsDue: defaults.bool(forKey: billsKey),
+            defaultTimeMinutes: defaultTimeMinutes)
         let center = UNUserNotificationCenter.current()
         let pending = await center.pendingNotificationRequests().map(\.identifier).filter(isOurs)
         center.removePendingNotificationRequests(withIdentifiers: pending)
