@@ -315,3 +315,30 @@ CI. Remove the scratch worktree afterwards (`git worktree remove /tmp/hh-fd7e67e
 2. By hand: rest a task on the right-edge peek 3 s → exactly one column slides in; release → the card lands there.
    Then refund a wishlist purchase fully → "Keep on wishlist" closes the sheet and the item is back to Wanted.
 3. No install unless the owner asks (the phone is on SchemaV3 at `8a9ec36`).
+
+## L-023 — Sprint 23 round 1: re-verify the wave-1 fixes on `87eb2e2` (or later)
+Written without a compiler: first `Scripts/verify.sh --keep-going`; paste compile errors / failing tests verbatim
+into TO-CLOUD.md before anything else (that alone is useful). Then re-check each finding and answer one line per ID:
+closed / reopened (new evidence) / not verified (why).
+- A-001: new bill, Monthly on today's day, Starts left at its default (now start of today) → Upcoming lists it today;
+  the editor shows "Next: …" with today first. Also: a bill with Starts = a few minutes ago → still due today.
+- A-002: Mark Purchased a wishlist item → Recent activity shows the expense once, no wishlist row for it.
+- A-003: import `sample-1500.csv` → "Pizza Place" is the Merchant, Notes empty.
+- A-004: every amount field (Quick Add details, Recurring, Budget, Goal, Wishlist, Mark Purchased, Refund, Transfer,
+  Transaction editor): "Done" above the number pad dismisses it; dragging the form down dismisses it too.
+- A-005: search "pizza" with 1,500 rows: typing keeps up (debounced 150 ms).
+- A-006 / F1: after categorising one "Pizza Place" by hand, a new import of more Pizza Place rows pre-selects that
+  category in the preview ("Suggested…"); Budget › filter › Uncategorized shows only uncategorized rows.
+- A-007: Budget › Select → pick rows → Set category… / Delete (confirmation shows the count).
+- A-008 / A-009: with a real long press (not the zero-length tap), Refund… on a wishlist-purchase expense and the
+  empty-state "Add budget" — do they open? (Both pass in CI UI tests.)
+- A-010: with TWO active accounts, Mark Purchased shows "Paid from" (the walk had one account).
+- A-012: More › Settings › Data, switch tab, come back, tap More again → back at More. (Unsure iOS reports the re-tap.)
+- A-013 / A-014: no floating + on Recurring or Budgets, nor while searching.
+- A-015: open a transaction → Save is off until you change something.
+- A-016: purchased wishlist item → "Recorded in Budget as an expense" opens the expense.
+- A-019: empty Wishlist shows "Add item".
+- A-021: Settings row reads "Data".
+- A-022: delete an account a goal uses → refused straight away, no "can't be undone" confirmation first.
+- A-011: won't fix (no public API to re-expand a large title); A-023: finger check if the owner is around.
+Features (F2–F8, A-017, A-018, split) come in a later L-item.
