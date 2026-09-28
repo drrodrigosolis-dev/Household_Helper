@@ -17,8 +17,9 @@ struct OpenQuickAddIntent: AppIntent {
 }
 
 /// Records a transaction typed in the Quick Add grammar ("47.50 coffee", "+ 1200 paycheck yesterday"). The §25
-/// parser reads it (never the on-device model), and nothing is saved until the person confirms what was understood
-/// (Sprint 8 default 6).
+/// parser reads it; since Sprint 25 the on-device model may read a free sentence first where Apple Intelligence and
+/// "Quick Add understanding" are on, and its answer is validated (`SiriRefinement`). Nothing is saved until the
+/// person confirms what was understood (Sprint 8 default 6).
 struct LogTransactionIntent: AppIntent {
     static let title: LocalizedStringResource = "Log Transaction"
     static let description: IntentDescription? = IntentDescription(
@@ -58,10 +59,19 @@ struct LogTransactionIntent: AppIntent {
         }
         let now = Date.now
         let calendar = HouseholdCalendar(timeZone: .current)
+        // Sprint 25: with "Quick Add understanding" on and Apple Intelligence available, the on-device model may read
+        // a free sentence ("I spent 40 on groceries at Safeway yesterday"); a category only with "Category
+        // suggestions" on. Its answer is validated and the grammar's draft is used otherwise (§6, §25).
+        let context = try await services.transactions.siriContext()
+        let model: (any SiriDraftModel)? =
+            context.understandsText && AppInfo.onDeviceModelAvailable ? OnDeviceSiriModel() : nil
+        let categories = context.suggestsCategories ? context.categories : []
         let draft: TransactionDraft
         do {
-            draft = try ShortcutEntry.draft(
-                text: text, settings: try await services.transactions.settingsSnapshot(), now: now, calendar: calendar)
+            let refined = try await SiriRefinement.transaction(
+                text: text, settings: context.settings, categories: categories, model: model, now: now,
+                calendar: calendar)
+            draft = refined.draft
         } catch ShortcutEntryError.notSetUp {
             throw Failure.notSetUp
         } catch ShortcutEntryError.noAmount {
@@ -69,8 +79,22 @@ struct LogTransactionIntent: AppIntent {
         }
         let kind = draft.type == .income ? String(localized: "income") : String(localized: "expense")
         let day = draft.occurredAt.formatted(date: .abbreviated, time: .omitted)
-        try await requestConfirmation(
-            actionName: .log, dialog: "Record \(draft.amount.formatted()) \(kind) on \(day)?")
+        let amount = draft.amount.formatted()
+        // Everything that will be saved is said back: the merchant and a category when the draft has them.
+        let category = draft.categoryID.flatMap { id in categories.first { $0.id == id }?.name }
+        switch (draft.merchantName, category) {
+        case (let merchant?, let category?):
+            try await requestConfirmation(
+                actionName: .log, dialog: "Record \(amount) \(kind) at \(merchant) on \(day), in \(category)?")
+        case (let merchant?, nil):
+            try await requestConfirmation(
+                actionName: .log, dialog: "Record \(amount) \(kind) at \(merchant) on \(day)?")
+        case (nil, let category?):
+            try await requestConfirmation(
+                actionName: .log, dialog: "Record \(amount) \(kind) on \(day), in \(category)?")
+        case (nil, nil):
+            try await requestConfirmation(actionName: .log, dialog: "Record \(amount) \(kind) on \(day)?")
+        }
         // A restore may have started while the prompt was showing; nothing else writes during one.
         guard !(await AppRouter.shared.isRestoring) else { throw Failure.unavailable }
         try await services.transactions.create(draft, now: now)
@@ -87,5 +111,16 @@ struct HouseholdHubShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: LogTransactionIntent(), phrases: ["Log a transaction in \(.applicationName)"],
             shortTitle: "Log Transaction", systemImageName: "square.and.pencil")
+        AppShortcut(
+            intent: AddToWishlistIntent(),
+            phrases: [
+                "Add to my wishlist in \(.applicationName)", "Add to my \(.applicationName) wishlist",
+                "Add a wish in \(.applicationName)",
+            ], shortTitle: "Add to Wishlist", systemImageName: "gift")
+        AppShortcut(
+            intent: AddTaskIntent(),
+            phrases: [
+                "Add a task in \(.applicationName)", "Add a \(.applicationName) task", "New task in \(.applicationName)",
+            ], shortTitle: "Add Task", systemImageName: "checklist")
     }
 }
