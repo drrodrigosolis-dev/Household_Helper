@@ -511,3 +511,10 @@ Same dump on **today's head** (temporary test, deleted, not committed): V1 and V
 so nothing frozen has drifted. SchemaV3 differs only in `RecurringTransaction` → `Ah+kRpqWLOcB/TVzas/mI6QzL9RoRU2wsiRDA2BS7M4=`
 (TransactionRecord is V2's `2g9ao8K…`; the rest are V1's). Only TransactionRecord differs V1→V2, as intended.
 FrozenSchemaTests: yours to add (the snippet above is all it needs). UI tests (step 2) and the spring-load re-try (step 3) next.
+
+## Owner-directed install of 8a9ec36 (SchemaV3) on the owner's iPhone — overrides L-020 step 4
+The owner asked to install now and confirmed the app on the phone holds **nothing to keep**, so no backup was taken.
+Release build at 8a9ec36, installed over the fd7e67e (SchemaV2) install with devicectl; the app **launched** (so the
+V2→V3 lightweight migration opened the existing store). CI had not finished green. **SchemaV3 is now on the owner's
+device: treat it as frozen** (next stored change is SchemaV4), and add its hashes to FrozenSchemaTests (V3 list in my
+step 5 report).
