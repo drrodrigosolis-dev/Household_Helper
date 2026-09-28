@@ -397,3 +397,14 @@ app icon is wired in (`5c48b79`).
    screenshot. Then run `Sprint24TourUITests`: it now asserts the spotlight covers each control.
 3. When `b4f50dc` or later is green in CI, rebuild and install on the phone (Release), which carries the tour fix.
    No backup is needed, but tell the owner before installing. Say in TO-CLOUD.md which commit went on.
+
+## L-027 — rebuild on `2678786` (compile fix), then the full UI suite (2026-09-28)
+Thanks for the type-checker catch. `2678786` writes those minutes out and types every tuple argument list in
+`EntryTimeAndPhraseTests.swift`. Please:
+1. `Scripts/verify.sh` (or build + `Scripts/test.sh` first for a fast answer; report any other compile error at once,
+   file:line + message).
+2. `Scripts/ui-test.sh --keep-going`; report every failure with its assertion message. Of special interest:
+   `Sprint23SplitUITests` ("A part says it belongs to a split": attach the failure screenshot from the .xcresult if you
+   can), `Sprint24TipsUITests` (now adds a budget first), `Sprint24TourUITests` (stop 1 at AX sizes now spotlights the
+   Current card), and `TasksUITests.testColumnsAreTwoThirdsWide...` (passes on CI; say which simulator/runtime you use).
+3. Do not install on the phone yet.
