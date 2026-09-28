@@ -145,6 +145,19 @@ struct BudgetView: View {
                     }
                 }
             }
+            // Near the top: the pickers below can make the menu long.
+            Section {
+                Button("More filters…", systemImage: "slider.horizontal.3") { isShowingMoreFilters = true }
+                if filter.wrappedValue.isActive || !searchText.isEmpty {
+                    Button("Save search…", systemImage: "bookmark") {
+                        newSearchName = ""
+                        isNamingSearch = true
+                    }
+                }
+                if !savedSearches.isEmpty {
+                    Button("Saved searches…", systemImage: "list.bullet") { isManagingSearches = true }
+                }
+            }
             Picker("Period", selection: periodBinding(filter)) {
                 Text("All time").tag(TransactionFilter.Period.all)
                 Text("This week").tag(TransactionFilter.Period.thisWeek)
@@ -172,16 +185,6 @@ struct BudgetView: View {
                 ForEach(TransactionStatus.allCases, id: \.self) { status in
                     Text(LedgerFormat.statusLabel(status)).tag(TransactionStatus?.some(status))
                 }
-            }
-            Button("More filters…", systemImage: "slider.horizontal.3") { isShowingMoreFilters = true }
-            if filter.wrappedValue.isActive || !searchText.isEmpty {
-                Button("Save search…", systemImage: "bookmark") {
-                    newSearchName = ""
-                    isNamingSearch = true
-                }
-            }
-            if !savedSearches.isEmpty {
-                Button("Saved searches…", systemImage: "list.bullet") { isManagingSearches = true }
             }
             if filter.wrappedValue.isActive {
                 Button("Clear filters", role: .destructive) { filter.wrappedValue = TransactionFilter() }
