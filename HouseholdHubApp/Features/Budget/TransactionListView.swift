@@ -203,6 +203,11 @@ private struct FilteredTransactions: View {
         }
         .listStyle(.insetGrouped)
         .environment(\.editMode, Binding.constant(isSelecting ? EditMode.active : EditMode.inactive))
+        // Sprint 23 (F3 polish): scrolling away from a fresh Undo offer dismisses it early, same as it timing out.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 12).onChanged { _ in
+                if undoCenter?.banner != nil { undoCenter?.dismiss() }
+            })
     }
 
     /// Rows are selectable only in Select mode; otherwise a tap opens the editor.
@@ -494,6 +499,26 @@ struct TransactionRow: View {
     /// Every account, so a row can name its own when there is more than one (Sprint 10 decision 7).
     var accounts: [Account] = []
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// Sprint 23 hand check: a refund with no merchant or note of its own (typically one on a wishlist purchase
+    /// entered with neither) is named after what it refunds instead of falling back to "Transaction". Looked up by
+    /// `refundOfTransactionID`, the existing link; empty for every row that isn't such a refund.
+    @Query private var refundedPurchase: [TransactionRecord]
+    @Query private var refundedWishlistItem: [WishlistItem]
+
+    init(record: TransactionRecord, category: CategoryRecord?, accounts: [Account] = []) {
+        self.record = record
+        self.category = category
+        self.accounts = accounts
+        if record.type == .refund, let purchaseID = record.refundOfTransactionID {
+            _refundedPurchase = Query(filter: #Predicate<TransactionRecord> { $0.id == purchaseID })
+            let purchasedID: UUID? = purchaseID
+            _refundedWishlistItem = Query(
+                filter: #Predicate<WishlistItem> { $0.purchasedTransactionID == purchasedID })
+        } else {
+            _refundedPurchase = Query(filter: #Predicate<TransactionRecord> { _ in false })
+            _refundedWishlistItem = Query(filter: #Predicate<WishlistItem> { _ in false })
+        }
+    }
 
     /// Transfers and refunds show what they are; everything else shows its category's icon.
     static func badgeIcon(_ type: TransactionType) -> String? {
@@ -508,17 +533,39 @@ struct TransactionRow: View {
         accounts.first { $0.id == id }?.name
     }
 
+    /// What a nameless refund gives money back for: the wishlist item its purchase completed, else the purchase's
+    /// own merchant or note. Nil when this isn't a refund, or its purchase and item are both gone.
+    private var refundedName: String? {
+        guard record.type == .refund else { return nil }
+        if let item = refundedWishlistItem.first { return item.name }
+        if let purchase = refundedPurchase.first {
+            return purchase.merchantNameSnapshot ?? purchase.notes
+        }
+        return nil
+    }
+
+    /// True once `title` already reads "Refund · <name>", so `subtitle` does not say "Refund" a second time.
+    private var titleNamesRefund: Bool {
+        record.type == .refund && record.merchantNameSnapshot == nil && record.notes == nil && refundedName != nil
+    }
+
     private var title: String {
         if record.type == .transfer {
             let destination = accountName(record.transferAccountID) ?? String(localized: "another account")
             return record.notes ?? String(localized: "Transfer to \(destination)")
         }
-        return record.merchantNameSnapshot ?? record.notes ?? category?.name ?? String(localized: "Transaction")
+        if let own = record.merchantNameSnapshot ?? record.notes {
+            return own
+        }
+        if let refundedName {
+            return String(localized: "Refund · \(refundedName)")
+        }
+        return category?.name ?? String(localized: "Transaction")
     }
 
     private var subtitle: String {
         var parts: [String] = []
-        if record.type == .refund {
+        if record.type == .refund, !titleNamesRefund {
             parts.append(String(localized: "Refund"))
         }
         // Sprint 23 (F4): one part of a split payment.
@@ -532,7 +579,7 @@ struct TransactionRow: View {
         } else if accounts.count > 1, let name = accountName(record.accountID) {
             parts.append(name)
         }
-        if let category, record.merchantNameSnapshot != nil || record.notes != nil {
+        if let category, record.merchantNameSnapshot != nil || record.notes != nil || titleNamesRefund {
             parts.append(category.name)
         }
         if record.status != .posted {
