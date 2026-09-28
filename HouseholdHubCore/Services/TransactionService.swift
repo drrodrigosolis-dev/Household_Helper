@@ -381,18 +381,21 @@ public actor TransactionService {
     // MARK: Recurring
 
     /// Creates a validated recurring series (positive template, household currency, usable category of the right
-    /// kind, usable accounts; a recurring transfer names two accounts). Series are definitions only; no transactions
-    /// are generated (spec §9.4).
+    /// kind, usable accounts; a recurring transfer names two accounts and no store). Series are definitions only; no
+    /// transactions are generated (spec §9.4). A purchase (Sprint 22) is an expense, usually at a store
+    /// (`merchantName`), which each posted occurrence records as its merchant.
     @discardableResult
     public func createSeries(
         templateAmount: Money, type: TransactionType, rule: RecurrenceRule, timeZone: TimeZone, startDate: Date,
         endDate: Date? = nil, categoryID: UUID? = nil, notes: String? = nil, accountID: UUID? = nil,
-        transferAccountID: UUID? = nil, now: Date
+        transferAccountID: UUID? = nil, kind: RecurringKind = .bill, merchantName: String? = nil, now: Date
     ) throws -> UUID {
         begin()
+        guard kind == .bill || type == .expense else { throw LedgerError.purchaseMustBeExpense }
+        let store = Self.storeName(merchantName)
         let template = TransactionDraft(
-            amount: templateAmount, type: type, occurredAt: startDate, categoryID: categoryID, accountID: accountID,
-            transferAccountID: transferAccountID)
+            amount: templateAmount, type: type, occurredAt: startDate, categoryID: categoryID, merchantName: store,
+            accountID: accountID, transferAccountID: transferAccountID)
         try template.validate()
         let settings = try requireSettings()
         try requireCurrency(templateAmount, settings)
@@ -407,6 +410,10 @@ public actor TransactionService {
         series.transferAccountID = accounts.destination
         series.categoryID = categoryID
         series.notes = notes
+        series.kind = kind
+        if let store {
+            series.merchantID = try findOrCreateMerchant(named: store, now: now).id
+        }
         let snapshot = try series.series()
         // `nextOccurrence(after:)` is strict, so step back one second to include the start itself.
         series.nextOccurrence = RecurrenceEngine().nextOccurrence(of: snapshot, after: startDate.addingTimeInterval(-1))
@@ -454,6 +461,10 @@ public actor TransactionService {
         record.transferAccountID = series.transferAccountID
         record.categoryID = series.categoryID
         record.merchantID = series.merchantID
+        // The store's name as it is now, kept on the record like a typed-in merchant (spec §7.4).
+        if let merchantID = series.merchantID {
+            record.merchantNameSnapshot = try merchant(merchantID)?.displayName
+        }
         record.notes = series.notes
         modelContext.insert(record)
         series.nextOccurrence = RecurrenceEngine().nextOccurrence(of: snapshot, after: occurrence)
@@ -559,13 +570,22 @@ public actor TransactionService {
             }
         }
         let enabled = FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.isEnabled == true })
+        let models = try modelContext.fetch(enabled)
+        // Store names for purchases (Sprint 22), in one fetch.
+        var storeNames: [UUID: String] = [:]
+        if models.contains(where: { $0.merchantID != nil }) {
+            for merchant in try modelContext.fetch(FetchDescriptor<Merchant>()) {
+                storeNames[merchant.id] = merchant.displayName
+            }
+        }
         var upcoming: [UpcomingOccurrence] = []
-        for model in try modelContext.fetch(enabled) {
+        for model in models {
             let series = try model.series()
+            let merchantName = series.merchantID.flatMap { storeNames[$0] }
             for date in RecurrenceEngine().occurrences(of: series, in: window) {
                 let item = UpcomingOccurrence(
                     seriesID: series.id, date: date, amount: series.templateAmount, type: series.type,
-                    title: model.notes)
+                    title: model.notes, kind: series.kind, merchantName: merchantName)
                 if !handled.contains(item.id) {
                     upcoming.append(item)
                 }
@@ -584,18 +604,21 @@ public actor TransactionService {
     }
 
     /// Changes a series' template and rule (spec §9.4: occurrences are computed, so a rule change only moves the
-    /// projection). Transactions already posted from it keep their own amount, date, and category; the next
-    /// occurrence is recomputed after the latest one posted, so nothing is offered twice.
+    /// projection). Transactions already posted from it keep their own amount, date, category and merchant; the next
+    /// occurrence is recomputed after the latest one posted, so nothing is offered twice. `kind` and `merchantName`
+    /// replace the stored ones: pass the series' current values to keep them (no store clears it).
     public func updateSeries(
         _ id: UUID, templateAmount: Money, type: TransactionType, rule: RecurrenceRule, startDate: Date,
         endDate: Date? = nil, categoryID: UUID?, notes: String?, accountID: UUID? = nil,
-        transferAccountID: UUID? = nil, now: Date
+        transferAccountID: UUID? = nil, kind: RecurringKind = .bill, merchantName: String? = nil, now: Date
     ) throws {
         begin()
         guard let series = try recurringSeries(id) else { throw LedgerError.unknownSeries }
+        guard kind == .bill || type == .expense else { throw LedgerError.purchaseMustBeExpense }
+        let store = Self.storeName(merchantName)
         let template = TransactionDraft(
-            amount: templateAmount, type: type, occurredAt: startDate, categoryID: categoryID, accountID: accountID,
-            transferAccountID: transferAccountID)
+            amount: templateAmount, type: type, occurredAt: startDate, categoryID: categoryID, merchantName: store,
+            accountID: accountID, transferAccountID: transferAccountID)
         try template.validate()
         let settings = try requireSettings()
         try requireCurrency(templateAmount, settings)
@@ -605,6 +628,11 @@ public actor TransactionService {
         }
         let accounts = try resolveAccounts(
             template, settings: settings, current: (series.accountID, series.transferAccountID), now: now)
+        // Looked up before the first edit to the series, so a failed fetch leaves it as it was.
+        var merchantID: UUID?
+        if let store {
+            merchantID = try findOrCreateMerchant(named: store, now: now).id
+        }
         series.accountID = accounts.source
         series.transferAccountID = accounts.destination
         try series.setRule(rule)
@@ -615,6 +643,8 @@ public actor TransactionService {
         series.endDate = endDate
         series.categoryID = categoryID
         series.notes = notes
+        series.kind = kind
+        series.merchantID = merchantID
         series.updatedAt = now
         let target: UUID? = id
         let posted = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.recurringSeriesID == target })
@@ -702,6 +732,17 @@ public actor TransactionService {
         guard let category = try modelContext.fetch(descriptor).first else { throw LedgerError.unknownCategory }
         guard allowArchived || !category.isArchived else { throw LedgerError.archivedCategory }
         guard category.kind.allows(type) else { throw LedgerError.categoryKindMismatch(category.kind, type) }
+    }
+
+    private func merchant(_ id: UUID) throws -> Merchant? {
+        let descriptor = FetchDescriptor<Merchant>(predicate: #Predicate { $0.id == id })
+        return try modelContext.fetch(descriptor).first
+    }
+
+    /// A series' store (Sprint 22): the trimmed name, or nil when there is none.
+    private static func storeName(_ name: String?) -> String? {
+        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return Merchant.normalize(trimmed).isEmpty ? nil : trimmed
     }
 
     private func findOrCreateMerchant(named name: String, now: Date) throws -> Merchant {

@@ -86,9 +86,10 @@ public actor BackupService {
     /// updated in place, one only in the backup is inserted, one only in the store is deleted. Restoring a device's
     /// own backup (same ids) therefore never relies on how SwiftData resolves a unique-id clash within one save, and
     /// a screen still showing a record keeps a live object.
-    public func restore(_ backup: BackupDTO, availableMedia: Set<String>, now: Date) throws -> RestoreSummary {
-        let backup = backup.upgradedToCurrent()
-        try BackupValidator.validate(backup)
+    public func restore(_ original: BackupDTO, availableMedia: Set<String>, now: Date) throws -> RestoreSummary {
+        // The file as read, so rules about its own version (no refunds before v3, no recurring kinds before v4) apply.
+        try BackupValidator.validate(original)
+        let backup = original.upgradedToCurrent()
         if modelContext.hasChanges {
             modelContext.rollback()
         }
@@ -304,8 +305,8 @@ extension BackupService {
             type: model.typeRawValue, categoryID: model.categoryID, merchantID: model.merchantID, notes: model.notes,
             rule: try model.rule(), timeZoneIdentifier: model.timeZoneIdentifier, startDate: model.startDate,
             endDate: model.endDate, nextOccurrence: model.nextOccurrence, isEnabled: model.isEnabled,
-            accountID: model.accountID, transferAccountID: model.transferAccountID, createdAt: model.createdAt,
-            updatedAt: model.updatedAt)
+            accountID: model.accountID, transferAccountID: model.transferAccountID, kind: model.kindRawValue,
+            createdAt: model.createdAt, updatedAt: model.updatedAt)
     }
 
     static func make(_ dto: BackupDTO.Recurring) throws -> RecurringTransaction {
@@ -332,6 +333,7 @@ extension BackupService {
         model.isEnabled = dto.isEnabled
         model.accountID = dto.accountID
         model.transferAccountID = dto.transferAccountID
+        model.kindRawValue = dto.kind
         model.createdAt = dto.createdAt
         model.updatedAt = dto.updatedAt
     }
