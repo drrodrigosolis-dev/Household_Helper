@@ -76,18 +76,35 @@ struct PersistenceTests {
         #expect(try context.fetchCount(descriptor) == 2)
     }
 
-    /// Sprint 20, 22 and 23: SchemaV1 (frozen at the first iPhone install), SchemaV2 and SchemaV3 (each frozen at its
-    /// install) and SchemaV4, one lightweight stage between each pair.
-    @Test func migrationPlanGoesFromSchemaV1ThroughSchemaV4() {
+    /// Sprint 20, 22, 23 and 26: SchemaV1 (frozen at the first iPhone install), SchemaV2 and SchemaV3 (each frozen at
+    /// its install), SchemaV4 and SchemaV5, one lightweight stage between each pair.
+    @Test func migrationPlanGoesFromSchemaV1ThroughSchemaV5() {
         let versions = HouseholdMigrationPlan.schemas.map { $0.versionIdentifier }
-        #expect(versions == (1...4).map { Schema.Version($0, 0, 0) })
+        #expect(versions == (1...5).map { Schema.Version($0, 0, 0) })
         #expect(HouseholdMigrationPlan.schemas.first == SchemaV1.self)
         #expect(HouseholdMigrationPlan.schemas.last == CurrentSchema.self)
-        #expect(HouseholdMigrationPlan.stages.count == 3)
-        #expect(CurrentSchema.versionIdentifier == Schema.Version(4, 0, 0))
+        #expect(HouseholdMigrationPlan.stages.count == 4)
+        #expect(CurrentSchema.versionIdentifier == Schema.Version(5, 0, 0))
         #expect(SchemaV1.models.count == SchemaV2.models.count)
         #expect(SchemaV2.models.count == SchemaV3.models.count)
         #expect(SchemaV3.models.count == SchemaV4.models.count)
+        #expect(SchemaV4.models.count == SchemaV5.models.count)
+    }
+
+    /// Sprint 26: SchemaV5 names its own `TaskItem`; SchemaV1 to SchemaV4 keep the frozen V1 class, and SchemaV5 keeps
+    /// SchemaV4's transaction and SchemaV3's recurring classes.
+    @Test func eachSchemaVersionUsesItsOwnTaskClass() {
+        let names = { (models: [any PersistentModel.Type]) in models.map { String(reflecting: $0) } }
+        let v1 = String(reflecting: SchemaV1.TaskItem.self)
+        let v5 = String(reflecting: SchemaV5.TaskItem.self)
+        #expect(v1 != v5)
+        for schema in [SchemaV1.models, SchemaV2.models, SchemaV3.models, SchemaV4.models] {
+            #expect(names(schema).contains(v1) && !names(schema).contains(v5))
+        }
+        #expect(names(SchemaV5.models).contains(v5) && !names(SchemaV5.models).contains(v1))
+        #expect(names(SchemaV5.models).contains(String(reflecting: SchemaV4.TransactionRecord.self)))
+        #expect(names(SchemaV5.models).contains(String(reflecting: SchemaV3.RecurringTransaction.self)))
+        #expect(String(reflecting: TaskItem.self) == v5)
     }
 
     /// Each version names its own class for the model it changed and the frozen classes for the rest.
@@ -116,7 +133,7 @@ struct PersistenceTests {
     }
 
     /// Sprint 20, the owner's real data: a store written by SchemaV1 (as installed at `063a510`) opens through the
-    /// app's factory and migration plan (now through SchemaV2 and SchemaV3 to SchemaV4) with every record and field
+    /// app's factory and migration plan (now through SchemaV2 to SchemaV5) with every record and field
     /// intact, new refund links empty, every series a bill and no transaction split.
     @Test func aSchemaV1StoreOnDiskMigratesToTheCurrentSchemaWithEveryRecord() throws {
         let directory = FileManager.default.temporaryDirectory.appending(
@@ -208,7 +225,7 @@ struct PersistenceTests {
         #expect(try context.fetch(FetchDescriptor<Account>()).map(\.id) == [account])
         #expect(try context.fetch(FetchDescriptor<CategoryBudget>()).first?.rollsOver == true)
         #expect(try context.fetchCount(FetchDescriptor<SavingsGoal>()) == 1)
-        #expect(try context.fetchCount(FetchDescriptor<TaskItem>()) == 1)
+        #expect(try context.fetch(FetchDescriptor<TaskItem>()).map(\.dueTimeMinutes) == [nil])
         #expect(try context.fetchCount(FetchDescriptor<SubtaskItem>()) == 1)
 
         // Opening the migrated store again is a no-op.
@@ -461,8 +478,120 @@ struct PersistenceTests {
         #expect(try reopened.fetchCount(FetchDescriptor<RecurringTransaction>()) == 2)
     }
 
+    /// Sprint 26, the Simulator's data since Sprint 23: a store written by SchemaV4 opens through the app's factory and
+    /// migration plan with every record and field intact (a split group, a repeating task with its due date, links
+    /// and subtask), and no task has a time until the owner sets one.
+    @Test func aSchemaV4StoreOnDiskMigratesToSchemaV5WithEveryRecord() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(
+            path: "v4-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "Household.store")
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        let due = Date(timeIntervalSince1970: 1_790_060_400)
+        let coffee = UUID()
+        let account = UUID()
+        let categoryID = UUID()
+        let merchantID = UUID()
+        let bike = UUID()
+        let group = UUID()
+        let repeating = UUID()
+        let plain = UUID()
+        let rule = RecurrenceRule.weekly(interval: 1, weekday: 2)
+        do {
+            let schema = Schema(versionedSchema: SchemaV4.self)
+            let v4 = try ModelContainer(
+                for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none))
+            let context = ModelContext(v4)
+            let spent = SchemaV4.TransactionRecord(
+                id: coffee, amount: Money(minorUnits: 4_750, currencyCode: "CAD"), type: .expense, status: .posted,
+                source: .manual, occurredAt: now, now: now)
+            spent.accountID = account
+            spent.categoryID = categoryID
+            spent.merchantID = merchantID
+            spent.splitGroupID = group
+            context.insert(spent)
+            context.insert(SchemaV1.AppSettings(currencyCode: "CAD", now: now))
+            context.insert(
+                SchemaV1.CategoryRecord(
+                    id: categoryID, name: "Shopping", icon: "bag", color: .black, kind: .expense, sortOrder: 0,
+                    now: now))
+            context.insert(SchemaV1.Merchant(id: merchantID, displayName: "Store", now: now))
+            let bill = try SchemaV3.RecurringTransaction(
+                templateAmount: Money(minorUnits: 120_000, currencyCode: "CAD"), type: .expense,
+                rule: .monthlyOnDay(day: 1), timeZone: TimeZone(identifier: "America/Vancouver")!, startDate: now,
+                now: now)
+            bill.accountID = account
+            context.insert(bill)
+            context.insert(
+                SchemaV1.WishlistItem(
+                    id: bike, name: "bike", estimatedPrice: Money(minorUnits: 25_000, currencyCode: "CAD"),
+                    priority: .medium, now: now))
+            let column = SchemaV1.BoardColumn(name: "To Do", sortOrder: 0, isSystem: true, now: now)
+            context.insert(column)
+            context.insert(
+                SchemaV1.Account(
+                    id: account, name: "Main", kind: .bank, startingBalance: Money(minorUnits: 0, currencyCode: "CAD"),
+                    startingBalanceDate: now, sortOrder: 0, now: now))
+            context.insert(
+                SchemaV1.CategoryBudget(
+                    categoryID: categoryID, limit: Money(minorUnits: 50_000, currencyCode: "CAD"), rollsOver: true,
+                    start: BudgetMonth(year: 2026, month: 9), now: now))
+            context.insert(
+                SchemaV1.SavingsGoal(
+                    name: "Trip", target: Money(minorUnits: 300_000, currencyCode: "CAD"), accountID: account,
+                    targetDate: nil, wishlistItemID: nil, sortOrder: 0, now: now))
+            let task = SchemaV1.TaskItem(
+                id: repeating, title: "Water plants", columnID: column.id, priority: .high, sortOrder: 1, now: now)
+            task.notes = "balcony"
+            task.dueDate = due
+            task.recurrenceRuleData = try rule.encoded()
+            task.recurrenceTimeZoneIdentifier = "America/Vancouver"
+            task.linkedTransactionID = coffee
+            task.linkedWishlistItemID = bike
+            context.insert(task)
+            context.insert(
+                SchemaV1.TaskItem(
+                    id: plain, title: "Call", columnID: column.id, priority: .low, sortOrder: 2, now: now))
+            context.insert(SchemaV1.SubtaskItem(title: "Fill can", taskID: repeating, sortOrder: 1, now: now))
+            try context.save()
+        }
+
+        let onDisk = PersistenceConfiguration(storeURL: url)
+        let migrated = try HouseholdContainerFactory().makeContainer(configuration: onDisk)
+        let context = ModelContext(migrated)
+        let bySort = FetchDescriptor<TaskItem>(sortBy: [SortDescriptor(\.sortOrder)])
+        let tasks = try context.fetch(bySort)
+        #expect(tasks.map(\.id) == [repeating, plain])
+        #expect(tasks.allSatisfy { $0.dueTimeMinutes == nil }, "No task has a time before the owner sets one")
+        let first = try #require(tasks.first)
+        #expect(first.title == "Water plants" && first.notes == "balcony" && first.priority == .high)
+        #expect(first.dueDate == due && first.recurrence == rule)
+        #expect(first.recurrenceTimeZoneIdentifier == "America/Vancouver")
+        #expect(first.linkedTransactionID == coffee && first.linkedWishlistItemID == bike)
+        #expect(tasks.last?.dueDate == nil && tasks.last?.priority == .low)
+        #expect(try context.fetch(FetchDescriptor<SubtaskItem>()).map(\.taskID) == [repeating])
+        #expect(try context.fetch(FetchDescriptor<TransactionRecord>()).first?.splitGroupID == group)
+        #expect(try context.fetchCount(FetchDescriptor<RecurringTransaction>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<AppSettings>()) == 1)
+        #expect(try context.fetch(FetchDescriptor<CategoryRecord>()).map(\.id) == [categoryID])
+        #expect(try context.fetch(FetchDescriptor<Merchant>()).map(\.id) == [merchantID])
+        #expect(try context.fetch(FetchDescriptor<WishlistItem>()).map(\.id) == [bike])
+        #expect(try context.fetchCount(FetchDescriptor<BoardColumn>()) == 1)
+        #expect(try context.fetch(FetchDescriptor<Account>()).map(\.id) == [account])
+        #expect(try context.fetch(FetchDescriptor<CategoryBudget>()).first?.rollsOver == true)
+        #expect(try context.fetchCount(FetchDescriptor<SavingsGoal>()) == 1)
+
+        // A migrated task can take a time, and opening the store again is a no-op.
+        first.dueTimeMinutes = 18 * 60 + 30
+        try context.save()
+        let reopened = ModelContext(try HouseholdContainerFactory().makeContainer(configuration: onDisk))
+        #expect(try reopened.fetch(bySort).map(\.dueTimeMinutes) == [1_110, nil])
+    }
+
     /// Phase 10 migration check: a store written to disk opens again through the factory and its migration plan
-    /// with every record intact. The V1 → V4, V2 → V3 and V3 → V4 migrations have their own tests above.
+    /// with every record intact. The V1 → V5, V2 → V3, V3 → V4 and V4 → V5 migrations have their own tests
+    /// above.
     @Test func onDiskStoreReopensThroughTheMigrationPlan() async throws {
         let directory = FileManager.default.temporaryDirectory.appending(
             path: "store-\(UUID().uuidString)", directoryHint: .isDirectory)

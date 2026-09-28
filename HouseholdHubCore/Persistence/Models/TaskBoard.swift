@@ -22,7 +22,32 @@ extension SchemaV1 {
         }
     }
 
-    /// A task card (spec §7.8). Named `TaskItem` because `Task` is Swift concurrency's type.
+    /// A checklist step of a task (spec §7.9), linked by `taskID` and deleted with its task.
+    @Model
+    public final class SubtaskItem {
+        @Attribute(.unique) public var id: UUID
+        public var title: String
+        public var isCompleted: Bool
+        public var sortOrder: Double
+        public var taskID: UUID
+        public var createdAt: Date
+        public var updatedAt: Date
+
+        public init(id: UUID = UUID(), title: String, taskID: UUID, sortOrder: Double, now: Date) {
+            self.id = id
+            self.title = title
+            self.isCompleted = false
+            self.sortOrder = sortOrder
+            self.taskID = taskID
+            self.createdAt = now
+            self.updatedAt = now
+        }
+    }
+}
+
+extension SchemaV5 {
+    /// A task card (spec §7.8). Named `TaskItem` because `Task` is Swift concurrency's type. Sprint 26 (SchemaV5)
+    /// adds its optional due time.
     @Model
     public final class TaskItem {
         @Attribute(.unique) public var id: UUID
@@ -42,6 +67,10 @@ extension SchemaV1 {
         public var recurrenceRuleData: Data?
         /// Calendar context for the rule, e.g. "America/Vancouver"; set exactly when `recurrenceRuleData` is.
         public var recurrenceTimeZoneIdentifier: String?
+        /// Sprint 26 (SchemaV5): the due time as minutes after local midnight (0...1439) on the due day; nil = no
+        /// time (every task stored before V5), and always nil without a due date. Minutes, like the start-of-day
+        /// `dueDate`, keep the wall-clock time when the device changes time zone.
+        public var dueTimeMinutes: Int?
         public var createdAt: Date
         public var updatedAt: Date
 
@@ -67,30 +96,8 @@ extension SchemaV1 {
             recurrenceRuleData.flatMap { try? RecurrenceRule.decoded(from: $0) }
         }
     }
-
-    /// A checklist step of a task (spec §7.9), linked by `taskID` and deleted with its task.
-    @Model
-    public final class SubtaskItem {
-        @Attribute(.unique) public var id: UUID
-        public var title: String
-        public var isCompleted: Bool
-        public var sortOrder: Double
-        public var taskID: UUID
-        public var createdAt: Date
-        public var updatedAt: Date
-
-        public init(id: UUID = UUID(), title: String, taskID: UUID, sortOrder: Double, now: Date) {
-            self.id = id
-            self.title = title
-            self.isCompleted = false
-            self.sortOrder = sortOrder
-            self.taskID = taskID
-            self.createdAt = now
-            self.updatedAt = now
-        }
-    }
 }
 
 public typealias BoardColumn = SchemaV1.BoardColumn
-public typealias TaskItem = SchemaV1.TaskItem
+public typealias TaskItem = SchemaV5.TaskItem
 public typealias SubtaskItem = SchemaV1.SubtaskItem

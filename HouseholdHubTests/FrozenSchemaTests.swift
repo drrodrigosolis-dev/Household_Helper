@@ -49,4 +49,15 @@ struct FrozenSchemaTests {
     @Test func schemaV3IsAsInstalled() throws {
         #expect(try hashes(SchemaV3.models) == Self.v3)
     }
+
+    /// Sprint 26: SchemaV1 to SchemaV4 list the frozen `SchemaV1.TaskItem` (still hashing as installed), and SchemaV5
+    /// changes only `TaskItem`. SchemaV4 and SchemaV5 are not pinned here; the lead pins each at its install.
+    @Test func schemaV5ChangesOnlyTheTaskItem() throws {
+        let v4 = try hashes(SchemaV4.models)
+        let v5 = try hashes(SchemaV5.models)
+        #expect(v4["TaskItem"] == Self.v1["TaskItem"])
+        #expect(v5["TaskItem"] != v4["TaskItem"])
+        #expect(v5.filter { $0.key != "TaskItem" } == v4.filter { $0.key != "TaskItem" })
+        #expect(Set(v5.keys) == Set(Self.v1.keys))
+    }
 }
