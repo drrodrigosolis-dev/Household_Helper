@@ -77,7 +77,8 @@ struct SplitTransactionTests {
     ) async throws -> [UUID] {
         var parts: [SplitPart] = []
         for (index, amount) in amounts.enumerated() {
-            let categoryID: UUID? = if let categories { categories[index] } else { fixture.groceries }
+            // Without `categories`, Groceries; with them, each part's own (a nil entry is no category).
+            let categoryID: UUID? = categories.map { $0[index] } ?? fixture.groceries
             parts.append(SplitPart(amount: cad(amount), categoryID: categoryID))
         }
         return try await fixture.ledger.splitTransaction(id, into: parts, now: now)
