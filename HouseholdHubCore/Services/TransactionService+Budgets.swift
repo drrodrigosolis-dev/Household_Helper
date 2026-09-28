@@ -5,6 +5,10 @@ extension TransactionService {
     /// Every active category's budget for the month containing `month` (Sprint 11): posted expenses count, pending
     /// ones only while Analytics' "Include pending" is on, cancelled ones and transfers never. Refunds count against
     /// spending in their own month (Sprint 20). Budgets of archived categories are left out.
+    ///
+    /// Any month can be reported (Sprint 23, A-017: Budgets' month history). Every budget is read with its current
+    /// limit and rollover setting: a month before its start month shows that month's spending against the limit with
+    /// nothing carried, and rollover builds up from the start month to the month reported.
     public func budgetReport(month: Date, calendar: HouseholdCalendar) throws -> [BudgetStatus] {
         let settings = try requireSettings()
         let categories = try modelContext.fetch(FetchDescriptor<CategoryRecord>())
@@ -12,7 +16,8 @@ extension TransactionService {
         let rules = try modelContext.fetch(FetchDescriptor<CategoryBudget>()).map(\.rule)
             .filter { active.contains($0.categoryID) }
         guard let first = rules.map(\.start).min() else { return [] }
-        let earliest = first.start(in: calendar)
+        // Spending from the earliest start (rollover chains), or from the reported month when that is earlier.
+        let earliest = min(first, BudgetMonth(containing: month, calendar: calendar)).start(in: calendar)
         let budgeted = Set(rules.map(\.categoryID))
         let expense = TransactionType.expense.rawValue
         let refund = TransactionType.refund.rawValue
