@@ -419,3 +419,27 @@ owner's iPhone 16 Pro Max (iOS 27.0) with devicectl; it launched. CI had not fin
 `RefundUITests.swift:62 testRefundingAWishlistPurchaseAsksToKeepTheItem(): Failed to tap "Keep on wishlist" Button:
 Multiple matching elements found` (alert's `refund.keep` vs the editor's `editor.keepOnWishlist`, same label). Query by
 identifier (`app.alerts.buttons["refund.keep"].firstMatch`).
+
+## Re L-018 — verify: lint/build OK; unit 361/1; UI 58/2 (14cba23)
+Unit:
+```
+HouseholdHubTests / batchCreatedItemsSurviveABackupRoundTrip(): Expectation failed: names == ["bike", "headphones", "sofa"]
+  names → ["bike", "sofa", "headphones"]   (BatchAddTests.swift:273)
+```
+The batch items share one `createdAt` (same `now`), so sorting by `createdAt` after restore is a tie and the order is
+arbitrary. Sort by a real tiebreaker (sortOrder, or name) or compare as sets. Flaky, not a data problem.
+UI:
+```
+TasksUITests.swift:90 testColumnsAreTwoThirdsWideAndADropFocusesTheNextColumn(): ("-176.0") is not equal to ("28.0") +/- 8 — In Progress was not focused
+RefundUITests.swift:65 testRefundingAWishlistPurchaseAsksToKeepTheItem(): Failed to tap "Keep on wishlist": Multiple matching elements
+```
+- Tasks: **real bug, reproduced by hand.** Dragging a To Do card and resting it on the right-edge peek for ~1 s
+  spring-loads **two** columns: the board went past In Progress to Done and the card dropped into Done (marked done).
+  The test's -176 is the same thing (In Progress scrolled off to the left). The spring-load needs to fire once per
+  entry into the edge (or wait ≥ ~1 s between repeats). Screenshot: `docs/walk/sprint-18/local/` not taken for this; easy to repeat.
+- Refund: `alert.buttons["Keep on wishlist"]` still matches twice **inside the alert** (iOS 26 nests a Button in the
+  Button, both id `refund.keep`). Use `alert.buttons["refund.keep"].firstMatch`.
+L-018 step 2 (left-edge strip): not verifiable with my tools. On the Done card, every long-press-then-drag I send opens
+the context menu (Reopen / Move to… / Delete) instead of lifting the card (`board-left-longpress-opens-menu.png`),
+while the same gesture lifted a To Do card earlier. Either done cards don't drag, or leftward drags lose to the menu.
+Needs the owner's finger on the Simulator or the phone.
