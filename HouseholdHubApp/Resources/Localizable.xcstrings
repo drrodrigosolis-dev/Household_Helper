@@ -661,6 +661,36 @@
         }
       }
     },
+    "Add %@ with no price?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Añadir %@ sin precio?"
+          }
+        }
+      }
+    },
+    "Add %@, %@?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Añadir %1$@, %2$@?"
+          }
+        }
+      }
+    },
+    "Add Task": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir tarea"
+          }
+        }
+      }
+    },
     "Add a subtask": {
       "localizations": {
         "es": {
@@ -801,12 +831,72 @@
         }
       }
     },
+    "Add the task “%@”?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Añadir la tarea “%@”?"
+          }
+        }
+      }
+    },
     "Add things you're saving for. Mark them purchased to record the expense.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Agrega lo que quieres comprar. Márcalo como comprado para registrar el gasto."
+          }
+        }
+      }
+    },
+    "Add to Wishlist": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir a la lista de deseos"
+          }
+        }
+      }
+    },
+    "Added %@ to your wishlist.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se añadió %@ a tu lista de deseos."
+          }
+        }
+      }
+    },
+    "Added “%@” to your board.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se añadió “%@” a tu tablero."
+          }
+        }
+      }
+    },
+    "Adds a task to the first column of your board, for example “call the plumber”.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añade una tarea a la primera columna de tu tablero, por ejemplo “llamar al fontanero”."
+          }
+        }
+      }
+    },
+    "Adds something to your wishlist, for example “headphones for 149”.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añade algo a tu lista de deseos, por ejemplo “audífonos por 149”."
           }
         }
       }
@@ -3021,6 +3111,26 @@
         }
       }
     },
+    "Household Hub is locked. Unlock it to add a task.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Household Hub está bloqueado. Desbloquéalo para añadir una tarea."
+          }
+        }
+      }
+    },
+    "Household Hub is locked. Unlock it to add to your wishlist.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Household Hub está bloqueado. Desbloquéalo para añadir a tu lista de deseos."
+          }
+        }
+      }
+    },
     "Household Hub is locked. Unlock it to record a transaction.": {
       "localizations": {
         "es": {
@@ -3287,6 +3397,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Se quitará de tu historial y tus saldos."
+          }
+        }
+      }
+    },
+    "Item": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artículo"
           }
         }
       }
@@ -5301,6 +5421,36 @@
         }
       }
     },
+    "Record %@ %@ at %@ on %@, in %@?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Registrar %1$@ %2$@ en %3$@ el %4$@, en %5$@?"
+          }
+        }
+      }
+    },
+    "Record %@ %@ at %@ on %@?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Registrar %1$@ %2$@ en %3$@ el %4$@?"
+          }
+        }
+      }
+    },
+    "Record %@ %@ on %@, in %@?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Registrar %1$@ %2$@ el %3$@, en %4$@?"
+          }
+        }
+      }
+    },
     "Record %@ %@ on %@?": {
       "localizations": {
         "es": {
@@ -6821,6 +6971,16 @@
         }
       }
     },
+    "That price can't be used. Try something like “headphones for 149.99”.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ese precio no se puede usar. Prueba algo como “audífonos por 149.99”."
+          }
+        }
+      }
+    },
     "That series couldn't be changed.": {
       "localizations": {
         "es": {
@@ -7267,6 +7427,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ese registro no tenía monto. Prueba algo como “47.50 café”."
+          }
+        }
+      }
+    },
+    "There was no task to add. Try something like “call the plumber”.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No había ninguna tarea que añadir. Prueba algo como “llamar al fontanero”."
+          }
+        }
+      }
+    },
+    "There was nothing to add. Try something like “headphones for 149”.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No había nada que añadir. Prueba algo como “audífonos por 149”."
           }
         }
       }
@@ -7831,6 +8011,26 @@
         }
       }
     },
+    "Unlock Household Hub to add a task.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desbloquea Household Hub para añadir una tarea."
+          }
+        }
+      }
+    },
+    "Unlock Household Hub to add to your wishlist.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desbloquea Household Hub para añadir a tu lista de deseos."
+          }
+        }
+      }
+    },
     "Unlock Household Hub to record a transaction.": {
       "localizations": {
         "es": {
@@ -8051,6 +8251,16 @@
         }
       }
     },
+    "What would you like to add? For example, headphones for 149": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Qué quieres añadir? Por ejemplo, audífonos por 149"
+          }
+        }
+      }
+    },
     "What your household account held when this day began. Its transactions are added on top.": {
       "localizations": {
         "es": {
@@ -8067,6 +8277,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lo que sobra al final de un mes se suma al siguiente; un exceso se le resta. Si vuelves a activarlo, se empieza a contar de nuevo este mes."
+          }
+        }
+      }
+    },
+    "What's the task? For example, call the plumber": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Cuál es la tarea? Por ejemplo, llamar al fontanero"
           }
         }
       }
