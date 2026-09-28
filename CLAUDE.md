@@ -23,8 +23,8 @@ Never set or use `ANTHROPIC_API_KEY`; Claude Code runs on the owner's subscripti
 
 ## 4. Persistence rules
 SwiftData, one authoritative container from one factory (§5.2); in-memory config for tests/previews; no CloudKit;
-explicit `VersionedSchema` + `SchemaMigrationPlan`, never destructive migration. SchemaV1 is frozen: it was first
-installed on the owner's iPhone at `063a510` (2026-09-27); every model change is now a new schema version.
+explicit `VersionedSchema` + `SchemaMigrationPlan`, never destructive migration. SchemaV1 (installed at `063a510`) and
+SchemaV2 (installed at `fd7e67e`, 2026-09-28) are frozen: every model change is a new schema version and stage.
 No raw `ModelContext` across actors. Images live under Application Support/Media with a relative reference in SwiftData (§5.5). Tokens go in Keychain.
 
 ## 5. Money / accounting rules

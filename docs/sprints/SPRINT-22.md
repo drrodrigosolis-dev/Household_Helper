@@ -8,9 +8,10 @@ that repeat (groceries every week) recorded as purchases rather than bills.
    category; its occurrences post as expenses with that merchant, so they count under the store in Analytics.
 2. Bill reminders stay for bills; a purchase gets no "due" reminder by default (it's something you do, not owe).
 3. Upcoming and Recurring show purchases with a cart icon and the store; the projection counts both the same way.
-4. **Storage:** `RecurringTransaction` gains `kind` (bill/purchase) and `merchantName`. SchemaV2 is not installed on
-   the phone yet (Sprint 20 is not released), so these join SchemaV2 rather than making a V3; the V1→V2 migration
-   test covers them (existing series become bills). Backup v3 carries them.
+4. **Storage:** `RecurringTransaction` gains `kind` (bill/purchase) and `merchantName`. SchemaV2 was installed on the
+   owner's iPhone at `fd7e67e` (owner-directed, L-017 report), so it is frozen too: this is **SchemaV3** with a
+   lightweight V2→V3 stage (`SchemaV3.RecurringTransaction`; V1 and V2 keep the shared V1 class), an on-disk V2→V3
+   migration test (existing series become bills), and backup v4 (reads v1–v4).
 5. Quick Add stays one-off; recurring purchases are made in Budget › Recurring (Add → Purchase).
 
 ## Items
