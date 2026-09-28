@@ -98,7 +98,8 @@ final class RecurringUITests: XCTestCase {
         revealSwipeAction(row, post)
         post.tap()
         app.buttons["Transactions"].tap()
-        let posted = transactionRow(app, containing: "Groceries")
+        // A posted purchase is named by its store (Sprint 22 decision 1).
+        let posted = transactionRow(app, containing: "Corner Market")
         XCTAssertTrue(posted.waitForExistence(timeout: 10), "Posted purchase missing")
     }
 

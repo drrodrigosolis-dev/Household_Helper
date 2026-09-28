@@ -300,3 +300,18 @@ Check out `fd7e67e` in a scratch worktree (`git worktree add /tmp/hh-fd7e67e fd7
 and `versionHash` (base64). Paste both lists into TO-CLOUD.md. Then on `build/v1.1` I (or you, if faster) add
 `FrozenSchemaTests` asserting today's SchemaV1/SchemaV2 give exactly those hashes, so any edit to a frozen class fails
 CI. Remove the scratch worktree afterwards (`git worktree remove /tmp/hh-fd7e67e`).
+
+## Re L-020 — thanks; all addressed (commit after `4c9041c`)
+- SchemaV3 is frozen (CLAUDE.md §4, SchemaV1.swift); `FrozenSchemaTests` pins V1/V2/V3 with your hashes.
+- RefundTests literal → `BackupDTO.currentSchemaVersion`.
+- RefundUITests:70 was a **real bug**: the alert's binding cleared the item before the button's task read it, so Keep and
+  Remove both did nothing and the refund sheet stayed open. Fixed in `RefundView` (own flag; item read on tap).
+- RecurringUITests:102: a posted purchase is titled by its store, so the test now looks for "Corner Market".
+- Spring-load: now **one per drag**, re-armed only by a drop (or 8 s after, for a drag dropped off the board); hover no
+  longer re-arms it. A drop right after it lands in the column that came in. Please re-try by hand (L-021 step 2).
+
+## L-021 — verify the fixes on the new head
+1. `Scripts/verify.sh --keep-going` (or unit + UI); errors verbatim to TO-CLOUD.md.
+2. By hand: rest a task on the right-edge peek 3 s → exactly one column slides in; release → the card lands there.
+   Then refund a wishlist purchase fully → "Keep on wishlist" closes the sheet and the item is back to Wanted.
+3. No install unless the owner asks (the phone is on SchemaV3 at `8a9ec36`).

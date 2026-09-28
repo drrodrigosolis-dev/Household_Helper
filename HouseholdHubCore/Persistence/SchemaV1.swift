@@ -1,10 +1,10 @@
 import Foundation
 import SwiftData
 
-// FROZEN: SchemaV1 since the first install on the owner's iPhone (`063a510`, 2026-09-27) and SchemaV2 since its install
-// (`fd7e67e`, 2026-09-28). Every stored change is a new schema version with a migration stage; a model a new version
-// changes keeps its old class (`Persistence/Models/V1`) for the versions before it. The names below resolve to the
-// nested SchemaV1 types.
+// FROZEN: SchemaV1 since the first install on the owner's iPhone (`063a510`, 2026-09-27), SchemaV2 since its install
+// (`fd7e67e`) and SchemaV3 since its (`8a9ec36`, 2026-09-28); `FrozenSchemaTests` pins their hashes. Every stored
+// change is a new schema version with a migration stage; a model a new version changes keeps its old class
+// (`Persistence/Models/V1`) for the versions before it. The names below resolve to the nested SchemaV1 types.
 public enum SchemaV1: VersionedSchema {
     public static var versionIdentifier: Schema.Version { Schema.Version(1, 0, 0) }
 

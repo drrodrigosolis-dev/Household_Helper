@@ -351,7 +351,7 @@ struct RefundTests {
         try await refund(purchase, 4_000, in: fixture)
         let backup = BackupService.make(container: fixture.container)
         let exported = try await backup.snapshot(now: now, appVersion: "1.1") { _ in nil }
-        #expect(exported.schemaVersion == 3)
+        #expect(exported.schemaVersion == BackupDTO.currentSchemaVersion)
         #expect(exported.transactions.contains { $0.refundOfTransactionID == purchase && $0.type == "refund" })
         let json = try BackupDTO.encoder().encode(exported)
         let decoded = try BackupDTO.decoder().decode(BackupDTO.self, from: json)
