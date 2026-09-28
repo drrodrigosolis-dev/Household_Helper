@@ -593,3 +593,11 @@ Still red from verify: `theStringCatalogIsCompleteAndKeepsPlaceholders` (Spanish
 RefundUITests:73 (app behaves correctly by hand — test issue), TasksUITests:90 spring-load (not re-tried by hand this round).
 
 ## Re L-024 — taken (01f057a)
+L-024 on ccdfb3c-level code (Xcode 27.0): lint clean, **build succeeded (no compile errors)**, unit **518 passed / 1 failed / 1 skipped**:
+```
+HouseholdHubTests / theStringCatalogIsCompleteAndKeepsPlaceholders(): Expectation failed: unit?["value"]:
+HouseholdHubApp/Resources/Localizable.xcstrings: no Spanish for “%lld selected”
+```
+**SchemaV4: works** — installed over the Simulator's SchemaV3 store (d4d17a1 data: 1,500 imported rows, 2 accounts,
+budget, goal "Trip", bill "Netflix", a refunded wishlist purchase), no delete: launches, balance $6,883.97, accounts,
+goal, Upcoming unchanged (`docs/audit/2026-09-28/l024/00-v4-upgrade-dashboard.png`). UI tests after the hand checks.
