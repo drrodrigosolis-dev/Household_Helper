@@ -365,8 +365,10 @@ private struct FilteredTransactions: View {
 
     private func bulkDeleteMessage(_ selected: [TransactionRecord]) -> String {
         var parts = [String(localized: "They will be removed from your history and balances.")]
-        if selected.contains(where: { $0.recurringSeriesID != nil }) {
-            parts.append(String(localized: "Recurring occurrences are marked as skipped; their series keep running."))
+        if selected.contains(where: BulkEdit.isOccurrence) {
+            let skipped = String(
+                localized: "Occurrences are marked as skipped; their series keep running unless you disable them.")
+            parts.append(skipped)
         }
         if selected.contains(where: { $0.wishlistItemID != nil }) {
             parts.append(String(localized: "Wishlist items they bought are no longer purchased."))
