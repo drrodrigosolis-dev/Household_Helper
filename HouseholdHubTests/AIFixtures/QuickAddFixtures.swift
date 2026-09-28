@@ -270,11 +270,15 @@ struct IntelligenceTests {
                 categoryID: category, merchantName: "Café Luna")
             try await ledger.create(draft, now: now)
         }
-        #expect(try await ledger.suggestedCategory(forMerchantText: "  cafe LUNA ", type: .expense) == dining)
+        // Sprint 23: the category last given by hand (groceries, learned by the merchant) comes first.
+        #expect(try await ledger.suggestedCategory(forMerchantText: "  cafe LUNA ", type: .expense) == groceries)
         #expect(try await ledger.suggestedCategory(forMerchantText: "Unknown", type: .expense) == nil)
         #expect(try await ledger.suggestedCategory(forMerchantText: "Café Luna", type: .income) == nil)
+        // With that one archived, the most used active category.
+        try await categories.setArchived(true, category: groceries, now: now)
+        #expect(try await ledger.suggestedCategory(forMerchantText: "Café Luna", type: .expense) == dining)
         try await categories.setArchived(true, category: dining, now: now)
-        #expect(try await ledger.suggestedCategory(forMerchantText: "Café Luna", type: .expense) == groceries)
+        #expect(try await ledger.suggestedCategory(forMerchantText: "Café Luna", type: .expense) == nil)
     }
 
     @Test func aiSwitchesStartOnAndRoundTripThroughBackups() async throws {

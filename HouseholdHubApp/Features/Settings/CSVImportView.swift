@@ -37,11 +37,16 @@ struct CSVImportView: View {
     @State private var accountID: UUID?
     @State private var existing: [CSVExistingTransaction]?
     @State private var existingFailed = false
+    /// Learned categories by normalized merchant name (Sprint 23, A-006), loaded with the duplicate check.
+    @State private var suggestions: [String: UUID] = [:]
     /// Bumped by each duplicate-check load, so the preview follows the latest one.
     @State private var loadGeneration = 0
     @State private var rows: [CSVPreviewRow] = []
     /// The user's own tick or untick per file line; rows without one follow the default (ready, not a duplicate).
     @State private var choices: [Int: Bool] = [:]
+    /// The user's own category per file line (nil inside = Uncategorized); rows without one take the file's category,
+    /// else the suggestion.
+    @State private var categoryChoices: [Int: UUID?] = [:]
     @State private var isConfirming = false
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -87,6 +92,10 @@ struct CSVImportView: View {
         PreviewInputs(
             columns: columns, dateFormat: dateFormat, decimalMark: decimalMark, spendingIsPositive: spendingIsPositive,
             loadGeneration: existing == nil ? -1 : loadGeneration)
+    }
+
+    private var loadKey: LoadKey {
+        LoadKey(account: chosenAccountID, dateColumn: columns[.date], descriptionColumn: columns[.description])
     }
 
     private func isIncluded(_ row: CSVPreviewRow) -> Bool {
@@ -153,7 +162,7 @@ struct CSVImportView: View {
         } message: {
             Text("They're added to \(accountName) and marked as imported. You can edit or delete them later.")
         }
-        .task(id: LoadKey(account: chosenAccountID, dateColumn: columns[.date])) { await loadExisting() }
+        .task(id: loadKey) { await loadExisting() }
         .onChange(of: inputs, initial: true) { recompute() }
     }
 
@@ -171,7 +180,12 @@ struct CSVImportView: View {
         } header: {
             Text("Columns in \(source.fileName)")
         } footer: {
-            Text("Categories are matched by name; anything else is filed as Uncategorized.")
+            Text(
+                """
+                Categories are matched by name, or suggested from the category you last gave the same merchant. You \
+                can change any row's category below.
+                """
+            )
         }
     }
 
@@ -215,20 +229,37 @@ struct CSVImportView: View {
     private func previewRow(_ row: CSVPreviewRow) -> some View {
         switch row.outcome {
         case .success(let entry):
-            Toggle(isOn: includedBinding(row)) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.description ?? String(localized: "No description"))
-                    Text(CSVImportFormat.detail(entry, line: row.line, categories: categoryRecords))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if row.isLikelyDuplicate {
-                        Label("Looks like one already recorded", systemImage: "doc.on.doc")
+            VStack(alignment: .leading, spacing: 4) {
+                Toggle(isOn: includedBinding(row)) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(entry.description ?? String(localized: "No description"))
+                        Text(CSVImportFormat.detail(entry, line: row.line))
                             .font(.caption)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(.secondary)
+                        if row.isLikelyDuplicate {
+                            Label("Looks like one already recorded", systemImage: "doc.on.doc")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
                     }
                 }
+                .accessibilityIdentifier("csv.row")
+                Picker("Category", selection: categoryBinding(row)) {
+                    Text("Uncategorized").tag(UUID?.none)
+                    ForEach(categoryOptions(for: entry.type), id: \.id) { category in
+                        Text(category.name).tag(UUID?.some(category.id))
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.caption)
+                .accessibilityIdentifier("csv.row.category")
+                if isShowingSuggestion(row) {
+                    Label("Suggested: you filed this merchant here before", systemImage: "lightbulb")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("csv.row.suggested")
+                }
             }
-            .accessibilityIdentifier("csv.row")
         case .failure(let error):
             VStack(alignment: .leading, spacing: 2) {
                 Text("Line \(row.line) skipped")
@@ -264,6 +295,30 @@ struct CSVImportView: View {
         Binding(get: { isIncluded(row) }, set: { choices[row.line] = $0 })
     }
 
+    /// Active categories that allow `type`: what a row may be filed under.
+    private func categoryOptions(for type: TransactionType) -> [CategoryRecord] {
+        categoryRecords.filter { !$0.isArchived && $0.kind.allows(type) }
+    }
+
+    /// The category the row is imported under: the user's pick while it still fits the row (a later change of sign
+    /// can make it an income), else the file's category, else the suggestion.
+    private func category(of row: CSVPreviewRow) -> UUID? {
+        guard let entry = row.row else { return nil }
+        let proposed = entry.categoryID ?? row.suggestedCategoryID
+        guard let choice = categoryChoices[row.line] else { return proposed }
+        guard let chosen = choice else { return nil }
+        return categoryOptions(for: entry.type).contains { $0.id == chosen } ? chosen : proposed
+    }
+
+    private func isShowingSuggestion(_ row: CSVPreviewRow) -> Bool {
+        guard let suggested = row.suggestedCategoryID else { return false }
+        return category(of: row) == suggested
+    }
+
+    private func categoryBinding(_ row: CSVPreviewRow) -> Binding<UUID?> {
+        Binding(get: { category(of: row) }, set: { categoryChoices[row.line] = .some($0) })
+    }
+
     private func recompute() {
         guard let currency, let dateFormat, let decimalMark, let existing, columns[.date] != nil,
             columns[.amount] != nil
@@ -278,7 +333,7 @@ struct CSVImportView: View {
             columns: columns, dateFormat: dateFormat, decimalMark: decimalMark, spendingIsPositive: spendingIsPositive)
         rows = CSVImportPlanner.preview(
             records: source.records, headerCount: source.header.count, mapping: mapping, currency: currency,
-            categories: categories, existing: existing, calendar: calendar)
+            categories: categories, existing: existing, suggestions: suggestions, calendar: calendar)
     }
 
     /// Recorded transactions in the chosen account over the file's whole date span (any format that reads it).
@@ -286,6 +341,9 @@ struct CSVImportView: View {
         guard let services, let account = chosenAccountID else { return }
         existing = nil
         existingFailed = false
+        // Suggestions are only a convenience: without them every uncategorized row stays Uncategorized.
+        let descriptions = source.values(of: columns[.description])
+        suggestions = (try? await services.transactions.importCategorySuggestions(for: descriptions)) ?? [:]
         let dates = CSVDateFormat.allCases.flatMap { format in
             source.values(of: columns[.date]).compactMap { format.date(from: $0, calendar: calendar) }
         }
@@ -308,8 +366,9 @@ struct CSVImportView: View {
         isSaving = true
         defer { isSaving = false }
         do {
-            let count = try await services.transactions.importTransactions(
-                rows.compactMap(\.row), into: account, now: .now)
+            // Each row goes in under the category the preview shows for it, chosen or accepted by the user.
+            let filed = rows.compactMap { row in row.row.map { $0.filed(under: category(of: row)) } }
+            let count = try await services.transactions.importTransactions(filed, into: account, now: .now)
             onImported(count)
             dismiss()
         } catch LedgerError.archivedAccount, LedgerError.unknownAccount {
@@ -326,6 +385,8 @@ struct CSVImportView: View {
 private struct LoadKey: Equatable {
     let account: UUID?
     let dateColumn: Int?
+    /// The suggestions are looked up by the description column's names.
+    let descriptionColumn: Int?
 }
 
 /// What the preview depends on, compared to recompute it only when something changed.
@@ -367,11 +428,11 @@ enum CSVImportFormat {
         return String(localized: "\(included) to import · \(duplicates) likely duplicates · \(skipped) skipped")
     }
 
-    static func detail(_ row: CSVImportRow, line: Int, categories: [CategoryRecord]) -> String {
+    /// Date, signed amount and file line; the category has its own picker below.
+    static func detail(_ row: CSVImportRow, line: Int) -> String {
         let date = row.occurredAt.formatted(date: .abbreviated, time: .omitted)
         let amount = LedgerFormat.signedAmount(row.amount, type: row.type)
-        let category = categories.first { $0.id == row.categoryID }?.name ?? String(localized: "Uncategorized")
-        return "\(date) · \(amount) · \(category) · " + String(localized: "line \(line)")
+        return "\(date) · \(amount) · " + String(localized: "line \(line)")
     }
 
     static func reason(_ reason: CSVSkipReason) -> String {

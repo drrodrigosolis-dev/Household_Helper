@@ -206,21 +206,25 @@ public actor TransactionService {
         try commit()
     }
 
-    /// Deterministic category suggestion (Sprint 7 default 2): the category most often used with the merchant that
-    /// `text` names, ties broken by the most recent use; only an active category of the right kind is returned.
+    /// Deterministic category suggestion (Sprint 7 default 2): the category the user last filed the merchant that
+    /// `text` names under (its learned default, Sprint 23), else the one most often used with it, ties broken by the
+    /// most recent use; only an active category of the right kind is returned.
     public func suggestedCategory(forMerchantText text: String, type: TransactionType) throws -> UUID? {
         let key = Merchant.normalize(text)
         guard !key.isEmpty else { return nil }
         let merchants = FetchDescriptor<Merchant>(predicate: #Predicate { $0.normalizedName == key })
         guard let merchant = try modelContext.fetch(merchants).first else { return nil }
+        let usable = Set(
+            try modelContext.fetch(FetchDescriptor<CategoryRecord>()).filter { !$0.isArchived && $0.kind.allows(type) }
+                .map(\.id))
+        if let learned = merchant.defaultCategoryID, usable.contains(learned) {
+            return learned
+        }
         let merchantID: UUID? = merchant.id
         let typeRaw = type.rawValue
         let history = try modelContext.fetch(
             FetchDescriptor<TransactionRecord>(
                 predicate: #Predicate { $0.merchantID == merchantID && $0.typeRawValue == typeRaw }))
-        let usable = Set(
-            try modelContext.fetch(FetchDescriptor<CategoryRecord>()).filter { !$0.isArchived && $0.kind.allows(type) }
-                .map(\.id))
         var uses: [UUID: (count: Int, latest: Date)] = [:]
         for record in history {
             guard let categoryID = record.categoryID, usable.contains(categoryID) else { continue }
@@ -257,6 +261,7 @@ public actor TransactionService {
         if let categoryID = draft.categoryID {
             try requireUsableCategory(categoryID, for: draft.type)
         }
+        let learned = try learnableCategory(draft.categoryID, type: draft.type, isAIClassified: draft.isAIClassified)
         let accounts = try resolveAccounts(draft, settings: settings, current: nil, now: now)
         let record = TransactionRecord(
             amount: draft.amount, type: draft.type, status: draft.status, source: draft.source,
@@ -270,6 +275,7 @@ public actor TransactionService {
             let merchant = try findOrCreateMerchant(named: name, now: now)
             record.merchantID = merchant.id
             record.merchantNameSnapshot = name
+            learn(learned, for: merchant, now: now)
         }
         modelContext.insert(record)
         try commit()
@@ -300,10 +306,19 @@ public actor TransactionService {
         // Fetched before the first edit (the merchant insert below), so a failed fetch leaves nothing pending.
         let linkedItem = try record.wishlistItemID.flatMap { try wishlistItem($0) }
         let refundRecords = try allRefunds(of: record)
-        var merchantID: UUID?
+        let keepsCategory = draft.categoryID == record.categoryID
+        let isAIClassified = keepsCategory ? record.isAIClassified : draft.isAIClassified
+        let learned = try learnableCategory(draft.categoryID, type: draft.type, isAIClassified: isAIClassified)
+        var merchant: Merchant?
         let name = draft.merchantName.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
         if !Merchant.normalize(name).isEmpty {
-            merchantID = try findOrCreateMerchant(named: name, now: now).id
+            merchant = try findOrCreateMerchant(named: name, now: now)
+        }
+        let merchantID = merchant?.id
+        // Only a new pairing teaches the merchant: an edit to the amount or date alone doesn't bring an older
+        // category back over one learned since.
+        if let merchant, !keepsCategory || merchantID != record.merchantID {
+            learn(learned, for: merchant, now: now)
         }
         record.amountMinorUnits = draft.amount.minorUnits
         record.currencyCode = draft.amount.currencyCode
@@ -746,6 +761,24 @@ public actor TransactionService {
         guard category.kind.allows(type) else { throw LedgerError.categoryKindMismatch(category.kind, type) }
     }
 
+    /// The category a manual choice teaches its merchant (Sprint 23, A-006): an active category of a kind that allows
+    /// the type, on an expense or income. A model's pick is not learned (AI output never becomes stored data, spec
+    /// §12), nor is a transfer or refund. Fetched before the first edit, so a failed fetch leaves nothing pending.
+    func learnableCategory(_ id: UUID?, type: TransactionType, isAIClassified: Bool) throws -> UUID? {
+        guard let id, !isAIClassified, type == .expense || type == .income else { return nil }
+        let descriptor = FetchDescriptor<CategoryRecord>(predicate: #Predicate { $0.id == id })
+        guard let category = try modelContext.fetch(descriptor).first, !category.isArchived, category.kind.allows(type)
+        else { return nil }
+        return category.id
+    }
+
+    /// Points the merchant's default category (a suggestion only, spec §7.4) at `categoryID`, without saving.
+    func learn(_ categoryID: UUID?, for merchant: Merchant, now: Date) {
+        guard let categoryID, merchant.defaultCategoryID != categoryID else { return }
+        merchant.defaultCategoryID = categoryID
+        merchant.updatedAt = now
+    }
+
     private func merchant(_ id: UUID) throws -> Merchant? {
         let descriptor = FetchDescriptor<Merchant>(predicate: #Predicate { $0.id == id })
         return try modelContext.fetch(descriptor).first
@@ -757,7 +790,7 @@ public actor TransactionService {
         return Merchant.normalize(trimmed).isEmpty ? nil : trimmed
     }
 
-    private func findOrCreateMerchant(named name: String, now: Date) throws -> Merchant {
+    func findOrCreateMerchant(named name: String, now: Date) throws -> Merchant {
         let key = Merchant.normalize(name)
         let descriptor = FetchDescriptor<Merchant>(predicate: #Predicate { $0.normalizedName == key })
         if let existing = try modelContext.fetch(descriptor).first {

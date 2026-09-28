@@ -228,7 +228,11 @@ struct CSVImportTests {
         let records = try ModelContext(container).fetch(FetchDescriptor<TransactionRecord>())
         #expect(records.count == 2)
         #expect(records.allSatisfy { $0.source == .imported && $0.accountID == main && $0.status == .posted })
-        #expect(records.allSatisfy { $0.merchantID == nil }, "Descriptions go to notes; no merchants are made")
+        // Sprint 23 (A-003): the description is the merchant, and the notes stay empty.
+        #expect(records.allSatisfy { $0.notes == nil })
+        let luna = try #require(records.first { $0.type == .expense })
+        #expect(luna.merchantNameSnapshot == "Luna" && luna.merchantID != nil)
+        #expect(records.first { $0.type == .income }?.merchantID == nil, "No description, no merchant")
 
         let service = BackupService.make(container: container)
         let backup = try await service.snapshot(now: now, appVersion: "1") { _ in nil }
@@ -292,5 +296,6 @@ struct CSVImportTests {
             try await ledger.importTransactions(tooMany, into: main, now: now)
         }
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<TransactionRecord>()) == 0)
+        #expect(try ModelContext(container).fetchCount(FetchDescriptor<Merchant>()) == 0, "No merchant left behind")
     }
 }
