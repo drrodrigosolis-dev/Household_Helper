@@ -9,7 +9,7 @@
     "cornerTopLeading": {"board": "sheet1", "box": [284, 544, 366, 632]},
     "cornerTopTrailing": {"board": "sheet1", "box": [524, 532, 588, 600]},
     "cornerBottomLeading": {"board": "sheet1", "box": [355, 540, 522, 705], "isolate": true},
-    "cornerBottomTrailing": {"board": "sheet1", "box": [268, 776, 376, 896]},
+    "cornerBottomTrailing": {"board": "sheet1", "box": [268, 776, 376, 896], "isolate": true},
     "header1": {"board": "sheet1", "box": [40, 540, 272, 820], "isolate": true, "fill": true},
     "header2": {"board": "sheet1", "box": [546, 586, 722, 812], "isolate": true, "fill": true},
     "header3": {"board": "sheet2", "box": [414, 966, 530, 1128], "isolate": true, "fill": 7},
