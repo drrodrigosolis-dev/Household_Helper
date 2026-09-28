@@ -4,13 +4,23 @@ import HouseholdHubCore
 import SwiftUI
 
 /// Spending by category: a donut plus the same figures as a table. Tapping a slice or a row opens Budget filtered to
-/// that category; the table is the non-gesture path and the data table required by spec §24.5.
+/// that category (Uncategorized too, Sprint 23); the table is the non-gesture path and the data table required by
+/// spec §24.5. Each row shows its change vs the month before when the period is a single month (A-018).
 struct CategorySection: View {
+    /// The month the changes compare against, for their wording.
+    enum Comparison {
+        case lastMonth
+        case monthBefore
+    }
+
     let report: AnalyticsReport
     let categories: [CategoryRecord]
     let currencyCode: String
     /// Category budgets, so each budgeted category shows its monthly limit (Sprint 11).
     var budgets: [CategoryBudget] = []
+    /// Each category's change vs the month before; empty when the period has no comparison.
+    var changes: [CategoryChange] = []
+    var comparison: Comparison?
     let onSelect: (UUID?) -> Void
 
     @State private var selectedAngle: Double?
@@ -71,6 +81,9 @@ struct CategorySection: View {
                                 Text(caption(for: slice))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
+                                if let comparison, let change = changes.first(where: { $0.id == slice.id }) {
+                                    ChangeLine(change: change, comparison: comparison)
+                                }
                             }
                             .layoutPriority(1)
                         }
@@ -81,9 +94,8 @@ struct CategorySection: View {
                     }
                 }
                 .foregroundStyle(.primary)
-                .disabled(slice.categoryID == nil)
                 .accessibilityElement(children: .combine)
-                .accessibilityHint(hint(for: slice))
+                .accessibilityHint(Text("Shows these transactions in Budget"))
                 .accessibilityIdentifier("analytics.category")
             }
         }
@@ -93,10 +105,6 @@ struct CategorySection: View {
         let share = AnalyticsFormat.share(slice.share)
         guard let budget = budgets.first(where: { $0.categoryID == slice.categoryID }) else { return share }
         return share + " · " + String(localized: "limit \(budget.limit.formatted()) a month")
-    }
-
-    private func hint(for slice: CategorySpend) -> String {
-        slice.categoryID == nil ? "" : String(localized: "Shows these transactions in Budget")
     }
 
     private var rows: [(String, Double)] {
@@ -116,11 +124,16 @@ struct CategorySection: View {
     }
 }
 
-/// Income vs expense per week or month: grouped bars plus a table.
+/// Income vs expense per week or month: grouped bars plus a table. Tapping a bar or a row opens that week's or month's
+/// transactions in Budget (Sprint 23, A-018); the rows are the non-gesture path.
 struct TrendSection: View {
     let report: AnalyticsReport
     let bucket: AnalyticsBucket
     let currencyCode: String
+    /// Called with the start of the tapped week or month.
+    let onSelect: (Date) -> Void
+
+    @State private var selectedLabel: String?
 
     private var labelledPoints: [(String, TrendPoint)] {
         report.trend.map { (label($0.start), $0) }
@@ -163,19 +176,73 @@ struct TrendSection: View {
                 }
             }
             .chartForegroundStyleScale([incomeLabel: Color.green, expenseLabel: Color.red])
+            .chartXSelection(value: $selectedLabel)
             .frame(height: 220)
             .accessibilityChartDescriptor(TrendChartDescriptor(points: labelledPoints, currencyCode: currencyCode))
+            .onChange(of: selectedLabel) { _, selected in
+                guard let selected, let hit = labelledPoints.first(where: { $0.0 == selected }) else { return }
+                selectedLabel = nil
+                onSelect(hit.1.start)
+            }
             ForEach(report.trend) { point in
-                LabeledContent(label(point.start)) {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        AmountText("+" + point.income.formatted(), font: .subheadline)
-                        AmountText("−" + point.expense.formatted(), font: .subheadline)
+                Button {
+                    onSelect(point.start)
+                } label: {
+                    LabeledContent(label(point.start)) {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            AmountText("+" + point.income.formatted(), font: .subheadline)
+                            AmountText("−" + point.expense.formatted(), font: .subheadline)
+                        }
                     }
                 }
+                .foregroundStyle(.primary)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(rowLabel(point))
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint(Text("Shows these transactions in Budget"))
+                .accessibilityIdentifier("analytics.trend")
             }
         }
+    }
+}
+
+/// A category's change vs the month before: an arrow and the amount, read by VoiceOver as one sentence ("up $12.00
+/// from last month"). The arrow is never the only signal: the words say which way.
+struct ChangeLine: View {
+    let change: CategoryChange
+    let comparison: CategorySection.Comparison
+
+    private var arrow: String {
+        switch change.direction {
+        case .up: return "arrow.up"
+        case .down: return "arrow.down"
+        case .same: return "equal"
+        }
+    }
+
+    private var sentence: String {
+        let amount = change.difference.formatted()
+        switch (change.direction, comparison) {
+        case (.up, .lastMonth): return String(localized: "up \(amount) from last month")
+        case (.down, .lastMonth): return String(localized: "down \(amount) from last month")
+        case (.same, .lastMonth): return String(localized: "same as last month")
+        case (.up, .monthBefore): return String(localized: "up \(amount) from the month before")
+        case (.down, .monthBefore): return String(localized: "down \(amount) from the month before")
+        case (.same, .monthBefore): return String(localized: "same as the month before")
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: arrow)
+                .accessibilityHidden(true)
+            Text(sentence)
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(sentence)
+        .accessibilityIdentifier("analytics.category.change")
     }
 }
 
