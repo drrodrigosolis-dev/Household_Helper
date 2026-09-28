@@ -32,18 +32,24 @@ struct TaskDueTimeClockChangeTests {
         var testDescription: String { "\(zone) \(due) → \(next)" }
     }
 
+    /// Zones whose clock changes are long-settled rules. Not America/Vancouver: on the Mac's iOS 26.5 Simulator 20 of
+    /// 25 cases failed "It crosses a clock change" (L-027), which is the four Vancouver crossings, so its time-zone
+    /// data evidently has no clock change there.
     static let crossings: [Crossing] = [
-        // America/Vancouver falls back on 2026-11-01 and springs forward on 2027-03-14.
+        // America/New_York falls back on 2026-11-01 and springs forward on 2027-03-14.
         Crossing(
-            zone: "America/Vancouver", rule: .weekly(interval: 1, weekday: 6), due: [2026, 10, 30],
+            zone: "America/New_York", rule: .weekly(interval: 1, weekday: 6), due: [2026, 10, 30],
             next: [2026, 11, 6]),
         Crossing(
-            zone: "America/Vancouver", rule: .weekly(interval: 1, weekday: 7), due: [2027, 3, 13], next: [2027, 3, 20]),
-        Crossing(zone: "America/Vancouver", rule: .monthlyOnDay(day: 15), due: [2026, 10, 15], next: [2026, 11, 15]),
-        Crossing(zone: "America/Vancouver", rule: .monthlyOnDay(day: 20), due: [2027, 2, 20], next: [2027, 3, 20]),
+            zone: "America/New_York", rule: .weekly(interval: 1, weekday: 7), due: [2027, 3, 13], next: [2027, 3, 20]),
+        Crossing(zone: "America/New_York", rule: .monthlyOnDay(day: 15), due: [2026, 10, 15], next: [2026, 11, 15]),
+        Crossing(zone: "America/New_York", rule: .monthlyOnDay(day: 20), due: [2027, 2, 20], next: [2027, 3, 20]),
         // Europe/Berlin falls back on 2026-10-25.
         Crossing(
             zone: "Europe/Berlin", rule: .weekly(interval: 1, weekday: 6), due: [2026, 10, 23], next: [2026, 10, 30]),
+        // Australia/Sydney springs forward on 2026-10-04 (southern hemisphere).
+        Crossing(
+            zone: "Australia/Sydney", rule: .weekly(interval: 1, weekday: 6), due: [2026, 10, 2], next: [2026, 10, 9]),
     ]
 
     private static func day(_ parts: [Int], _ calendar: HouseholdCalendar) throws -> Date {
