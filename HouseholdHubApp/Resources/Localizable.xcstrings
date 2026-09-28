@@ -21,6 +21,26 @@
         }
       }
     },
+    "%@ has reached its budget this month.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ alcanzó su presupuesto este mes."
+          }
+        }
+      }
+    },
+    "%@ is at %@ of its budget this month.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ lleva el %2$@ de su presupuesto este mes."
+          }
+        }
+      }
+    },
     "%@ is due tomorrow.": {
       "localizations": {
         "es": {
@@ -1091,6 +1111,36 @@
         }
       }
     },
+    "Budget alert": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alerta de presupuesto"
+          }
+        }
+      }
+    },
+    "Budget alerts": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alertas de presupuesto"
+          }
+        }
+      }
+    },
+    "Budget alerts come once a month per category, at 80 and at 100 percent of its budget.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las alertas de presupuesto llegan una vez al mes por categoría, al 80 y al 100 por ciento de su presupuesto."
+          }
+        }
+      }
+    },
     "Budgets": {
       "localizations": {
         "es": {
@@ -1927,6 +1977,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Desactivado"
+          }
+        }
+      }
+    },
+    "Dismiss": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar"
           }
         }
       }
@@ -3147,6 +3207,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hacer predeterminada"
+          }
+        }
+      }
+    },
+    "Make it a bill?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Convertirlo en factura?"
+          }
+        }
+      }
+    },
+    "Make it a recurring purchase?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Convertirlo en compra recurrente?"
+          }
+        }
+      }
+    },
+    "Make it recurring income?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Convertirlo en ingreso recurrente?"
           }
         }
       }
@@ -5431,6 +5521,16 @@
         }
       }
     },
+    "Suggestions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sugerencias"
+          }
+        }
+      }
+    },
     "Summary": {
       "localizations": {
         "es": {
@@ -7007,6 +7107,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "^[%lld tarea](inflect: true)"
+          }
+        }
+      }
+    },
+    "about every two weeks": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aproximadamente cada dos semanas"
+          }
+        }
+      }
+    },
+    "about monthly": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aproximadamente cada mes"
+          }
+        }
+      }
+    },
+    "about weekly": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aproximadamente cada semana"
           }
         }
       }
