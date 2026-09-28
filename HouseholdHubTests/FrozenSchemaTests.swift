@@ -30,6 +30,13 @@ struct FrozenSchemaTests {
     /// SchemaV3 changed only `RecurringTransaction` (its kind).
     private static let v3 = v2.merging(["RecurringTransaction": "Ah+kRpqWLOcB/TVzas/mI6QzL9RoRU2wsiRDA2BS7M4="]) { $1 }
 
+    /// SchemaV4 changed only `TransactionRecord` (split groups). Installed with `f183138`; hashes read on the Mac from
+    /// that commit's models (L-026).
+    private static let v4 = v3.merging(["TransactionRecord": "F5WYtwgaO6q21/brlIsfUyspR7hkSGkQz6j95t0Ak4g="]) { $1 }
+
+    /// SchemaV5 changed only `TaskItem` (an optional due time). Installed with `f183138` (L-026).
+    private static let v5 = v4.merging(["TaskItem": "2pIoyApU+f5sjlTDqLkcCvswgQBav+y1tUo2VjdtP98="]) { $1 }
+
     private func hashes(_ models: [any PersistentModel.Type]) throws -> [String: String] {
         let model = try #require(NSManagedObjectModel.makeManagedObjectModel(for: models))
         return Dictionary(
@@ -50,8 +57,16 @@ struct FrozenSchemaTests {
         #expect(try hashes(SchemaV3.models) == Self.v3)
     }
 
+    @Test func schemaV4IsAsInstalled() throws {
+        #expect(try hashes(SchemaV4.models) == Self.v4)
+    }
+
+    @Test func schemaV5IsAsInstalled() throws {
+        #expect(try hashes(SchemaV5.models) == Self.v5)
+    }
+
     /// Sprint 26: SchemaV1 to SchemaV4 list the frozen `SchemaV1.TaskItem` (still hashing as installed), and SchemaV5
-    /// changes only `TaskItem`. SchemaV4 and SchemaV5 are not pinned here; the lead pins each at its install.
+    /// changes only `TaskItem`. Both are also pinned above, since their install with `f183138`.
     @Test func schemaV5ChangesOnlyTheTaskItem() throws {
         let v4 = try hashes(SchemaV4.models)
         let v5 = try hashes(SchemaV5.models)
