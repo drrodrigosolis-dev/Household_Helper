@@ -264,7 +264,7 @@ extension BackupService {
             recurringSeriesID: model.recurringSeriesID, scheduledOccurrence: model.scheduledOccurrence,
             wishlistItemID: model.wishlistItemID, isAIClassified: model.isAIClassified, accountID: model.accountID,
             transferAccountID: model.transferAccountID, refundOfTransactionID: model.refundOfTransactionID,
-            createdAt: model.createdAt, updatedAt: model.updatedAt)
+            splitGroupID: model.splitGroupID, createdAt: model.createdAt, updatedAt: model.updatedAt)
     }
 
     static func make(_ dto: BackupDTO.Transaction) -> TransactionRecord {
@@ -295,6 +295,7 @@ extension BackupService {
         model.accountID = dto.accountID
         model.transferAccountID = dto.transferAccountID
         model.refundOfTransactionID = dto.refundOfTransactionID
+        model.splitGroupID = dto.splitGroupID
         model.createdAt = dto.createdAt
         model.updatedAt = dto.updatedAt
     }

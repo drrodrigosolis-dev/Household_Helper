@@ -303,6 +303,11 @@ public actor TransactionService {
         try requireRefundsStillFit(
             record, type: draft.type, status: draft.status, amount: draft.amount, accountID: accounts.source,
             occurredAt: draft.occurredAt)
+        // The parts of a split are one payment (Sprint 23): they take this part's status, date, account and merchant.
+        let otherParts = try splitSiblings(of: record)
+        try requireSplitEdit(
+            record, siblings: otherParts, type: draft.type, status: draft.status, accountID: accounts.source,
+            occurredAt: draft.occurredAt)
         // Fetched before the first edit (the merchant insert below), so a failed fetch leaves nothing pending.
         let linkedItem = try record.wishlistItemID.flatMap { try wishlistItem($0) }
         let refundRecords = try allRefunds(of: record)
@@ -338,6 +343,7 @@ public actor TransactionService {
         record.merchantNameSnapshot = merchantID == nil ? nil : name
         record.updatedAt = now
         carryClassification(of: record, to: refundRecords, now: now)
+        shareSplit(from: record, to: otherParts, now: now)
         // A purchase's item records the price actually paid; keep it in step with the edited transaction.
         if let item = linkedItem, item.purchasedTransactionID == id {
             item.actualPriceMinorUnits = draft.amount.minorUnits
@@ -356,8 +362,14 @@ public actor TransactionService {
         if record.type == .refund, status != .cancelled {
             try requireRefundFits(record, status: status)
         }
+        // Every part of a split takes the new status (Sprint 23).
+        let otherParts = try splitSiblings(of: record)
+        try requireSplitEdit(
+            record, siblings: otherParts, type: record.type, status: status, accountID: record.accountID,
+            occurredAt: record.occurredAt)
         record.status = status
         record.updatedAt = now
+        shareSplit(from: record, to: otherParts, now: now)
         try commit()
     }
 
@@ -375,6 +387,7 @@ public actor TransactionService {
         let target: UUID? = id
         let linkedTasks = try modelContext.fetch(
             FetchDescriptor<TaskItem>(predicate: #Predicate { $0.linkedTransactionID == target }))
+        let otherParts = try splitSiblings(of: record)
         if alsoDisableSeries, let series {
             series.isEnabled = false
             series.updatedAt = now
@@ -388,6 +401,8 @@ public actor TransactionService {
                 task.linkedTransactionID = nil
                 task.updatedAt = now
             }
+            // The last part left of a split is no longer split (Sprint 23).
+            leaveSplit(siblings: otherParts, now: now)
             modelContext.delete(record)
         }
         try commit()
