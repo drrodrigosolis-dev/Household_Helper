@@ -43,7 +43,15 @@ final class Sprint24TourUITests: XCTestCase {
         let app = launchApp(variant: .dark, extraArguments: Self.tour + Self.largeText)
         startFromOffer(app)
         // No data here: an empty Budget or Wishlist points at its empty-state message, never at the whole screen.
-        walkTour(app, variant: "dark-largeText") { stop in assertSpotlightIsNotTheWholeScreen(app, stop: stop) }
+        walkTour(app, variant: "dark-largeText") { stop in
+            if stop == 1 {
+                // The three figures fill the screen at this size, so stop 1 spotlights the Current card (local run on
+                // 719fe0d: the spotlight covered 759 of the screen's points).
+                let current = app.buttons["dashboard.current"].firstMatch
+                assertSpotlight(app, surrounds: current, stop: stop, maxAreaRatio: .infinity)
+            }
+            assertSpotlightIsNotTheWholeScreen(app, stop: stop)
+        }
     }
 
     /// Skip ends the tour at once; the app underneath works again and the offer doesn't come back.

@@ -89,9 +89,10 @@ struct DashboardView: View {
                     // Sprint 24: the one-time tour offer on installs set up before the tour existed.
                     TourOffer()
                     if let summary {
-                        // The tour's first stop: current, pending, and projected together.
+                        // The tour's first stop: current, pending, and projected together. At accessibility sizes
+                        // the three fill the screen, so the stop spotlights the Current card (inside balanceCards).
                         VStack(spacing: 16) { balanceCards(summary) }
-                            .tourTarget(.figures)
+                            .tourTarget(.figures, if: !typeSize.isAccessibilitySize)
                         if summary.accounts.count > 1 {
                             accountsCard(summary.accounts)
                         }
@@ -174,6 +175,7 @@ struct DashboardView: View {
                 }
             }
         }
+        .tourTarget(.figures, if: typeSize.isAccessibilitySize)
         pairLayout {
             DashboardCard(
                 title: "Pending impact", identifier: "dashboard.pending",
