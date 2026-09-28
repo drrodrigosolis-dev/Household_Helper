@@ -9,6 +9,7 @@ import Testing
 struct SiriEntryTests {
     /// Friday 2026-09-25 15:00 in Vancouver.
     static let now = Date(timeIntervalSince1970: 1_790_373_600)
+    static let calendar = HouseholdCalendar(timeZone: TimeZone(identifier: "America/Vancouver")!)
 
     static func settings(onboarded: Bool = true, currency: String = "CAD") -> SettingsSnapshot {
         SettingsSnapshot(
@@ -81,7 +82,7 @@ struct SiriEntryTests {
         ("Llamar al fontanero", "Llamar al fontanero"),
     ])
     func taskEntriesKeepTheWholeTextAsTheTitle(_ text: String, _ title: String) throws {
-        let draft = try TaskEntry.draft(text: text)
+        let draft = try TaskEntry.draft(text: text, now: Self.now, calendar: Self.calendar)
         #expect(draft.title == title)
         #expect(draft.dueDate == nil)
         #expect(draft.recurrence == nil)
@@ -89,7 +90,9 @@ struct SiriEntryTests {
 
     @Test(arguments: ["", "   ", " . "])
     func emptyTaskEntriesAreRefused(_ text: String) {
-        #expect(throws: SiriEntryError.emptyText) { try TaskEntry.draft(text: text) }
+        #expect(throws: SiriEntryError.emptyText) {
+            try TaskEntry.draft(text: text, now: Self.now, calendar: Self.calendar)
+        }
     }
 
     @Test(arguments: [
@@ -122,7 +125,8 @@ struct SiriEntryTests {
         let container = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
         let board = TaskBoardService.make(container: container)
         try await board.seedDefaultColumnsIfNeeded(now: Self.now)
-        let id = try await board.createTask(try TaskEntry.draft(text: "call the plumber"), now: Self.now)
+        let draft = try TaskEntry.draft(text: "call the plumber", now: Self.now, calendar: Self.calendar)
+        let id = try await board.createTask(draft, now: Self.now)
         let context = ModelContext(container)
         let first = try #require(
             try context.fetch(FetchDescriptor<BoardColumn>(sortBy: [SortDescriptor(\.sortOrder)])).first)
@@ -322,7 +326,7 @@ struct SiriRefinementTests {
         let model = FakeSiriModel(transactionGuess: Self.guess("40", merchant: "Costco"))
         let refined = try await refine(Self.safeway, model)
         #expect(refined.fromModel)
-        #expect(refined.draft.merchantName == "I spent on groceries at Safeway")
+        #expect(refined.draft.merchantName == "on groceries at Safeway")
     }
 
     struct DayCase: Sendable, CustomTestStringConvertible {
@@ -366,7 +370,9 @@ struct SiriRefinementTests {
     static let kindCases = [
         KindCase(text: "gasto 40 comida ayer", amount: "40", modelKind: "income", type: .expense),
         KindCase(text: safeway, amount: "40", modelKind: "income", type: .expense),
-        KindCase(text: "got paid 1200", amount: "1200", modelKind: "income", type: .expense),
+        KindCase(text: "got paid 1200", amount: "1200", modelKind: "expense", type: .income),
+        KindCase(text: "I had to pay 80 dentist", amount: "80", modelKind: "income", type: .expense),
+        KindCase(text: "me pagaron 500 sueldo", amount: "500", modelKind: "expense", type: .income),
         KindCase(text: "+ 1200 paycheck", amount: "1200", modelKind: "expense", type: .income),
         KindCase(text: "+ 50 refund", amount: "50", modelKind: "", type: .income),
         KindCase(text: "received 1200 from Ana", amount: "1200", modelKind: "expense", type: .income),
@@ -481,7 +487,7 @@ struct SiriRefinementTests {
         let model = FakeSiriModel(transactionGuess: Self.guess("40", merchant: "Safeway Market"))
         let refined = try await refine(Self.safeway, model)
         #expect(refined.fromModel)
-        #expect(refined.draft.merchantName == "I spent on groceries at Safeway")
+        #expect(refined.draft.merchantName == "on groceries at Safeway")
         let named = FakeSiriModel(transactionGuess: Self.guess("40", merchant: "safeway"))
         let spoken = try await refine(Self.safeway, named)
         #expect(spoken.draft.merchantName == "safeway")

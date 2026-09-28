@@ -107,6 +107,8 @@ struct QuickAddView: View {
     @State private var dueDate = Date.now
     @State private var hasDueDate = false
     @State private var dueFromText = false
+    /// The quick text named a due time: `dueDate` holds it and the picker shows it; saved as `dueTimeMinutes`.
+    @State private var dueHasTime = false
     @State private var notes = ""
     @State private var showDetails = false
     @State private var errorMessage: String?
@@ -229,7 +231,8 @@ struct QuickAddView: View {
             if entry == .task {
                 Toggle("Due date", isOn: $hasDueDate)
                 if hasDueDate {
-                    DatePicker("Due", selection: $dueDate, displayedComponents: .date)
+                    DatePicker(
+                        "Due", selection: $dueDate, displayedComponents: dueHasTime ? [.date, .hourAndMinute] : [.date])
                 }
             } else {
                 FocusingRow(amountLabel) {
@@ -330,12 +333,19 @@ struct QuickAddView: View {
         }
         occurredAt = parsed.occurredAt
         if let due = taskLine.dueDate {
-            dueDate = due
+            // A time in the text ("3pm", "a las 15:30") rides on the due date and shows in its picker.
+            if let minutes = taskLine.dueTimeMinutes {
+                dueDate = TimeOfDay.date(minutes: minutes, onDayOf: due, calendar: calendar)
+            } else {
+                dueDate = due
+            }
             hasDueDate = true
             dueFromText = true
+            dueHasTime = taskLine.dueTimeMinutes != nil
         } else if dueFromText {
             hasDueDate = false
             dueFromText = false
+            dueHasTime = false
         }
         let description = entry == .task ? taskLine.title : parsed.description
         if notes == notesFromText {
@@ -473,8 +483,10 @@ struct QuickAddView: View {
     }
 
     private func saveTask(_ services: AppServices) async {
-        let due = hasDueDate ? HouseholdCalendar(timeZone: .current).startOfDay(for: dueDate) : nil
-        let draft = TaskDraft(title: trimmedNotes, dueDate: due)
+        let calendar = HouseholdCalendar(timeZone: .current)
+        let due = hasDueDate ? calendar.startOfDay(for: dueDate) : nil
+        let time = hasDueDate && dueHasTime ? TimeOfDay.minutes(of: dueDate, calendar: calendar) : nil
+        let draft = TaskDraft(title: trimmedNotes, dueDate: due, dueTimeMinutes: time)
         do {
             try await services.board.createTask(draft, now: .now)
             dismiss()

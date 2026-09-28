@@ -159,10 +159,14 @@ struct SiriIntentFlowTests {
         #expect(model.count == 0)
     }
 
+    private static func emptyTask() throws -> TaskDraft {
+        try TaskEntry.draft(text: " . ", now: now, calendar: calendar)
+    }
+
     @Test func aDraftErrorStopsTheFlowBeforeThePrompt() async throws {
         let probe = FlowProbe()
         await #expect(throws: SiriEntryError.emptyText) {
-            try await probe.flow(draft: { () throws -> TaskDraft in try TaskEntry.draft(text: " . ") }).run()
+            try await probe.flow(draft: { () throws -> TaskDraft in try Self.emptyTask() }).run()
         }
         #expect(probe.recorded == ["restoring?", "unlock", "draft"])
     }
@@ -204,7 +208,7 @@ struct SiriIntentFlowTests {
             amount: Money(minorUnits: 4_000, currencyCode: "CAD"), type: .expense, occurredAt: Self.now,
             categoryID: nil, description: "coffee", isAIClassified: false, accountID: nil)
         let wish = WishlistDraft(name: "headphones", estimatedPrice: Money(minorUnits: 14_900, currencyCode: "CAD"))
-        let task = try TaskEntry.draft(text: "call the plumber")
+        let task = try TaskEntry.draft(text: "call the plumber", now: Self.now, calendar: Self.calendar)
 
         let gate = RestoreGate.shared(for: container)
         gate.beginRestore()

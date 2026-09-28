@@ -127,7 +127,7 @@ struct AddTaskIntent: AppIntent {
                     throw Failure.notSetUp
                 }
                 do {
-                    return try TaskEntry.draft(text: text)
+                    return try TaskEntry.draft(text: text, now: .now, calendar: HouseholdCalendar(timeZone: .current))
                 } catch {
                     throw Failure.noTitle
                 }

@@ -33,7 +33,7 @@ struct QuickAddParserTests {
         ("received 50 from mom", 5000, .income, "from mom"),
         ("1,200.50 rent", 120_050, .expense, "rent"),
         ("$9.99 app store", 999, .expense, "app store"),
-        ("paid 3 times 4", 300, .expense, "paid times 4"),
+        ("paid 3 times 4", 300, .expense, "times 4"),
         ("12.345 rounding", 1234, .expense, "rounding"),
         ("  7   spaced   out  ", 700, .expense, "spaced out"),
     ])
