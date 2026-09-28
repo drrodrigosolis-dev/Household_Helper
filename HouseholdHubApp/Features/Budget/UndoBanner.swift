@@ -18,13 +18,14 @@ final class UndoCenter {
     private(set) var banner: Banner?
     @ObservationIgnored private var expiry: Task<Void, Never>?
 
-    /// About six seconds; longer with VoiceOver, which needs time to reach the button, and in UI tests, whose slow
-    /// runners take seconds per element lookup.
+    /// About eight seconds (Sprint 23 hand check: six read as barely enough to notice and reach); longer with
+    /// VoiceOver, which needs time to reach the button, and in UI tests, whose slow runners take seconds per element
+    /// lookup. It also ends early on its own (`dismiss()`, called on Undo, another offer, or scrolling the list).
     private static var duration: Duration {
         if ProcessInfo.processInfo.arguments.contains(LaunchArguments.uiTesting) {
             return .seconds(30)
         }
-        return UIAccessibility.isVoiceOverRunning ? .seconds(15) : .seconds(6)
+        return UIAccessibility.isVoiceOverRunning ? .seconds(15) : .seconds(8)
     }
 
     func offer(_ undo: TransactionUndo, message: String) {

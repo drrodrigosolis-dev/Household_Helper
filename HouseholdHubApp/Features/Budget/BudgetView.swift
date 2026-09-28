@@ -64,8 +64,11 @@ struct BudgetView: View {
                 .padding(.horizontal)
                 .accessibilityIdentifier("budget.segment")
             }
-            // Recurring and Budgets add with their own + (A-013); searching and selecting need the space (A-014).
-            .quickAddAccess(showsButton: router.budgetSegment == .transactions && !isSearching && !isSelecting)
+            // Recurring and Budgets add with their own + (A-013); searching and selecting need the space (A-014);
+            // an Undo banner sits where the button would (Sprint 23 hand check).
+            .quickAddAccess(
+                showsButton: router.budgetSegment == .transactions && !isSearching && !isSelecting
+                    && undoCenter.banner == nil)
             .navigationTitle("Budget")
             .themedScreen(decorated: true, toolbarTrailing: true)
             .toolbar {

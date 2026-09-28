@@ -203,6 +203,11 @@ private struct FilteredTransactions: View {
         }
         .listStyle(.insetGrouped)
         .environment(\.editMode, Binding.constant(isSelecting ? EditMode.active : EditMode.inactive))
+        // Sprint 23 (F3 polish): scrolling away from a fresh Undo offer dismisses it early, same as it timing out.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 12).onChanged { _ in
+                if undoCenter?.banner != nil { undoCenter?.dismiss() }
+            })
     }
 
     /// Rows are selectable only in Select mode; otherwise a tap opens the editor.
