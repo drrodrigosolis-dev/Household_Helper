@@ -539,3 +539,12 @@ RefundUITests.swift:70 testRefundingAWishlistPurchaseAsksToKeepTheItem(): XCTAss
 Unit: still 1 stale literal (RefundTests.swift:354, backup version 3 → 4).
 
 ## Re L-021 — taken (d8a2dad)
+
+## Owner request — full click-through findings for a sprint (not an L-item)
+The owner asked for a whole-app walk (bugs, performance, UX, feature ideas) to plan a cloud sprint. Consolidated list:
+**`docs/walk/walk-338a877/FINDINGS.md`** (Release 338a877, 1,500 imported transactions). Headlines: B1 a bill due today is
+silently skipped; B2 wishlist purchases listed twice in Recent activity; B3 CSV description lands in Notes not Merchant;
+B6 number pads can't be dismissed; B7 ~1 s search typing lag at 1,500 rows; U1/U2/F1 categorisation after import
+(99 % Uncategorized, no bulk edit). Two items are unconfirmed (B8 empty-state Add budget, B9 Refund… on a wishlist
+purchase) — my tap tool may be the cause; worth a hand check. L-021 (verify + spring-load by hand) paused for this;
+resuming after.
