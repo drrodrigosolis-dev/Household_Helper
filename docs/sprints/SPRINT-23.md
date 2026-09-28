@@ -51,5 +51,10 @@ message with defaults; local re-verifies by finding ID.
 Waves: wave 1 = the fixes (lanes: import A-003/A-006/F1; list A-005/A-007/A-013/A-014/A-015 + Uncategorized filter; lead:
 the small ones). Wave 2 = features, after wave 1 is merged and pushed.
 
+## Owner decisions
+- 2026-09-28: the phone holds no real data yet, so installing a build with SchemaV4 needs no backup first. SchemaV4
+  still gets its migration tests and household-data-safety-review, and is installed only once CI is green; after
+  that install it is frozen like V1–V3.
+
 ## Close-out
 CI green on the head with every fix; local closes each fixed ID; PROGRESS row; PR #2 body.
