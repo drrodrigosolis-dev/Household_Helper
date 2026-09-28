@@ -79,9 +79,16 @@ final class Sprint23SplitUITests: XCTestCase {
         let duplicate = app.buttons["editor.duplicate"]
         XCTAssertTrue(scrollUntilExists(app, duplicate), "Duplicate missing from the editor")
         duplicate.tap()
+        // The editor now shows the copy, saying so, so it can be adjusted.
+        let notice = app.descendants(matching: .any)["editor.duplicated"]
+        XCTAssertTrue(notice.waitForExistence(timeout: 10), "Duplicate should open the copy and say so")
         let editor = app.navigationBars["Transaction"]
+        XCTAssertTrue(editor.exists, "The copy opens in the editor")
+        XCTAssertEqual(app.textFields["editor.amount"].value as? String, "12.00", "The copy has the original's amount")
+        captureScreen(app, named: "sprint23-duplicate-copy-light")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
         let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: editor)
-        XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 10), .completed, "Duplicate closes the editor")
+        XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 10), .completed, "Back returns to the list")
         let rows = app.descendants(matching: .any).matching(identifier: "transaction.row")
             .matching(NSPredicate(format: "label CONTAINS %@", "coffee"))
         XCTAssertTrue(rows.element(boundBy: 1).waitForExistence(timeout: 10), "The copy is its own row")
