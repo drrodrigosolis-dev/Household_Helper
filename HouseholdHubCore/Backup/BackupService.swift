@@ -490,7 +490,9 @@ extension BackupService {
             linkedTransactionID: model.linkedTransactionID, archivedAt: model.archivedAt, createdAt: model.createdAt,
             updatedAt: model.updatedAt, recurrenceRule: model.recurrence,
             // An unreadable rule exports as no repeat, without its zone, so the file stays valid.
-            recurrenceTimeZoneIdentifier: model.recurrence == nil ? nil : model.recurrenceTimeZoneIdentifier)
+            recurrenceTimeZoneIdentifier: model.recurrence == nil ? nil : model.recurrenceTimeZoneIdentifier,
+            // A time without a due date (never written by the service) exports as none, so the file stays valid.
+            dueTimeMinutes: model.dueDate == nil ? nil : model.dueTimeMinutes)
     }
 
     static func make(_ dto: BackupDTO.TaskDTO) -> TaskItem {
@@ -507,6 +509,7 @@ extension BackupService {
         model.columnID = dto.columnID
         model.priorityRawValue = dto.priority
         model.dueDate = dto.dueDate
+        model.dueTimeMinutes = dto.dueTimeMinutes
         model.completedAt = dto.completedAt
         model.sortOrder = dto.sortOrder
         model.linkedWishlistItemID = dto.linkedWishlistItemID

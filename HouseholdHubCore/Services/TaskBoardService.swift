@@ -256,7 +256,7 @@ public actor TaskBoardService {
         try commit()
     }
 
-    /// Open tasks on the board with a due date, for due-day reminders (Sprint 14).
+    /// Open tasks on the board with a due date, for due-day reminders (Sprint 14), with their due time (Sprint 26).
     public func reminderSources() throws -> [TaskReminderSource] {
         // The due-date check runs in Swift: a three-part optional predicate timed out the type checker (CI run
         // 36262716786).
@@ -264,7 +264,9 @@ public actor TaskBoardService {
         var sources: [TaskReminderSource] = []
         for task in try modelContext.fetch(open) {
             if let due = task.dueDate {
-                sources.append(TaskReminderSource(taskID: task.id, title: task.title, dueDate: due))
+                sources.append(
+                    TaskReminderSource(
+                        taskID: task.id, title: task.title, dueDate: due, dueTimeMinutes: task.dueTimeMinutes))
             }
         }
         return sources
@@ -336,6 +338,8 @@ public actor TaskBoardService {
         let notes = draft.notes?.trimmingCharacters(in: .whitespacesAndNewlines)
         task.notes = notes?.isEmpty == false ? notes : nil
         task.dueDate = draft.dueDate
+        // `validate()` refused a time without a date, so clearing the date always clears the time with it.
+        task.dueTimeMinutes = draft.dueDate == nil ? nil : draft.dueTimeMinutes
         task.linkedWishlistItemID = draft.linkedWishlistItemID
         task.linkedTransactionID = draft.linkedTransactionID
         task.recurrenceRuleData = try draft.recurrence?.encoded()
@@ -379,9 +383,10 @@ public actor TaskBoardService {
     }
 
     /// Sprint 13 decisions 2–4: a copy of the completed task (title, notes, priority, subtasks unticked; no links) due
-    /// on the rule's next date after the completed task's due date, which keeps no rule, so completing it again or
-    /// reopening it never makes a second copy. If no copy can be made (an unreadable rule, no next date, no open
-    /// column) the rule stays where it is rather than being dropped; an unknown zone falls back to the device's.
+    /// on the rule's next date after the completed task's due date, at its due time if it has one (Sprint 26). The
+    /// completed task keeps no rule, so completing it again or reopening it never makes a second copy. If no copy can
+    /// be made (an unreadable rule, no next date, no open column) the rule stays where it is rather than being
+    /// dropped; an unknown zone falls back to the device's.
     private func scheduleNext(
         after task: TaskItem, columns ordered: [BoardColumn], returnTo: UUID?, now: Date
     ) throws {
@@ -401,6 +406,8 @@ public actor TaskBoardService {
         let copy = TaskItem(title: task.title, columnID: column.id, priority: task.priority, sortOrder: key, now: now)
         copy.notes = task.notes
         copy.dueDate = next
+        // Sprint 26: every occurrence is due at the same time of day as the one before it.
+        copy.dueTimeMinutes = task.dueTimeMinutes
         copy.recurrenceRuleData = data
         copy.recurrenceTimeZoneIdentifier = zone.identifier
         modelContext.insert(copy)

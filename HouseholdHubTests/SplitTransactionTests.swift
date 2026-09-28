@@ -593,7 +593,8 @@ struct SplitTransactionTests {
         let ids = try await split(original, [6_000, 4_000], in: fixture)
         let backupService = BackupService.make(container: fixture.container)
         let backup = try await backupService.snapshot(now: now, appVersion: "1") { _ in nil }
-        #expect(backup.schemaVersion == 5)
+        // Split groups arrived in v5; every later version (v6 adds task times, Sprint 26) keeps them.
+        #expect(backup.schemaVersion == BackupDTO.currentSchemaVersion && backup.schemaVersion >= 5)
         let group = try #require(try fixture.record(original).splitGroupID)
         let parts = backup.transactions.filter { $0.splitGroupID == group }.map(\.id)
         #expect(Set(parts) == Set(ids))

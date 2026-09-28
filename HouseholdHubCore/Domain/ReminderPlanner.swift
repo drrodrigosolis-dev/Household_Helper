@@ -29,11 +29,14 @@ public struct TaskReminderSource: Equatable, Sendable {
     public let taskID: UUID
     public let title: String
     public let dueDate: Date
+    /// Sprint 26: the task's due time, minutes after local midnight; nil = remind at the default time.
+    public let dueTimeMinutes: Int?
 
-    public init(taskID: UUID, title: String, dueDate: Date) {
+    public init(taskID: UUID, title: String, dueDate: Date, dueTimeMinutes: Int? = nil) {
         self.taskID = taskID
         self.title = title
         self.dueDate = dueDate
+        self.dueTimeMinutes = dueTimeMinutes
     }
 }
 
@@ -41,13 +44,14 @@ public struct TaskReminderSource: Equatable, Sendable {
 public struct ReminderSettings: Equatable, Sendable {
     public var tasksDue: Bool
     public var billsDue: Bool
-    /// Local hour of day reminders fire at.
-    public var hour: Int
+    /// Sprint 26: the "Reminder default time", minutes after local midnight (9:00 until the user sets one). A task
+    /// without a time and every bill remind at it; an invalid value reads as 9:00.
+    public var defaultTimeMinutes: Int
 
-    public init(tasksDue: Bool, billsDue: Bool, hour: Int = 9) {
+    public init(tasksDue: Bool, billsDue: Bool, defaultTimeMinutes: Int = TimeOfDay.defaultReminderMinutes) {
         self.tasksDue = tasksDue
         self.billsDue = billsDue
-        self.hour = hour
+        self.defaultTimeMinutes = defaultTimeMinutes
     }
 }
 
@@ -68,8 +72,10 @@ public struct ReminderWording: Sendable {
     }
 }
 
-/// Deterministic reminder plan (Sprint 14): a task due today reminds at `hour` on its due day; an upcoming recurring
-/// bill reminds at `hour` the day before (Sprint 22: not a recurring purchase). Past fire times are skipped. At most
+/// Deterministic reminder plan (Sprint 14): a task reminds on its due day, at its due time when it has one and at the
+/// default time otherwise (Sprint 26); an upcoming recurring bill reminds at the default time the day before (Sprint
+/// 22: not a recurring purchase). Times go through `HouseholdCalendar`: a time a spring-forward day skips fires at the
+/// next valid time, a time a fall-back day repeats fires once, the first time. Past fire times are skipped. At most
 /// `limit` reminders, soonest first (iOS keeps at most 64 pending per app).
 public struct ReminderPlanner: Sendable {
     public static let defaultLimit = 60
@@ -80,11 +86,19 @@ public struct ReminderPlanner: Sendable {
         tasks: [TaskReminderSource], bills: [UpcomingOccurrence], settings: ReminderSettings,
         wording: ReminderWording, now: Date, calendar: HouseholdCalendar, limit: Int = defaultLimit
     ) -> [PlannedReminder] {
+        var defaultTime = settings.defaultTimeMinutes
+        if !TimeOfDay.isValid(defaultTime) {
+            defaultTime = TimeOfDay.defaultReminderMinutes
+        }
         var planned: [PlannedReminder] = []
         if settings.tasksDue {
             for task in tasks {
-                guard let fire = fireDate(onDayOf: task.dueDate, offsetDays: 0, hour: settings.hour, calendar: calendar)
-                else { continue }
+                var time = defaultTime
+                if let own = task.dueTimeMinutes, TimeOfDay.isValid(own) {
+                    time = own
+                }
+                let fire = fireDate(onDayOf: task.dueDate, offsetDays: 0, minutes: time, calendar: calendar)
+                guard let fire else { continue }
                 planned.append(
                     PlannedReminder(
                         id: "task-\(task.taskID.uuidString)", kind: .taskDue, title: wording.taskTitle,
@@ -94,8 +108,8 @@ public struct ReminderPlanner: Sendable {
         if settings.billsDue {
             // A recurring purchase is something you do, not something you owe: no "due" reminder (Sprint 22).
             for bill in bills where bill.type == .expense && bill.kind == .bill {
-                guard let fire = fireDate(onDayOf: bill.date, offsetDays: -1, hour: settings.hour, calendar: calendar)
-                else { continue }
+                let fire = fireDate(onDayOf: bill.date, offsetDays: -1, minutes: defaultTime, calendar: calendar)
+                guard let fire else { continue }
                 planned.append(
                     PlannedReminder(
                         id: "bill-\(bill.id)", kind: .billDue, title: wording.billTitle,
@@ -107,12 +121,11 @@ public struct ReminderPlanner: Sendable {
         return Array(soonest.prefix(max(0, limit)))
     }
 
-    /// `hour`:00 local time on the day of `date` shifted by `offsetDays`.
-    private func fireDate(onDayOf date: Date, offsetDays: Int, hour: Int, calendar: HouseholdCalendar) -> Date? {
+    /// `minutes` after local midnight on the day of `date` shifted by `offsetDays` (the next valid time on a day that
+    /// skips it).
+    private func fireDate(onDayOf date: Date, offsetDays: Int, minutes: Int, calendar: HouseholdCalendar) -> Date? {
         let day = calendar.startOfDay(for: date)
         guard let shifted = calendar.calendar.date(byAdding: .day, value: offsetDays, to: day) else { return nil }
-        let parts = calendar.calendar.dateComponents([.year, .month, .day], from: shifted)
-        return calendar.calendar.date(
-            from: DateComponents(year: parts.year, month: parts.month, day: parts.day, hour: hour))
+        return TimeOfDay.date(minutes: minutes, onDayOf: shifted, calendar: calendar)
     }
 }
