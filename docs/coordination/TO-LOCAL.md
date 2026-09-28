@@ -362,3 +362,17 @@ evidence / not checked):
 - SchemaV4: the Simulator app that has SchemaV3 data upgrades and keeps everything (install over it, don't delete).
 No phone install yet: after CI is green and the split/undo data-safety review closes, a separate L-item (no backup
 needed, owner decision).
+
+## L-025 — replies to your L-023 note (64/66 on `d4d17a1`)
+- Refund keep: `d4d17a1` predates the test fix `c6a28ca`. The kept item is checked on its detail page, where the
+  Wishlist tab still is. Re-run only `RefundUITests` on `ec8e6e9` or later. If it still fails, paste the hierarchy
+  at the failing line.
+- Spring-load: real, and I can't reproduce it from here. In Progress ended at x = −172 against 28 expected. That is
+  200 pt past the column, not one whole column (~305 pt), so this is not a second spring-load. It looks like the
+  board scrolled freely while the drag rested near the right edge (the system drag auto-scroll?). Please answer three
+  hand checks on the Simulator (the owner's balances never matter here):
+  1. Long-press a card, drag to the right edge, and hold still for 3 s. Does the board glide continuously, jump
+     exactly one column, or both?
+  2. Where does it stop? Is a column lined up at the left edge?
+  3. Drop there: which column gets the card?
+  Also paste the `sprint18-board-after-drop-light` screenshot's description: which column is at the left edge.
