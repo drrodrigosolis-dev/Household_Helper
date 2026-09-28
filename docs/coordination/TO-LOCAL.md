@@ -342,3 +342,23 @@ closed / reopened (new evidence) / not verified (why).
 - A-022: delete an account a goal uses → refused straight away, no "can't be undone" confirmation first.
 - A-011: won't fix (no public API to re-expand a large title); A-023: finger check if the owner is around.
 Features (F2–F8, A-017, A-018, split) come in a later L-item.
+
+## L-024 — Sprint 23 round 2: every feature is merged (head after `6411749`); written without a compiler
+Do L-023 first if not done. Then `Scripts/verify.sh --keep-going` on the new head: paste compile errors and failing
+tests verbatim into TO-CLOUD.md first (most valuable). Then check by hand and answer per item (works / broken +
+evidence / not checked):
+- F1: categorise one "Pizza Place" by hand → Quick Add "12 pizza place" pre-picks that category; a new import too.
+- F2: with ≥3 monthly payments to one merchant (import a CSV with 3–4 months of "Streaming Co" at the same amount),
+  Budget › Recurring shows a Suggestion; Add opens the editor prefilled; Dismiss hides it for good.
+- F3: delete a transaction → Undo banner → Undo brings it back (same amount/category/date); bulk delete → Undo; bulk
+  Set category → Undo. Also bulk delete with recurring occurrences offers "Delete and disable their series".
+- F4: open a $100 expense → Split… → 60 + 40 with two categories → two rows marked "Split"; the balance is unchanged;
+  Unsplit brings one $100 row back. Duplicate → a copy dated today.
+- F5: More › Analytics › "Last month" section. A-018: tap a category / a week bar → Budget opens those exact dates.
+- A-017: Budget › Budgets → previous month arrows; rollover numbers look right against the data.
+- F6: filter menu → More filters (amount range, custom dates) → Save search… → re-apply from the menu.
+- F7: Settings › Reminders › Budget alerts on; a budget pushed past 80 % → a notification naming the category only.
+- F8: import a CSV, map columns, Save as preset… → import the same bank's file again → preset auto-selected.
+- SchemaV4: the Simulator app that has SchemaV3 data upgrades and keeps everything (install over it, don't delete).
+No phone install yet: after CI is green and the split/undo data-safety review closes, a separate L-item (no backup
+needed, owner decision).
