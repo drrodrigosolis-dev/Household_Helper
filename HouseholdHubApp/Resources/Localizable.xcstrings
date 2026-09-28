@@ -6631,6 +6631,16 @@
         }
       }
     },
+    "The parts couldn't be merged. Nothing was changed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron unir las partes. No se cambió nada."
+          }
+        }
+      }
+    },
     "The parts must add up to the total.": {
       "localizations": {
         "es": {
