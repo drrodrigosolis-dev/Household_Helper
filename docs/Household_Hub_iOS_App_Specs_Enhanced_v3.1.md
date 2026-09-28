@@ -2078,15 +2078,54 @@ Examples:
 
 ```text
 amount        required; first parseable number, decimal or integer
-type          expense by default; income if a leading "+" or the word
-              "income"/"received" is present
+type          expense by default; income if a leading "+" or an income
+              phrase is present (see "Type phrases" below)
 description   remaining free text after amount/keywords are stripped
 category      only if an explicit #tag matches an existing category
               name (case-insensitive substring match); otherwise omitted
 date          only from a small fixed vocabulary: "today," "yesterday,"
               weekday names (nearest past occurrence); otherwise defaults
               to now
+time          a time of day (see "Times" below) sets the time on that
+              date; otherwise the time is now's
 ```
+
+**Type phrases (owner request 2026-09-28).** Matched as whole words, ignoring case and accents (English and Spanish, whatever the device language):
+
+```text
+income    got paid, i got paid, received, i received, earned, i earned,
+          i was paid, income, me pagaron, cobré, recibí, recibido, gané,
+          ingreso, me depositaron
+expense   paid, i paid, had to pay, i had to pay, spent, i spent,
+          was worth, it was worth, cost, it cost, bought, i bought,
+          pagué, tuve que pagar, gasté, costó, compré, gasto
+```
+
+- A leading "+" means income and wins: no phrase is read then ("+20 paid back" → income, "paid back").
+- At any word the longest phrase wins ("got paid" is income though it holds "paid"; "i had to pay" before "paid"). When the text holds several phrases, the earliest one wins and the others stay in the description.
+- Plain "got" is not a phrase ("got 2 tickets" stays an expense); a phrase inside another word never matches ("prepaid").
+- The matched phrase is removed from the description, and so is a "for"/"por" right after it, with only the amount (or a time) between: "I paid 40 for gas" → expense 40, "gas"; "pagué 40 por gasolina" → "gasolina". "got paid 1200" → income 1200 with an empty description.
+- Siri and Shortcuts drafts take the type from this grammar; the on-device model can never change it.
+
+**Times (owner request 2026-09-28).** One shared recogniser (`TimeOfDayParser`) serves Quick Add, batch task lines, and Siri tasks. Case, accents, and surrounding punctuation are ignored.
+
+```text
+3pm, 3 pm, 3:30pm, 3:30 p.m., 12am      12-hour clock; hour 1-12
+15:30, 3:30                             a colon is a 24-hour clock
+noon, midnight, mediodía, medianoche    12:00 and 0:00
+at <time>                               "at 3pm", "at 15:30", "at noon"
+a las <N>, a la <N>                     hour N (0-23), 24-hour clock;
+                                        also "a las 15:30", "a las 3pm"
+<N> de la tarde / de la noche           N 1-11 plus 12 ("10 de la noche"
+                                        = 22:00); 12 = noon / midnight
+<N> de la mañana / de la madrugada      N as said; 12 = 0:00
+a mediodía, al mediodía, a medianoche
+```
+
+- A bare number is never a time ("buy 3 eggs", "40 lunch"): it needs am/pm, a colon, "de la …", or "a las"/"a la" in front. "at 3" is not a time either.
+- Invalid times ("25:00", "13pm", "3:75") are not read; their words stay in the text.
+- Quick Add removes the time from the description and sets it on the transaction date, never after now: with no day word, a time still ahead today means yesterday ("20 dinner 8pm" typed at 9 am is last night); with a day word naming today, a later time is now.
+- Tasks set the due time (minutes after midnight). With a date word, that day; with none, today while the time is still ahead of now, tomorrow once it has passed. A line that is only date and time words keeps them as the title. Siri task titles keep their date words unless a time is named, in which case the date word sets the due day and both leave the title.
 
 ## 25.3 What the deterministic parser never guesses
 
