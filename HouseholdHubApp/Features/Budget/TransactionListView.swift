@@ -246,12 +246,10 @@ private struct FilteredTransactions: View {
     private func row(_ record: TransactionRecord, refundedName: String?) -> some View {
         let category = categories.first { $0.id == record.categoryID }
         if isSelecting {
-            TransactionRow(
-                record: record, category: category, accounts: accounts, refundedName: refundedName)
+            TransactionRow(record: record, category: category, accounts: accounts, refundedName: refundedName)
                 .tag(record.id)
         } else {
-            TransactionRow(
-                record: record, category: category, accounts: accounts, refundedName: refundedName)
+            TransactionRow(record: record, category: category, accounts: accounts, refundedName: refundedName)
                 .contentShape(Rectangle())
                 .onTapGesture { editing = record }
                 .accessibilityAddTraits(.isButton)

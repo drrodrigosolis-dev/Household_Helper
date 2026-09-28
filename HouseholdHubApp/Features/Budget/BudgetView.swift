@@ -37,6 +37,12 @@ struct BudgetView: View {
     @Query(sort: \Account.sortOrder) private var accounts: [Account]
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
 
+    /// The floating Quick Add button: Recurring and Budgets add with their own + (A-013); searching and selecting need
+    /// the space (A-014); an Undo banner sits where the button would (Sprint 23 hand check).
+    private var showsQuickAddButton: Bool {
+        router.budgetSegment == .transactions && !isSearching && !isSelecting && undoCenter.banner == nil
+    }
+
     var body: some View {
         @Bindable var router = router
         NavigationStack {
@@ -67,11 +73,7 @@ struct BudgetView: View {
                 .padding(.horizontal)
                 .accessibilityIdentifier("budget.segment")
             }
-            // Recurring and Budgets add with their own + (A-013); searching and selecting need the space (A-014);
-            // an Undo banner sits where the button would (Sprint 23 hand check).
-            .quickAddAccess(
-                showsButton: router.budgetSegment == .transactions && !isSearching && !isSelecting
-                    && undoCenter.banner == nil)
+            .quickAddAccess(showsButton: showsQuickAddButton)
             .navigationTitle("Budget")
             .themedScreen(decorated: true, toolbarTrailing: true)
             .toolbar {
@@ -252,8 +254,15 @@ struct BudgetView: View {
                     }
                 }
             }
-            // Near the top: the pickers below can make the menu long.
+            // Near the top: the pickers below make the menu long enough that its end is off screen (CI run
+            // 36388432939: Clear All Filters at the bottom could not be reached).
             Section {
+                if hasAnyFilter(filter.wrappedValue) {
+                    Button("Clear All Filters", systemImage: "xmark.circle", role: .destructive) {
+                        clearAllFilters(filter)
+                    }
+                    .accessibilityIdentifier("budget.clearAllFilters.menu")
+                }
                 Button("More filters…", systemImage: "slider.horizontal.3") { isShowingMoreFilters = true }
                 if hasAnyFilter(filter.wrappedValue) {
                     Button("Save search…", systemImage: "bookmark") {
@@ -297,10 +306,6 @@ struct BudgetView: View {
                 ForEach(TransactionStatus.allCases, id: \.self) { status in
                     Text(LedgerFormat.statusLabel(status)).tag(TransactionStatus?.some(status))
                 }
-            }
-            if hasAnyFilter(filter.wrappedValue) {
-                Button("Clear All Filters", role: .destructive) { clearAllFilters(filter) }
-                    .accessibilityIdentifier("budget.clearAllFilters.menu")
             }
         } label: {
             Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
