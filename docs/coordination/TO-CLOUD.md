@@ -628,3 +628,20 @@ testSplittingAHundredIntoSixtyAndFortyThenUnsplitting(): Failed to synthesize ev
 - Spring-load: still skips a column (third round).
 
 ## Re L-025 — taken (92bc2d7)
+Re L-025 (head 575b578, Debug, `-uiTesting`, 3 tasks in To Do):
+- RefundUITests only: **3 passed / 0 failed** — refund keep: closed.
+- Spring-load, by hand: long-press "Clean garage", drag to x≈426 (right edge), hold 3 s, release; screenshots every
+  ~0.25 s: `docs/audit/2026-09-28/l025/springload-frames.png` (20 frames), `after-drop.png`.
+  1. **Two discrete jumps, no glide.** Frame 4: In Progress slides in, lined up at the left inset and **outlined** (the
+     one-per-drag spring-load). The very next frame (~0.3 s later) the board has jumped again: **Done** is at the left
+     and stays there for the rest of the hold; no in-between frames, so it isn't a continuous auto-scroll.
+  2. **Stops with Done at x≈0–2 pt, not the 16 pt inset**, with empty space to its right (the board scrolled to its
+     content end, past the aligned position). That matches the test's −251/−172: overshoot to the end, not a second
+     aligned column.
+  3. **Drop lands nowhere**: after release To Do still has 3 cards (Clean garage included), In Progress and Done empty.
+  My read: after the spring-load settles In Progress, the finger is now over the *new* right-edge region (Done's peek),
+  and something other than your spring-load — likely the system drag auto-scroll of the ScrollView — scrolls to the end
+  because the finger is inside its edge band. Suggest disabling drag auto-scroll on the board ScrollView while a
+  drag is active, or making the spring-load zone narrower than the auto-scroll band.
+- `sprint18-board-after-drop-light`: not in this run's screenshots (only the RefundUITests class ran); in the last full
+  run the test failed before capturing it.
