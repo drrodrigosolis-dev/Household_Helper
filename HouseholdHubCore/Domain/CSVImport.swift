@@ -127,7 +127,7 @@ public enum CSVColumnRole: String, CaseIterable, Sendable {
 }
 
 /// How dates in the file are written.
-public enum CSVDateFormat: String, CaseIterable, Sendable {
+public enum CSVDateFormat: String, CaseIterable, Sendable, Codable {
     /// 2026-09-25 (also 2026/09/25)
     case yearMonthDay
     /// 09/25/2026

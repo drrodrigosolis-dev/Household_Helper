@@ -23,6 +23,7 @@ struct CSVImportSource: Identifiable {
 struct CSVImportView: View {
     let source: CSVImportSource
     let onImported: (Int) -> Void
+    private let presetStore: CSVImportPresetStore
 
     @Environment(\.services) private var services
     @Environment(\.dismiss) private var dismiss
@@ -51,11 +52,23 @@ struct CSVImportView: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
 
+    /// Saved bank presets (Sprint 23, F8): a device setting, not app data.
+    @State private var presets: [CSVImportPreset]
+    @State private var selectedPresetID: UUID?
+    @State private var hasAutoAppliedPreset = false
+    @State private var isPromptingPresetName = false
+    @State private var newPresetName = ""
+
     private let calendar = HouseholdCalendar(timeZone: .current)
 
-    init(source: CSVImportSource, onImported: @escaping (Int) -> Void) {
+    init(
+        source: CSVImportSource, presetStore: CSVImportPresetStore = CSVImportPresetStore(),
+        onImported: @escaping (Int) -> Void
+    ) {
         self.source = source
+        self.presetStore = presetStore
         self.onImported = onImported
+        _presets = State(initialValue: presetStore.all())
         let guessed = CSVMapping.guessColumns(header: source.header)
         _columns = State(initialValue: guessed)
         let calendar = HouseholdCalendar(timeZone: .current)
@@ -103,6 +116,17 @@ struct CSVImportView: View {
         return choices[row.line] ?? !row.isLikelyDuplicate
     }
 
+    /// The saved preset this file's header matches, if any: shown as auto-selected with a note.
+    private var autoMatchedPreset: CSVImportPreset? {
+        presets.first { $0.matches(header: source.header) }
+    }
+
+    /// A file's columns, date format and decimal mark are mapped enough to name and save a preset for it.
+    private var canSavePreset: Bool {
+        columns[.date] != nil && columns[.amount] != nil && dateFormat != nil && decimalMark != nil
+            && chosenAccountID != nil
+    }
+
     private var missingChoice: String? {
         if columns[.date] == nil || columns[.amount] == nil {
             return String(localized: "Choose the Date and Amount columns.")
@@ -119,6 +143,7 @@ struct CSVImportView: View {
         let included = rows.filter(isIncluded)
         let ready = !included.isEmpty && chosenAccountID != nil && missingChoice == nil && existing != nil
         Form {
+            presetSection
             columnsSection
             readingSection
             Section {
@@ -164,6 +189,85 @@ struct CSVImportView: View {
         }
         .task(id: loadKey) { await loadExisting() }
         .onChange(of: inputs, initial: true) { recompute() }
+        .onAppear { applyAutoMatchedPresetIfNeeded() }
+        .alert("Save as preset", isPresented: $isPromptingPresetName) {
+            TextField("Name", text: $newPresetName)
+            Button("Save") { savePreset() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("A file with the same column headers will use this mapping automatically next time.")
+        }
+    }
+
+    private var presetSection: some View {
+        Section {
+            Picker("Preset", selection: presetBinding) {
+                Text("None").tag(UUID?.none)
+                ForEach(presets) { preset in
+                    Text(preset.name).tag(UUID?.some(preset.id))
+                }
+            }
+            .accessibilityIdentifier("csv.preset")
+            if let autoMatchedPreset, selectedPresetID == autoMatchedPreset.id {
+                Text("Matched your preset “\(autoMatchedPreset.name)”.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Button("Save as preset…") {
+                newPresetName = ""
+                isPromptingPresetName = true
+            }
+            .disabled(!canSavePreset)
+            .accessibilityIdentifier("csv.savePreset")
+            NavigationLink("Import presets") {
+                CSVImportPresetListView(presetStore: presetStore, presets: $presets)
+            }
+        } header: {
+            Text("Preset")
+        }
+    }
+
+    private var presetBinding: Binding<UUID?> {
+        Binding(
+            get: { selectedPresetID },
+            set: { newValue in
+                selectedPresetID = newValue
+                guard let id = newValue, let preset = presets.first(where: { $0.id == id }) else { return }
+                apply(preset)
+            })
+    }
+
+    /// Applies a saved preset's mapping, and its account when that account is still active; otherwise the account
+    /// picker's own default stands.
+    private func apply(_ preset: CSVImportPreset) {
+        columns = preset.columns
+        dateFormat = preset.dateFormat
+        decimalMark = preset.decimalMark
+        spendingIsPositive = preset.spendingIsPositive
+        let active = Set(accounts.filter { !$0.isArchived }.map(\.id))
+        if let target = preset.targetAccountID(activeAccountIDs: active) {
+            accountID = target
+        }
+    }
+
+    private func applyAutoMatchedPresetIfNeeded() {
+        guard !hasAutoAppliedPreset else { return }
+        hasAutoAppliedPreset = true
+        guard let matched = autoMatchedPreset else { return }
+        selectedPresetID = matched.id
+        apply(matched)
+    }
+
+    private func savePreset() {
+        guard let dateFormat, let decimalMark, let accountID = chosenAccountID else { return }
+        let name = newPresetName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        let preset = CSVImportPreset(
+            name: name, columns: columns, dateFormat: dateFormat, decimalMark: decimalMark,
+            spendingIsPositive: spendingIsPositive, accountID: accountID, headerSignature: source.header)
+        presetStore.save(preset)
+        presets = presetStore.all()
+        selectedPresetID = preset.id
     }
 
     private var columnsSection: some View {
