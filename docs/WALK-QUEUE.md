@@ -36,6 +36,34 @@ result, and why it could not be walked automatically. Emptied at the next walk o
   synthetic gestures). 4. Rest it on the 16 pt left edge: the previous column slides back; release lands there. Why
   queued: drag feel and lift-vs-menu need a real finger.
 
+- **Sprint 25 — Siri (owner's phone; Siri can't run in CI).** Install a fresh build, open the app once and finish
+  setup so Siri reads the shortcuts. Lock off unless a step says otherwise.
+  1. **One-breath dictation (owner question 4, first).** Say "Add to my wishlist in Household Hub, headphones for
+     149" in one breath. Expected: no follow-up question; the confirmation reads "Add headphones, $149.00?". If Siri
+     asks "What would you like to add?" instead, the one-breath assumption is false: record it here and in
+     `docs/sprints/SPRINT-25.md`, then answer "headphones for 149" and continue.
+  2. **Each phrase, English.** "Add to my wishlist in Household Hub", "Add to my Household Hub wishlist", "Add a wish
+     in Household Hub": Siri asks for the item; answer "rain boots for 45" → "Add rain boots, $45.00?" → Yes →
+     "Added rain boots to your wishlist."; the item is in Wishlist. Answer "gift for mom" → "Add gift for mom with no
+     price?". Say No once: nothing is added.
+  3. "Add a task in Household Hub", "Add a Household Hub task", "New task in Household Hub": answer "call the
+     plumber" → "Add the task “call the plumber”?" → Yes → the task is at the bottom of the board's first column.
+  4. **Log Transaction without Apple Intelligence** (Settings › Intelligence › Quick Add understanding off, or a
+     phone without it): "Log a transaction in Household Hub", "47.50 coffee" → "Record $47.50 expense at coffee on
+     <today>?". Nothing is saved on No.
+  5. **Foundation Models path** (a device with Apple Intelligence on; Quick Add understanding and Category suggestions
+     on): "Log a transaction in Household Hub", then "I spent 40 on groceries at Safeway yesterday". Expected:
+     "Record $40.00 expense at Safeway on <yesterday>, in Groceries?". Then "2 coffees for 9.50" → $9.50, not $2.00.
+     Wishlist: "I'd love the Sony headphones, they cost 149" → "Add Sony headphones, $149.00?". Note how long the
+     model takes; after 6 s the grammar's draft is used (the confirmation then shows the plain-grammar wording).
+  6. **Lock on** (Settings › Privacy › Require Face ID): each of the three intents asks for Face ID before its
+     question or confirmation; failing it ends with "Household Hub is locked…". Lock off again: no prompt.
+  7. **Spanish** (iPhone language Español, Siri language Español): "Añade a mi lista de deseos en Household Hub",
+     "audífonos por 149" → the confirmation names audífonos and $149.00; "Añade una tarea en Household Hub",
+     "llamar al fontanero"; "Registrar un movimiento en Household Hub", "40 supermercado ayer". Check the Spanish
+     dialogs read naturally once the Localizable strings are translated.
+  Why queued: Siri, dictation, Face ID and the on-device model exist only on the phone.
+
 ## Done
 - **Sprint 6 (Phase 7) — backup and restore through the Files app** (local Simulator, L-012, 2026-09-27). The first
   try found "Back up now" did nothing: two `fileExporter`s on one view, only the last presented; fixed in `9b100f5`.

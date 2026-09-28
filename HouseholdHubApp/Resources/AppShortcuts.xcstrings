@@ -1,12 +1,72 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Add a ${applicationName} task": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nueva tarea de ${applicationName}"
+          }
+        }
+      }
+    },
+    "Add a task in ${applicationName}": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añade una tarea en ${applicationName}"
+          }
+        }
+      }
+    },
+    "Add a wish in ${applicationName}": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuevo deseo en ${applicationName}"
+          }
+        }
+      }
+    },
+    "Add to my ${applicationName} wishlist": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añade a mi lista de deseos de ${applicationName}"
+          }
+        }
+      }
+    },
+    "Add to my wishlist in ${applicationName}": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añade a mi lista de deseos en ${applicationName}"
+          }
+        }
+      }
+    },
     "Log a transaction in ${applicationName}": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Registrar un movimiento en ${applicationName}"
+          }
+        }
+      }
+    },
+    "New task in ${applicationName}": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nueva tarea en ${applicationName}"
           }
         }
       }

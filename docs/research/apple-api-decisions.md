@@ -525,6 +525,26 @@ source below; two are cited only to corroborate reading of an official page (mar
   assumption the whole "one sentence" plan rests on and should be the first thing checked on the phone before
   building a wishlist grammar around it.
 
+**5. Build-time verification (Sprint 25 lane, 2026-09-28)**, read from the DocC JSON endpoint
+(`developer.apple.com/tutorials/data/documentation/<path>.json`):
+- `LanguageModelSession.respond(to:generating:includeSchemaInPrompt:options:)`: iOS 26.0,
+  `nonisolated(nonsending) … async throws -> LanguageModelSession.Response<Content> where Content : Generable`
+  (https://developer.apple.com/documentation/foundationmodels/languagemodelsession/respond(to:generating:includeschemainprompt:options:)).
+  Used exactly as `OnDeviceModel.suggestQuickAdd` already does: a new session per call, `.content` read.
+- `Generable` (protocol + macro) and `@Guide(description:)` (attached peer macro): iOS 26.0
+  (https://developer.apple.com/documentation/foundationmodels/generable,
+  https://developer.apple.com/documentation/foundationmodels/guide(description:)). Fields are plain `String`s, as
+  in `QuickAddGuess`, so the amount stays text parsed as `Decimal`.
+- `SystemLanguageModel.availability`: iOS 26.0
+  (https://developer.apple.com/documentation/foundationmodels/systemlanguagemodel/availability-swift.property);
+  checked through `OnDeviceModel.isAvailable` / `AppInfo.onDeviceModelAvailable`.
+- `LanguageModelSession.GenerationError`: iOS 26.0; any thrown error falls back to the grammar.
+- `ConfirmationActionName.add`: iOS 16.0 (https://developer.apple.com/documentation/appintents/confirmationactionname/add).
+- `IntentModes.background`: iOS 26.0 (https://developer.apple.com/documentation/appintents/intentmodes/background).
+- Timeout: the model's answer is raced against a 6 s sleep in a task group (`SiriRefinement.withTimeout`); the
+  loser is cancelled. Whether `respond` stops promptly on cancellation is not documented; if it doesn't, the
+  intent waits for it before falling back (walk item Sprint 25/5 measures this).
+
 **Open questions → recorded in `docs/research/open-questions.md`:** the exact `introducedAt` OS version for
 "Making onscreen content available to Siri and Apple Intelligence" (DocC JSON endpoint 404s for this article page)
 and whether the owner has confirmed `LogTransactionIntent` responds to actual spoken Siri (not just the Shortcuts
