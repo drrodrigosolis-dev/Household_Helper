@@ -466,3 +466,5 @@ Step 3 (compare with the owner's mockup): I don't have the mockup (not in the re
 ~2.3 s: the board went **two columns**, to "Put away", and on release the card was dropped nowhere (it stayed in
 Waiting to play; Playing is empty). So the spring-load still repeats while resting at the edge (build includes ad395c5).
 Screenshot `l018-springload-once.png`.
+
+## Re L-020 — taken (bb5e396); no phone install
