@@ -131,12 +131,112 @@
         }
       }
     },
+    "%lld of %lld couldn't be changed. They are still selected.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron cambiar %1$lld de %2$lld. Siguen seleccionadas."
+          }
+        }
+      }
+    },
+    "%lld of %lld couldn't be deleted. They are still selected.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron eliminar %1$lld de %2$lld. Siguen seleccionadas."
+          }
+        }
+      }
+    },
     "%lld photos couldn't be read and are left out of this backup.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "No se pudieron leer %lld fotos y quedan fuera de este respaldo."
+          }
+        }
+      }
+    },
+    "%lld purchases have refunds and were kept. Delete their refunds first.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld purchase has refunds and was kept. Delete its refunds first."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld purchases have refunds and were kept. Delete their refunds first."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld compra tiene reembolsos y se conservó. Elimina primero sus reembolsos."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld compras tienen reembolsos y se conservaron. Elimina primero sus reembolsos."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld selected": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld selected"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld selected"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld seleccionada"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld seleccionadas"
+                }
+              }
+            }
           }
         }
       }
@@ -247,6 +347,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Un número es el precio y #etiqueta elige una categoría. Ejemplo: 250 bicicleta nueva #hogar"
+          }
+        }
+      }
+    },
+    "A purchase that still has refunds is kept.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una compra que aún tiene reembolsos se conserva."
           }
         }
       }
@@ -1537,6 +1647,86 @@
           "stringUnit": {
             "state": "translated",
             "value": "¿Eliminar %@?"
+          }
+        }
+      }
+    },
+    "Delete %lld transactions": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Delete %lld transaction"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Delete %lld transactions"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eliminar %lld transacción"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eliminar %lld transacciones"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Delete %lld transactions?": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Delete %lld transaction?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Delete %lld transactions?"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¿Eliminar %lld transacción?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¿Eliminar %lld transacciones?"
+                }
+              }
+            }
           }
         }
       }
@@ -4361,6 +4551,16 @@
         }
       }
     },
+    "Recurring occurrences are marked as skipped; their series keep running.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las repeticiones recurrentes se marcan como omitidas; sus series siguen activas."
+          }
+        }
+      }
+    },
     "Red": {
       "localizations": {
         "es": {
@@ -4761,6 +4961,16 @@
         }
       }
     },
+    "Select": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seleccionar"
+          }
+        }
+      }
+    },
     "Set a monthly limit on a spending category to see how much is left.": {
       "localizations": {
         "es": {
@@ -4787,6 +4997,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fija un objetivo en una cuenta para ver cuánto llevas y cuánto ahorrar cada mes."
+          }
+        }
+      }
+    },
+    "Set category": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asignar categoría"
+          }
+        }
+      }
+    },
+    "Set category…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asignar categoría…"
           }
         }
       }
@@ -5801,6 +6031,16 @@
         }
       }
     },
+    "They will be removed from your history and balances.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se eliminarán de tu historial y saldos."
+          }
+        }
+      }
+    },
     "They're added to %@ and marked as imported. You can edit or delete them later.": {
       "localizations": {
         "es": {
@@ -6161,6 +6401,46 @@
         }
       }
     },
+    "Transfers and refunds keep their own category, so %lld selected will be skipped.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Transfers and refunds keep their own category, so %lld selected will be skipped."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Transfers and refunds keep their own category, so %lld selected will be skipped."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Las transferencias y los reembolsos conservan su categoría, así que se omitirá %lld seleccionada."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Las transferencias y los reembolsos conservan su categoría, así que se omitirán %lld seleccionadas."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Travel": {
       "localizations": {
         "es": {
@@ -6487,6 +6767,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Artículo de deseos"
+          }
+        }
+      }
+    },
+    "Wishlist items they bought are no longer purchased.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los artículos de la lista de deseos que compraron dejan de estar comprados."
           }
         }
       }

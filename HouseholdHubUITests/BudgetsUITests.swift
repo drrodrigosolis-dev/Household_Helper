@@ -13,6 +13,8 @@ final class BudgetsUITests: XCTestCase {
         XCTAssertTrue(budgetRow(app, containing: "300.00 left").waitForExistence(timeout: 10), "New budget missing")
         captureScreen(app, named: "sprint11-budgets-light")
 
+        // The floating + isn't on Budgets (audit A-013): add from the Dashboard.
+        app.tabBars.buttons["Dashboard"].tap()
         addViaQuickAdd(app, "45 lunch #dining")
         app.tabBars.buttons["Budget"].tap()
         XCTAssertTrue(
