@@ -10,6 +10,9 @@ struct TransactionEditorView: View {
 
     @Environment(\.services) private var services
     @Environment(\.dismiss) private var dismiss
+    /// The transaction list's banner, which reports a merge that failed after the editor closed (absent when the
+    /// editor was opened from elsewhere).
+    @Environment(UndoCenter.self) private var undoCenter: UndoCenter?
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
     @Query(sort: \Account.sortOrder) private var accounts: [Account]
     /// Tasks that link this transaction (spec §2.1 links); shown read-only, the link is edited on the task.
@@ -195,7 +198,7 @@ struct TransactionEditorView: View {
             "Merge the parts back into one transaction?", isPresented: $isConfirmingUnsplit,
             titleVisibility: .visible
         ) {
-            Button("Unsplit") { Task { await unsplit() } }
+            Button("Unsplit", role: .destructive) { Task { await unsplit() } }
                 .accessibilityIdentifier("editor.unsplit.confirm")
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -370,7 +373,8 @@ struct TransactionEditorView: View {
     }
 
     /// Checked first so a refusal shows here; then the editor closes before the merge, as merging removes every part
-    /// but the first, and this one may be among them.
+    /// but the first, and this one may be among them. A merge that still fails (the data changed in between) changes
+    /// nothing, and says so in the transaction list's banner, which outlives this editor (Sprint 23 review S4).
     private func unsplit() async {
         guard let services, !isSaving else { return }
         do {
@@ -384,8 +388,13 @@ struct TransactionEditorView: View {
             return
         }
         let id = record.id
+        let banner = undoCenter
         dismiss()
-        _ = try? await services.transactions.unsplitTransaction(id, now: .now)
+        do {
+            try await services.transactions.unsplitTransaction(id, now: .now)
+        } catch {
+            banner?.notify(String(localized: "The parts couldn't be merged. Nothing was changed."))
+        }
     }
 
     private func loadRefundSummary() async {
