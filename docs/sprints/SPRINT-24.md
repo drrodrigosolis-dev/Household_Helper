@@ -1,4 +1,4 @@
-# Sprint 24 — v1.1: first-time tutorial (planned, starts after Sprint 23 closes)
+# Sprint 24 — v1.1: first-time tutorial (building; closes after Sprint 23)
 
 Owner request 2026-09-28: a detailed first-time user experience tutorial where highlights and short callouts teach
 everything the app can do. Siri moved to Sprint 25.
@@ -17,6 +17,24 @@ everything the app can do. Siri moved to Sprint 25.
 6. **Tests:** a UI test per tour stop with screenshots in every appearance, so a layout change that breaks a stop
    fails CI; unit tests for the tour/tip state logic.
 
-## Open questions (one message with defaults at sprint start)
-Tour length and stops; whether tips appear on the owner's phone immediately after the update (existing user) or only
-on fresh installs; tone of the copy (plain vs. playful per theme).
+## Owner answers (2026-09-28)
+- **Tour: 6 stops.** Dashboard figures → Quick Add → Budget list → Wishlist (a purchase becomes an expense) → Tasks
+  board → More › Settings (themes, replay). About a minute.
+- **Existing install (the owner's phone):** a one-time, dismissible "New: take the tour" offer; contextual tips then
+  appear as each feature comes into reach. Fresh installs start the tour after onboarding.
+- **Copy:** plain and warm, one text for every theme, English and Spanish.
+- Quiet hours lifted for 2026-09-28 (owner).
+
+## Items
+| # | Item | Built | Walked |
+|---|---|---|---|
+| 1 | Tour engine: spotlight + callout, Next/Skip, step count, VoiceOver, Reduce Motion, Dynamic Type | ☐ | ☐ |
+| 2 | The 6 stops, and the tour starting after onboarding | ☐ | ☐ |
+| 3 | Existing-install offer, shown once | ☐ | ☐ |
+| 4 | Contextual tips (split, undo, bulk select, saved searches, import presets, recurring suggestions, refunds, themes, budget history, analytics taps) | ☐ | ☐ |
+| 5 | Settings: Show the tour again · Reset tips | ☐ | ☐ |
+| 6 | State in UserDefaults / TipKit store; UI-test launch arguments reset it; unit tests for the state logic | ☐ | ☐ |
+| 7 | UI test per stop with screenshots (light, dark, large type) | ☐ | ☐ |
+
+Research first: `household-research-apple-api` on TipKit (iOS 26) and a pure-SwiftUI spotlight; decision recorded in
+`docs/research/apple-api-decisions.md`.
