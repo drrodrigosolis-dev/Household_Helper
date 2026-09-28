@@ -591,3 +591,5 @@ my taps landed ~40 pt low. That, not the app, caused audit A-008 and A-009.
 - A-023: **not verified** — needs the owner's finger.
 Still red from verify: `theStringCatalogIsCompleteAndKeepsPlaceholders` (Spanish for "Delete %lld transactions"),
 RefundUITests:73 (app behaves correctly by hand — test issue), TasksUITests:90 spring-load (not re-tried by hand this round).
+
+## Re L-024 — taken (01f057a)
