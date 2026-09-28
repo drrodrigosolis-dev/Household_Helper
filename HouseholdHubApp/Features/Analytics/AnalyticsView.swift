@@ -3,6 +3,7 @@ import Combine
 import HouseholdHubCore
 import SwiftData
 import SwiftUI
+import TipKit
 
 /// Analytics (spec §24.2): period selector, spending by category, income vs expense trend, top merchants. Every
 /// chart has the same numbers in a table and an audio-graph descriptor (§24.5). Posted transactions, plus pending
@@ -70,6 +71,9 @@ struct AnalyticsView: View {
         .navigationTitle("Analytics")
         .themedScreen()
         .task(id: reportKey) { await refresh() }
+        // Sprint 24: the category chart is visible from the first look at this screen, so its tip waits for a second
+        // visit rather than competing with the first-run tour.
+        .task { await AnalyticsTapsTip.screenSeen.donate() }
         .onReceive(storeSaves) { _ in Task { await refresh() } }
     }
 

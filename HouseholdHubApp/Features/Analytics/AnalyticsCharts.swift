@@ -2,6 +2,7 @@ import Accessibility
 import Charts
 import HouseholdHubCore
 import SwiftUI
+import TipKit
 
 /// Spending by category: a donut plus the same figures as a table. Tapping a slice or a row opens Budget filtered to
 /// that category (Uncategorized too, Sprint 23); the table is the non-gesture path and the data table required by
@@ -60,6 +61,7 @@ struct CategorySection: View {
             }
             .chartAngleSelection(value: $selectedAngle)
             .frame(height: 220)
+            .popoverTip(AnalyticsTapsTip())
             .accessibilityChartDescriptor(CategoryChartDescriptor(rows: rows, currencyCode: currencyCode))
             .onChange(of: selectedAngle) { _, angle in
                 guard let angle, let hit = slice(at: angle) else { return }

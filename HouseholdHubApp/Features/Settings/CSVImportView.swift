@@ -1,6 +1,7 @@
 import HouseholdHubCore
 import SwiftData
 import SwiftUI
+import TipKit
 
 /// A parsed CSV file waiting for its preview (Sprint 15).
 struct CSVImportSource: Identifiable {
@@ -208,6 +209,7 @@ struct CSVImportView: View {
                 }
             }
             .accessibilityIdentifier("csv.preset")
+            .popoverTip(ImportPresetsTip())
             if let autoMatchedPreset, selectedPresetID == autoMatchedPreset.id {
                 Text("Matched your preset “\(autoMatchedPreset.name)”.")
                     .font(.caption)
