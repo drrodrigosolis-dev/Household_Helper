@@ -227,7 +227,7 @@ struct RecurringPurchaseTests {
         try await BackupService.make(container: container).snapshot(now: now, appVersion: "1") { _ in nil }
     }
 
-    @Test func aVersion4BackupKeepsEachKind() async throws {
+    @Test func aCurrentBackupKeepsEachKind() async throws {
         let (container, ledger) = try await makeLedger()
         let purchase = try await groceries(ledger)
         let rent = try await ledger.createSeries(
@@ -249,6 +249,28 @@ struct RecurringPurchaseTests {
         #expect(try series(target, rent).kind == .bill)
         #expect(try merchantName(target, try series(target, purchase).merchantID) == "Costco")
         #expect(try await snapshot(target) == backup, "The round trip is exact")
+    }
+
+    /// A file written by the Sprint 22 app: version 4, kinds but no split groups (the key is absent).
+    @Test func aVersion4BackupRestoresWithItsKindsAndNoSplits() async throws {
+        let (container, ledger) = try await makeLedger()
+        let purchase = try await groceries(ledger)
+        let spent = try await ledger.create(
+            TransactionDraft(amount: cad(2_500), type: .expense, occurredAt: now, merchantName: "Costco"), now: now)
+        var older = try await snapshot(container)
+        older.schemaVersion = 4
+        let data = try BackupDTO.encoder().encode(older)
+        #expect(String(data: data, encoding: .utf8)?.contains("\"splitGroupID\"") == false)
+        let decoded = try BackupDTO.decoder().decode(BackupDTO.self, from: data)
+        #expect(decoded.schemaVersion == 4)
+        try BackupValidator.validate(decoded)
+
+        let target = try HouseholdContainerFactory().makeContainer(configuration: .inMemory)
+        _ = try await BackupService.make(container: target).restore(decoded, availableMedia: [], now: now)
+        #expect(try series(target, purchase).kind == .purchase)
+        let records = try ModelContext(target).fetch(FetchDescriptor<TransactionRecord>())
+        #expect(records.map(\.id) == [spent])
+        #expect(records.allSatisfy { $0.splitGroupID == nil })
     }
 
     @Test func aVersion3BackupReadsEverySeriesAsABill() async throws {
