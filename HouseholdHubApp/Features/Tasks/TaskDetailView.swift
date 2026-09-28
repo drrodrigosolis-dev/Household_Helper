@@ -252,6 +252,10 @@ struct TaskEditorView: View {
     /// Sprint 26: an optional time on the due day; off means no time (reminds at the default time).
     @State private var hasDueTime: Bool
     @State private var dueTime: Date
+    /// The stored time and the picker `Date` the editor opened with: saving keeps the stored minutes unless the picker
+    /// moved (Sprint 26 review S1).
+    private let storedDueTime: Int?
+    private let openedDueTime: Date
     @State private var wishID: UUID?
     @State private var transactionID: UUID?
     /// nil = doesn't repeat. `keptRule` is a stored rule the picker can't express, kept unless the user picks again.
@@ -277,9 +281,12 @@ struct TaskEditorView: View {
         // A new time starts at the reminder default time, the time an untimed task would remind at anyway.
         let storedTime = task?.dueDate == nil ? nil : task?.dueTimeMinutes
         _hasDueTime = State(initialValue: storedTime != nil)
+        // Built on a fixed day without a clock change, not today: on a spring-forward day 02:30 would read as 03:00.
         let clock = HouseholdCalendar(timeZone: .current)
-        let minutes = storedTime ?? ReminderSync.defaultTimeMinutes
-        _dueTime = State(initialValue: TimeOfDay.date(minutes: minutes, onDayOf: .now, calendar: clock))
+        let opened = TimeOfDay.pickerDate(minutes: storedTime ?? ReminderSync.defaultTimeMinutes, calendar: clock)
+        storedDueTime = storedTime
+        openedDueTime = opened
+        _dueTime = State(initialValue: opened)
         _wishID = State(initialValue: task?.linkedWishlistItemID)
         if let rule = task?.recurrence, let due = task?.dueDate {
             let calendar = HouseholdCalendar(timeZone: .current)
@@ -407,7 +414,13 @@ struct TaskEditorView: View {
         let calendar = HouseholdCalendar(timeZone: .current)
         let due = hasDueDate ? calendar.startOfDay(for: dueDate) : nil
         // A time is on the due day (Sprint 26): turning the due date off clears the time too.
-        let time = due != nil && hasDueTime ? TimeOfDay.minutes(of: dueTime, calendar: calendar) : nil
+        let time: Int? =
+            if due != nil && hasDueTime {
+                TimeOfDay.editedMinutes(
+                    picked: dueTime, opened: openedDueTime, stored: storedDueTime, calendar: calendar)
+            } else {
+                nil
+            }
         // A repeat needs a due date (Sprint 13): turning the due date off stops the repeat.
         // A completed task keeps whatever rule it has (the picker is hidden); an open one takes the picker's choice.
         let recurrence: RecurrenceRule? =
