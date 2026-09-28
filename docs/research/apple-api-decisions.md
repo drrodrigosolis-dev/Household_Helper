@@ -185,6 +185,44 @@ availability conditions, deprecations, fallback. Verified against official Apple
   format v5 carries the group (v1 to v4 files still read, nothing split; an older file with a group is refused).
 - **Fallback:** as for SchemaV2: `StoreUnavailableView`, nothing deleted; a backup before installing the build.
 
+## SwiftData schema versioning — SchemaV4 → SchemaV5 (Sprint 26, 2026-09-28)
+- **API:** the same as SchemaV4: `VersionedSchema` `SchemaV5` 5.0.0 added to `HouseholdMigrationPlan.schemas`
+  (`[SchemaV1, …, SchemaV5]`) with a fourth stage, `MigrationStage.lightweight(fromVersion: SchemaV4.self,
+  toVersion: SchemaV5.self)`. `CurrentSchema` is SchemaV5. iOS 17+; project floor iOS 26, Xcode 27.
+- **Change:** `TaskItem` gains one optional stored property, `dueTimeMinutes: Int?` (minutes after local midnight on
+  the due day, 0...1439; nil = no time). Adding an optional attribute is a lightweight migration: every existing task
+  gets nil and reminds at the default time, as before; nothing is renamed, retyped or dropped. Minutes rather than a
+  second `Date`: `dueDate` is the start of the due day in the household calendar, so a wall-clock time kept as minutes
+  stays 18:30 when the device changes time zone, the same way the day stays the same day.
+- **How the V1–V4 hashes are kept:** SchemaV4 is not installed on the owner's iPhone, but a Simulator already holds
+  V4 data, so SchemaV4 does not change either. `SchemaV1.TaskItem` (`Persistence/Models/V1/TaskItemV1.swift`) is a
+  frozen copy of the class installed at `063a510`, shared unchanged by SchemaV2, SchemaV3 and SchemaV4; its `@Model`
+  body (stored properties, attributes, init) was copied from `Persistence/Models/TaskBoard.swift`, which had not
+  changed since `063a510` (`git diff 063a510 HEAD` on that file is empty). SchemaV1 to SchemaV4 list that class by its
+  qualified name; SchemaV5 lists `SchemaV5.TaskItem`, `SchemaV4.TransactionRecord`, `SchemaV3.RecurringTransaction`
+  and the nine other SchemaV1 classes, so only `TaskItem`'s entity hash differs from V4 and the checksums stay
+  distinct. `FrozenSchemaTests` still pins V1–V3 unchanged and adds `schemaV5ChangesOnlyTheTaskItem` (V4's `TaskItem`
+  hash equals the pinned V1 one; V5 differs from V4 in `TaskItem` only). V4 and V5 are not pinned yet (the lead pins
+  V4 at its install).
+- **Audit checklist (household-migration-audit):** (1) every `@Model` and persisted Codable value diffed against
+  SchemaV4: only `TaskItem` changes; `RecurrenceRule`, `Money`, `ColorToken` and the enums are untouched. (2) A new
+  version and a lightweight stage; no destructive step. (3) Nothing renamed, so no `originalName`; no enum raw value
+  reused. (4) `PersistenceTests.aSchemaV4StoreOnDiskMigratesToSchemaV5WithEveryRecord` writes one row of every model
+  (a split transaction, a repeating task with due date, links and a subtask, an untimed task) through SchemaV4 to a
+  store on disk, opens it through the app's factory and plan, reads every row and field back, checks no task has a
+  time, sets one and reopens; the V1 → current test now also checks its task has no time. (5) Backup format v6
+  (`TaskDTO.dueTimeMinutes`), v1–v5 files still read and restore with no time (`TaskDueTimeTests`, from a real v5
+  JSON without the key); an older file claiming a time, a time outside 0...1439, or a time without a due date is
+  refused by `BackupValidator`. (6) Relies on no version-specific SwiftData behaviour beyond lightweight
+  optional-attribute migration, as for V2–V4.
+- **DST:** reminder times are built by `TimeOfDay.date(minutes:onDayOf:calendar:)` through `HouseholdCalendar`
+  (`Calendar.date(bySettingHour:minute:second:of:matchingPolicy: .nextTimePreservingSmallerComponents,
+  repeatedTimePolicy: .first)`): a time a spring-forward day skips fires at the next valid time, a repeated one fires
+  once, the first time; if Foundation returned nil the start of the day plus the minutes is used, so no reminder is
+  dropped. Tests use Europe/Berlin like the other DST tests.
+- **Risk:** none known beyond the usual: the owner makes a backup before installing the build with SchemaV5.
+- **Fallback:** as for SchemaV2: `StoreUnavailableView`, nothing deleted; a backup before installing the build.
+
 ## First-run tutorial: TipKit vs. custom spotlight tour — Sprint 24, 2026-09-28
 Verified against Apple's official documentation (JSON API behind developer.apple.com, fetched directly since the
 rendered pages are JS-only) and current Apple Developer Forums threads for known regressions. Every declaration
