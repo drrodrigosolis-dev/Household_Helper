@@ -68,13 +68,17 @@ final class RefundUITests: XCTestCase {
         let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: save)
         XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 10), .completed, "Keeping should close the refund")
 
+        // The Wishlist tab is still on the item's page from the start of the test (run 36371978137): check it there,
+        // then that the list still has it.
         app.tabBars.buttons["Wishlist"].tap()
+        XCTAssertTrue(waitForRow(app, identifier: "wishlist.status", toRead: "Wanted"), "Back to Wanted")
+        XCTAssertTrue(app.buttons["wishlist.markPurchased"].exists, "It can be bought again")
+        captureScreen(app, named: "sprint20-wishlist-item-back-dark")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
         let row = wishlistRow(app, containing: "Desk lamp")
         XCTAssertTrue(row.waitForExistence(timeout: 10), "Kept items stay on the wishlist")
         row.tap()
         XCTAssertTrue(waitForRow(app, identifier: "wishlist.status", toRead: "Wanted"), "Back to Wanted")
-        XCTAssertTrue(app.buttons["wishlist.markPurchased"].exists, "It can be bought again")
-        captureScreen(app, named: "sprint20-wishlist-item-back-dark")
     }
 
     @MainActor
