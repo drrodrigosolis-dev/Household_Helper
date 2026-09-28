@@ -30,6 +30,12 @@ result, and why it could not be walked automatically. Emptied at the next walk o
   Remove the device passcode: the app opens with an alert and the switch stays on. Why queued: the CI simulator has
   no passcode, so the switch is unavailable there.
 
+- **Sprint 18 — board drag feel (owner's finger, Simulator or phone).** 1. In Tasks, drag a To Do card and rest it on
+  the right-edge peek: after ~0.6 s In Progress slides in, outlined, and stays (no second jump). 2. Release: the card
+  lands in In Progress. 3. Drag a Done card: it should lift (L-018 saw long-press open the menu instead on the Mac's
+  synthetic gestures). 4. Rest it on the 16 pt left edge: the previous column slides back; release lands there. Why
+  queued: drag feel and lift-vs-menu need a real finger.
+
 ## Done
 - **Sprint 6 (Phase 7) — backup and restore through the Files app** (local Simulator, L-012, 2026-09-27). The first
   try found "Back up now" did nothing: two `fileExporter`s on one view, only the last presented; fixed in `9b100f5`.
