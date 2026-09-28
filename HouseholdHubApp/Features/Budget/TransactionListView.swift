@@ -91,7 +91,7 @@ private struct FilteredTransactions: View {
                     ForEach(days, id: \.self) { day in
                         Section {
                             ForEach(recordsByDay[day] ?? []) { record in
-                                row(record)
+                                row(record).themedRow()
                             }
                         } header: {
                             Text(dayLabel(day))

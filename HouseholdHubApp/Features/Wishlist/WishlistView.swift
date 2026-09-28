@@ -138,6 +138,7 @@ struct WishlistView: View {
         } else {
             List(visible) { item in
                 NavigationLink(value: item.id) { WishlistRow(item: item) }
+                    .themedRow()
             }
             .listStyle(.insetGrouped)
         }

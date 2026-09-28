@@ -47,6 +47,7 @@ struct BudgetsListView: View {
                                             showTransactions(category)
                                         }
                                     }
+                                    .themedRow()
                             }
                         }
                     } header: {

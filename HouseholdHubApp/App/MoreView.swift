@@ -10,11 +10,13 @@ struct MoreView: View {
                 } label: {
                     Label("Analytics", systemImage: "chart.pie")
                 }
+                .themedRow()
                 NavigationLink {
                     SettingsView()
                 } label: {
                     Label("Settings", systemImage: "gearshape")
                 }
+                .themedRow()
             }
             .quickAddAccess()
             .navigationTitle("More")

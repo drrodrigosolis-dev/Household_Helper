@@ -27,7 +27,7 @@ struct RecurringListView: View {
             } else {
                 List {
                     ForEach(series) { item in
-                        row(item)
+                        row(item).themedRow()
                     }
                     if let errorMessage {
                         ErrorText(errorMessage)

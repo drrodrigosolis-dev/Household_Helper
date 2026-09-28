@@ -95,6 +95,11 @@ extension View {
         modifier(ThemedSurface(cornerRadius: cornerRadius, standard: AnyShapeStyle(standard)))
     }
 
+    /// A list row drawn as a chalk-edged card on the theme's page (Sprint 21); the system row with themes off.
+    func themedRow() -> some View {
+        modifier(ThemedRow())
+    }
+
     /// The theme's page behind a screen (Sprint 21: chalkboard or paper). Every pushed or presented screen applies it
     /// next to its title; a tab's first screen passes `decorated` for the corner drawings.
     func themedScreen(decorated: Bool = false) -> some View {
@@ -130,6 +135,23 @@ private struct ThemedSurface: ViewModifier {
         } else {
             content.background(standard, in: shape)
         }
+    }
+}
+
+private struct ThemedRow: ViewModifier {
+    @Environment(\.funTheme) private var theme
+
+    func body(content: Content) -> some View {
+        content.listRowBackground(theme.map { ThemedRowBackground(surface: $0.surface) })
+    }
+}
+
+private struct ThemedRowBackground: View {
+    let surface: Color
+
+    var body: some View {
+        surface.opacity(0.92)
+            .overlay { ChalkBorder(cornerRadius: 12).padding(.vertical, 2).padding(.horizontal, 1) }
     }
 }
 

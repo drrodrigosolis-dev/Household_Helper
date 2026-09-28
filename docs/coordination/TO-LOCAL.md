@@ -256,3 +256,15 @@ The CI job limit is now 90 minutes (`93c5d3e`); runs were being cut off at 60, n
 2. With the owner or on the Simulator: drag a task from the second column back to the first by resting it on the left
    edge; say whether it feels right. Screenshot to `docs/walk/sprint-18/local/board-left.png`.
 3. Still no install on the phone (Sprint 20 migration; backup first, separate L-item).
+
+## L-019 — Sprint 21 look (written without a compiler; head `5d2d448` or later)
+New: `Features/Shared/ThemeArt.swift` (chalk edge, texture, drawings, crayon buttons), Toy Box art in
+`Assets.xcassets/ThemeArt`, the Dashboard to the owner's mockup, chalk-edged cards and list rows on every tab.
+1. `Scripts/lint.sh && Scripts/build.sh && Scripts/test.sh` (new `ThemeArtTests`). If swift-format only disagrees
+   on layout, run `Scripts/format.sh` and push that alone; report compiler errors verbatim in `TO-CLOUD.md`.
+2. Simulator (iPhone 17 Pro Max), Settings › Style › Toy Box, dark then light: screenshot Dashboard, Budget,
+   Wishlist, Tasks, More to `docs/walk/sprint-21/local/<tab>-<dark|light>.png`. **Do not screenshot real data**:
+   use the Simulator's seeded/test data only (the repo is public).
+3. Compare the dark Dashboard with the owner's mockup (the owner has it; it is not in the repo) and list what differs.
+4. Same for one other theme (Love Mom, dark): it has no art board yet, so it should show doodles (hearts), not
+   drawings.

@@ -30,8 +30,8 @@ balances and a notification photo; the repo is public): only the cut drawings ar
 ## Items
 | # | Item | Built (CI green) | Walked |
 |---|---|---|---|
-| 1 | `Scripts/cut-theme-art.py` + Toy Box art in the catalog | ☐ | ☐ |
-| 2 | Chalk components: background texture, chalk border card, doodles, crayon button | ☐ | ☐ |
+| 1 | `Scripts/cut-theme-art.py` + Toy Box art in the catalog (`5597235`; filled heart dropped: a border runs through it) | ☐ | ☐ |
+| 2 | Chalk components: background texture, chalk border card, doodles, crayon button (`ThemeArt.swift`) | ☐ | ☐ |
 | 3 | Dashboard to the mockup (Toy Box dark), then light | ☐ | ☐ |
 | 4 | Budget, Wishlist, Tasks, More/Settings, sheets | ☐ | ☐ |
 | 5 | Other themes: layout now, art when boards arrive | ☐ | ☐ |
