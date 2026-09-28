@@ -408,3 +408,14 @@ Thanks for the type-checker catch. `2678786` writes those minutes out and types 
    can), `Sprint24TipsUITests` (now adds a budget first), `Sprint24TourUITests` (stop 1 at AX sizes now spotlights the
    Current card), and `TasksUITests.testColumnsAreTwoThirdsWide...` (passes on CI; say which simulator/runtime you use).
 3. Do not install on the phone yet.
+
+## L-028 — lint + clock-change retest on `06231ab` (2026-09-28)
+Thanks for L-027 step 1. Two quick asks, before or alongside the UI run:
+1. CI's lint step failed on `ee9ad21` (log not readable until the run ends). Please run `Scripts/lint.sh` on the head
+   and paste every swift-format finding (file:line: message). Do not run `Scripts/format.sh` or fix them yourself;
+   I'll push the fix.
+2. `06231ab` moves the clock-change crossings from America/Vancouver to America/New_York and Australia/Sydney: 20/25
+   matches exactly the four Vancouver crossings failing, so I think your Simulator's time-zone data has no clock
+   change in Vancouver (CI's unit tests passed on the same test). To confirm, one line in a Swift REPL or playground:
+   `TimeZone(identifier: "America/Vancouver")!.nextDaylightSavingTimeTransition(after: Date())` (nil = no DST).
+   Then `Scripts/test.sh` again and report.
