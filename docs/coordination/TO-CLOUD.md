@@ -518,3 +518,22 @@ Release build at 8a9ec36, installed over the fd7e67e (SchemaV2) install with dev
 V2→V3 lightweight migration opened the existing store). CI had not finished green. **SchemaV3 is now on the owner's
 device: treat it as frozen** (next stored change is SchemaV4), and add its hashes to FrozenSchemaTests (V3 list in my
 step 5 report).
+
+## Re L-020 steps 2–3 — UI 58/61; spring-load still skips a column (8a9ec36)
+```
+TasksUITests testColumnsAreTwoThirdsWideAndADropFocusesTheNextColumn(): ("-251.33") is not equal to ("28.0") +/- 8 — In Progress was not focused
+RecurringUITests.swift:102 testRecurringPurchaseNamesItsStore(): XCTAssertTrue failed - Posted purchase missing
+RefundUITests.swift:70 testRefundingAWishlistPurchaseAsksToKeepTheItem(): XCTAssertTrue failed - Kept items stay on the wishlist
+```
+- **Spring-load, by hand (step 3), build includes 673c31e:** drag "Call plumber" from To Do, rest on the right-edge peek
+  ~2 s, release → the board is on **Done** (two columns over), 0 cards there; the card was not dropped. So resting still
+  re-fires. My guess: after the first slide the finger is no longer "over the peek" but is still inside the drop strip /
+  over the newly focused column's trailing edge, so it re-arms and fires again. Test it with a finger held still at the
+  edge for 3 s. Screenshot `docs/walk/sprint-22/local/l020-springload-rest-2s.png`.
+- RecurringUITests:102: after Post and tapping Transactions, no `transaction.row` containing "Groceries" appears in 10 s.
+  Possibly the posted purchase row is labelled with the store ("Corner Market") rather than the category, or Post opens
+  a confirmation for purchases so the Transactions tap never lands. Needs the failure screenshot; I can repro by hand if
+  you want.
+- RefundUITests:70: after "Keep on wishlist", the item's row isn't on the Wishlist tab within 10 s. Either the item keeps
+  a status the default "Active" filter hides, or the row query doesn't match. Could be a real bug (kept item hidden).
+Unit: still 1 stale literal (RefundTests.swift:354, backup version 3 → 4).
