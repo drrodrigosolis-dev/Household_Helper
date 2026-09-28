@@ -565,3 +565,39 @@ RefundUITests.swift:73 testRefundingAWishlistPurchaseAsksToKeepTheItem(): XCTAss
 TasksUITests.swift:90 testColumnsAreTwoThirdsWideAndADropFocusesTheNextColumn(): ("-172.33") is not equal to ("28.0") +/- 8 - In Progress was not focused
 ```
 So the keep-on-wishlist fix (909dec3) and the one-spring-load-per-drag fix (d8a2dad) don't hold on this Mac. Hand checks next.
+
+## Re L-023 — per-finding results (build d4d17a1 Debug, fresh install, 1,500-row sample import; shots `docs/audit/2026-09-28/l023/`)
+Correction first: my Simulator screenshots are ~4.6 % larger than the tap tool's points; near the bottom of the screen
+my taps landed ~40 pt low. That, not the app, caused audit A-008 and A-009.
+- A-001: **closed** — default Starts 12:00 AM today; editor "Next Sep 27, Oct 27, Nov 27"; Upcoming "Netflix Sun 27 −$17.99"; projection −17.99 (`02`, `05`, `06`). (Tested with the default start only.)
+- A-002: **closed** — after Mark Purchased, Recent activity shows the −$149 expense only (`29`).
+- A-003: **closed** — imported "Pizza Place": Merchant "Pizza Place", Notes empty (`10`).
+- A-004: **closed** — "Done" above the pad dismisses it (Budget editor `18`, Recurring, Wishlist, Goal all show it). Drag-down to dismiss **not verified** (my drag closed the sheet instead).
+- A-005: **closed** — "pizza" in the field in the first frame, results immediately (`14`).
+- A-006: **closed** — after setting one Pizza Place, a new import pre-selects it: "Suggested: you filed this merchant here before" (`13`). Budget › filter › Uncategorized **not verified**.
+- A-007: **closed** — Select → checkboxes, "Set category… · N selected · Delete"; Delete asks "Delete 2 transactions?" (`15`, cancelled). Set category… not exercised.
+- A-008: **closed** — Refund… opens the sheet; full refund → Keep on wishlist → item back to Wanted and listed on Wishlist (`23`–`27`). Note the UI test for this still fails (see above): the app works, so it's the test.
+- A-009: **closed** — empty-state "Add budget" opens New Budget (`17`).
+- A-010: **closed** — with 2 accounts, Mark Purchased shows "Paid from" (`20`).
+- A-011: acknowledged won't-fix.
+- A-012: **closed** — re-tapping More from Settings › Data returns to More (`12`).
+- A-013: **closed** on Recurring and Budgets (no floating +). **New, low:** Wishlist › Goals still shows toolbar + and floating + together.
+- A-014: **closed** — no floating + while searching (`14`).
+- A-015: **closed** — Save greyed until a change (`10`).
+- A-016: **closed** — "Recorded in Budget as an expense ›" opens the expense (`22`).
+- A-019: **closed** — empty Wishlist shows "Add item" (`19`); Recurring shows "Add recurring item", Goals "Add goal".
+- A-021: **closed** — Settings row reads "Data" (`07`).
+- A-022: **closed** — delete an account a goal uses → refused at once, no confirmation (`30`).
+- A-023: **not verified** — needs the owner's finger.
+Still red from verify: `theStringCatalogIsCompleteAndKeepsPlaceholders` (Spanish for "Delete %lld transactions"),
+RefundUITests:73 (app behaves correctly by hand — test issue), TasksUITests:90 spring-load (not re-tried by hand this round).
+
+## Re L-024 — taken (01f057a)
+L-024 on ccdfb3c-level code (Xcode 27.0): lint clean, **build succeeded (no compile errors)**, unit **518 passed / 1 failed / 1 skipped**:
+```
+HouseholdHubTests / theStringCatalogIsCompleteAndKeepsPlaceholders(): Expectation failed: unit?["value"]:
+HouseholdHubApp/Resources/Localizable.xcstrings: no Spanish for “%lld selected”
+```
+**SchemaV4: works** — installed over the Simulator's SchemaV3 store (d4d17a1 data: 1,500 imported rows, 2 accounts,
+budget, goal "Trip", bill "Netflix", a refunded wishlist purchase), no delete: launches, balance $6,883.97, accounts,
+goal, Upcoming unchanged (`docs/audit/2026-09-28/l024/00-v4-upgrade-dashboard.png`). UI tests after the hand checks.
