@@ -38,6 +38,10 @@ public enum BackupValidator {
             let refund = TransactionType.refund.rawValue
             throw BackupError.invalidValue(entity: "transactions", field: "type", value: refund)
         }
+        // Recurring kinds arrived in v4 (Sprint 22); an older file naming one was not written by this app.
+        if original.schemaVersion < 4, let kind = original.recurringTransactions.compactMap(\.kind).first {
+            throw BackupError.invalidValue(entity: "recurringTransactions", field: "kind", value: kind)
+        }
         let backup = original.upgradedToCurrent()
         guard backup.schemaVersion == BackupDTO.currentSchemaVersion else {
             throw BackupError.unsupportedSchemaVersion(backup.schemaVersion)
@@ -156,6 +160,9 @@ public enum BackupValidator {
         }
         for item in backup.recurringTransactions {
             try readable(TransactionType.self, item.type, "recurringTransactions", "type")
+            if let kind = item.kind {
+                try readable(RecurringKind.self, kind, "recurringTransactions", "kind")
+            }
             try positive(item.templateAmountMinorUnits, "recurringTransactions", "templateAmountMinorUnits")
             try sameCurrency(item.currencyCode, currency, "recurringTransactions")
             try exists(item.categoryID, in: categories, "recurringTransactions", "categoryID")
@@ -263,6 +270,13 @@ public enum BackupValidator {
             try allows(item.categoryID, item.type, "recurringTransactions")
             try transferShape(
                 item.type, item.accountID, item.transferAccountID, item.categoryID, "recurringTransactions")
+            if item.type == TransactionType.transfer.rawValue, item.merchantID != nil {
+                throw BackupError.inconsistentLink(entity: "recurringTransactions", field: "merchantID")
+            }
+            // A recurring purchase is always an expense (Sprint 22).
+            if item.kind == RecurringKind.purchase.rawValue, item.type != TransactionType.expense.rawValue {
+                throw BackupError.inconsistentLink(entity: "recurringTransactions", field: "kind")
+            }
         }
         var media = Set<String>()
         for wish in backup.wishlistItems {

@@ -17,7 +17,7 @@ that repeat (groceries every week) recorded as purchases rather than bills.
 ## Items
 | # | Item | Built (CI green) | Walked |
 |---|---|---|---|
-| 1 | Model (SchemaV2) + service + backup + tests | ☐ | tests |
+| 1 | Model (SchemaV3) + service + backup + tests — written (Core lane) | ☐ | tests |
 | 2 | Recurring editor: Bill / Purchase, store field; rows and Upcoming | ☐ | ☐ |
 | 3 | Posting a purchase occurrence records the merchant; reminders only for bills | ☐ | ☐ |
 | 4 | UI tests + screenshots | ☐ | ☐ |

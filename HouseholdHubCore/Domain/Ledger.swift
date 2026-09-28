@@ -58,11 +58,15 @@ public struct RecurringSeries: Hashable, Sendable {
     public var isEnabled: Bool
     public var accountID: UUID?
     public var transferAccountID: UUID?
+    /// Sprint 22: a bill or a purchase. Projections treat both the same; only reminders and display differ.
+    public var kind: RecurringKind
+    /// The store a purchase is made at (or a bill's payee), carried onto each posted occurrence.
+    public var merchantID: UUID?
 
     public init(
         id: UUID = UUID(), templateAmount: Money, type: TransactionType, rule: RecurrenceRule, timeZone: TimeZone,
         startDate: Date, endDate: Date? = nil, isEnabled: Bool = true, accountID: UUID? = nil,
-        transferAccountID: UUID? = nil
+        transferAccountID: UUID? = nil, kind: RecurringKind = .bill, merchantID: UUID? = nil
     ) {
         self.id = id
         self.templateAmount = templateAmount
@@ -74,6 +78,8 @@ public struct RecurringSeries: Hashable, Sendable {
         self.isEnabled = isEnabled
         self.accountID = accountID
         self.transferAccountID = transferAccountID
+        self.kind = kind
+        self.merchantID = merchantID
     }
 
     /// Signed effect of one occurrence on an account (see `LedgerLine.effect(onAccount:)`).

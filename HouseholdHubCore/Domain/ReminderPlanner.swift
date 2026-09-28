@@ -69,8 +69,8 @@ public struct ReminderWording: Sendable {
 }
 
 /// Deterministic reminder plan (Sprint 14): a task due today reminds at `hour` on its due day; an upcoming recurring
-/// expense reminds at `hour` the day before. Past fire times are skipped. At most `limit` reminders, soonest first
-/// (iOS keeps at most 64 pending per app).
+/// bill reminds at `hour` the day before (Sprint 22: not a recurring purchase). Past fire times are skipped. At most
+/// `limit` reminders, soonest first (iOS keeps at most 64 pending per app).
 public struct ReminderPlanner: Sendable {
     public static let defaultLimit = 60
 
@@ -92,7 +92,8 @@ public struct ReminderPlanner: Sendable {
             }
         }
         if settings.billsDue {
-            for bill in bills where bill.type == .expense {
+            // A recurring purchase is something you do, not something you owe: no "due" reminder (Sprint 22).
+            for bill in bills where bill.type == .expense && bill.kind == .bill {
                 guard let fire = fireDate(onDayOf: bill.date, offsetDays: -1, hour: settings.hour, calendar: calendar)
                 else { continue }
                 planned.append(

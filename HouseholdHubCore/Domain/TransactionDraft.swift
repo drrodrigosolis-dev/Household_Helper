@@ -32,6 +32,8 @@ public enum LedgerError: Error, Equatable, Sendable {
     case alreadyMaterialized
     /// Transactions posted from the series still reference it; disable it instead (never delete history silently).
     case seriesHasHistory(postedCount: Int)
+    /// Sprint 22. A recurring purchase is money spent at a store: it is always an expense.
+    case purchaseMustBeExpense
     case unknownTransaction
     /// Transactions, series, and wishlist items that still reference the category.
     case categoryInUse(referenceCount: Int)

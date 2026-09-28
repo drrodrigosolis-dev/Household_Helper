@@ -141,3 +141,25 @@ availability conditions, deprecations, fallback. Verified against official Apple
   into a fresh install is the way back.
 - **Rule from here:** every stored change is a new version: freeze the current class as `SchemaVn.<Model>` (stored
   properties only), add the next version and a stage, and extend the on-disk migration test.
+
+## SwiftData schema versioning — SchemaV2 → SchemaV3 (Sprint 22, 2026-09-28)
+- **API:** the same as SchemaV2: `VersionedSchema` `SchemaV3` 3.0.0 added to `HouseholdMigrationPlan.schemas`
+  (`[SchemaV1, SchemaV2, SchemaV3]`) with a second stage, `MigrationStage.lightweight(fromVersion: SchemaV2.self,
+  toVersion: SchemaV3.self)`. `CurrentSchema` is SchemaV3. iOS 17+; project floor iOS 26, Xcode 27.
+- **Change:** `RecurringTransaction` gains one optional stored property, `kindRawValue: String?` (a `RecurringKind`
+  raw value; nil means a bill). Adding an optional attribute is a lightweight migration: every existing series gets
+  nil and reads as a bill; nothing is renamed, retyped or dropped. The service stores a bill as nil too, so a backup
+  of bills carries no kind.
+- **How the V1 and V2 hashes are kept:** SchemaV2 was installed on the owner's iPhone at `fd7e67e`, so it is frozen
+  like SchemaV1. `SchemaV1.RecurringTransaction` (`Persistence/Models/V1/RecurringTransactionV1.swift`) is a frozen
+  copy of the class installed at `063a510`, which SchemaV2 shared unchanged; its `@Model` body (stored properties,
+  attributes, init) was checked line for line against `git show 063a510:` of the old model file. SchemaV1 and
+  SchemaV2 list that class by its qualified name; SchemaV3 lists `SchemaV3.RecurringTransaction`,
+  `SchemaV2.TransactionRecord` and the ten SchemaV1 classes, so only `RecurringTransaction`'s entity hash differs
+  from V2 and the checksums stay distinct.
+- **Evidence:** `PersistenceTests.aSchemaV2StoreOnDiskMigratesToSchemaV3WithEveryRecord` writes one row of every
+  model (two series, a refund link) through SchemaV2 to a store on disk, opens it through the app's factory and
+  plan, reads every row back and checks every series is a bill;
+  `aSchemaV1StoreOnDiskMigratesToTheCurrentSchemaWithEveryRecord` runs a V1 store through both stages. Backup format
+  v4 carries the kind (v1 to v3 files still read, every series a bill; an older file naming a kind is refused).
+- **Fallback:** as for SchemaV2: `StoreUnavailableView`, nothing deleted; a backup before installing the build.
