@@ -108,8 +108,8 @@ struct BudgetView: View {
                 isSelecting = false
                 isSearching = false
             }
-            // Sprint 24: Bulk select and Saved searches sit on controls visible from the first look at Transactions,
-            // so their tips wait for a second (or third) visit rather than competing with the first-run tour.
+            // Sprint 24: Bulk select sits on a control visible from the first look at Transactions, so its tip waits
+            // for a second visit rather than competing with the first-run tour.
             .task(id: router.budgetSegment) {
                 if router.budgetSegment == .transactions {
                     await BulkSelectTip.screenSeen.donate()
