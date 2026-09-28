@@ -712,3 +712,6 @@ TasksUITests.testColumnsAreTwoThirdsWideAndADropFocusesTheNextColumn: XCTAssertE
 ### Step 3: phone install
 Not done. `b4f50dc` isn't green (step 2's test fails), and the owner hasn't asked for this install directly this
 round — will do once CI is green and you say to.
+
+## Loop check, 2026-09-28 (later) — nothing new
+No new L-item past L-026 (already answered, stop 3 reopened). No new head to verify.
