@@ -49,10 +49,31 @@ final class Sprint24TipsUITests: XCTestCase {
             predicate: NSPredicate(format: "exists == false"), object: app.navigationBars["Transaction"])
         XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 10), .completed, "Editor should close")
         app.buttons["Budgets"].tap()
+        // With no budget the screen is its empty state, which has no month arrows (CI run 36465178943).
+        addDiningBudget(app, limit: "200")
         let monthArrows = app.buttons["budgets.nextMonth"]
         XCTAssertTrue(monthArrows.waitForExistence(timeout: 10), "Budgets month arrows missing")
         let budgetHistoryTitle = app.staticTexts["Look back"]
         XCTAssertTrue(budgetHistoryTitle.waitForExistence(timeout: 10), "Budget history tip did not appear")
         captureScreen(app, named: "sprint24-tip-budgetHistory-\(suffix)")
+    }
+
+    /// From an empty Budgets screen: a Dining budget, saved.
+    @MainActor
+    private func addDiningBudget(_ app: XCUIApplication, limit: String) {
+        let add = app.buttons["budgets.addEmpty"]
+        XCTAssertTrue(add.waitForExistence(timeout: 10), "Empty budgets should offer Add budget")
+        add.tap()
+        let picker = app.buttons["budgetEditor.category"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 5), "Budget editor did not open")
+        picker.tap()
+        let dining = app.buttons["Dining"].firstMatch
+        XCTAssertTrue(dining.waitForExistence(timeout: 5), "Dining should be offered")
+        dining.tap()
+        let field = app.textFields["budgetEditor.limit"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText(limit)
+        app.buttons["budgetEditor.save"].tap()
     }
 }
