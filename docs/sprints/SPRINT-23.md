@@ -62,6 +62,22 @@ No loss of financial history, no double posting, no money writes in F2/F7, impor
   until posted (pre-existing); S8 import mid-way merchant failure has no test.
 - The split lane (SchemaV4) and the undo lane get their own review.
 
+## Walk defects (local hand checks L-023/L-024, 2026-09-28) — fixed on the spot
+Every audit fix but A-023 (needs the owner's finger) and every feature but F7 (not checked yet) was seen working.
+The walk found these; lanes `lane-s23-polish-list` and `lane-s23-polish-edit`:
+- ☐ Undo banner: longer timeout; the floating + no longer covers Undo.
+- ☐ Active date/amount filters show as chips; the menu no longer ticks "All time" for a custom range; Clear All Filters.
+- ☐ Refund rows are named after what they refund, not "Transaction".
+- ☐ Quick Add stores the description as the Merchant, as import does (F1 consistency).
+- ☐ Split prefills part 1; Duplicate opens the copy; the keyboard Done no longer covers the field above it.
+- ☐ Analytics: Expenses labelled net of refunds.
+- ☐ Recurring detector groups by merchant and amount, so extra one-off charges don't hide a subscription.
+- ☑ Wishlist › Goals: no floating + next to its own + (10ef984).
+- ☑ The Spanish catalog test reads plural forms (it failed every plural entry); "movimiento" wording (10ef984).
+- Kept: the delete confirmation before the Undo banner stays (the banner times out; financial history is never
+  deleted on one tap).
+- Open: `TasksUITests` spring-load fails on the Mac (In Progress ends 200 pt past the edge); hand checks asked in L-025.
+
 ## Owner decisions
 - 2026-09-28: the phone holds no real data yet, so installing a build with SchemaV4 needs no backup first. SchemaV4
   still gets its migration tests and household-data-safety-review, and is installed only once CI is green; after
