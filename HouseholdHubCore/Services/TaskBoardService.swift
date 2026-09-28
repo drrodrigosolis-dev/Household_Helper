@@ -100,8 +100,13 @@ public actor TaskBoardService {
     // MARK: Tasks
 
     /// Adds a task at the bottom of `columnID`, or of the first column when nil.
+    /// Refused with `StoreWriteError.restoreInProgress` while a restore runs (`RestoreGate`).
     @discardableResult
     public func createTask(_ draft: TaskDraft, in columnID: UUID? = nil, now: Date) throws -> UUID {
+        try RestoreGate.shared(for: modelContainer).write { try insertTask(draft, in: columnID, now: now) }
+    }
+
+    private func insertTask(_ draft: TaskDraft, in columnID: UUID?, now: Date) throws -> UUID {
         begin()
         try draft.validate()
         var draft = draft

@@ -6,7 +6,8 @@ import Synchronization
 /// backup first and then replaces the store in a single save, so a bad file changes nothing (§26.1).
 ///
 /// Known limit: the other service actors keep their own contexts. They fetch from the store on every operation, so
-/// they see restored data, but the UI should not run another write while a restore is in progress.
+/// they see restored data, but the UI should not run another write while a restore is in progress. The writes the Siri
+/// intents make (a transaction, a wishlist item, a task) are refused during one by `RestoreGate`.
 @ModelActor
 public actor BackupService {
     private static let instances = Mutex<[ObjectIdentifier: BackupService]>([:])
@@ -89,6 +90,10 @@ public actor BackupService {
     public func restore(_ original: BackupDTO, availableMedia: Set<String>, now: Date) throws -> RestoreSummary {
         // The file as read, so rules about its own version (no refunds before v3, no recurring kinds before v4) apply.
         try BackupValidator.validate(original)
+        // The gated writes (the Siri intents') are refused until the restore has saved or rolled back.
+        let gate = RestoreGate.shared(for: modelContainer)
+        gate.beginRestore()
+        defer { gate.endRestore() }
         let backup = original.upgradedToCurrent()
         if modelContext.hasChanges {
             modelContext.rollback()
