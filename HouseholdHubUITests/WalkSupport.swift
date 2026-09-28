@@ -75,12 +75,24 @@ extension XCTestCase {
 
     /// Scrolls up until `element` exists. Lists create rows lazily, so at the largest text sizes a section below the
     /// first screen isn't in the accessibility tree until scrolled to (run 36211055316).
+    ///
+    /// Stops only once the element is on screen (hittable), swiping slowly toward it: a fast swipe keeps coasting
+    /// after the element appears and carries it off the top of a lazy list again (run 36435820743: the editor's split
+    /// row was found, then gone a second later).
     @MainActor
-    func scrollUntilExists(_ app: XCUIApplication, _ element: XCUIElement, maxSwipes: Int = 6) -> Bool {
-        for _ in 0..<maxSwipes where !element.waitForExistence(timeout: 2) {
-            app.swipeUp()
+    func scrollUntilExists(_ app: XCUIApplication, _ element: XCUIElement, maxSwipes: Int = 8) -> Bool {
+        for _ in 0..<maxSwipes {
+            if element.waitForExistence(timeout: 2), element.isHittable {
+                return true
+            }
+            // Loaded but off screen: it sits above the middle once the list scrolled past it.
+            if element.exists, element.frame.midY < app.frame.midY {
+                app.swipeDown(velocity: .slow)
+            } else {
+                app.swipeUp(velocity: .slow)
+            }
         }
-        return element.waitForExistence(timeout: 5)
+        return element.waitForExistence(timeout: 5) && element.isHittable
     }
 
     /// Records a transaction through the real Quick Add sheet.
