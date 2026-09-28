@@ -20,6 +20,13 @@ public struct SplitPart: Equatable, Sendable {
     public static func remaining(of total: Money, after amounts: [Money]) throws -> Money {
         try total.subtracting(Money.sum(amounts, currencyCode: total.currencyCode))
     }
+
+    /// The amount that makes the parts add up to `total` given the `others` entered (the split editor's first part
+    /// until the user types in it); nil when the others already take all of it or more, or the sum can't be computed.
+    public static func balancingAmount(of total: Money, after others: [Money]) -> Money? {
+        guard let left = try? remaining(of: total, after: others), left.minorUnits > 0 else { return nil }
+        return left
+    }
 }
 
 extension TransactionService {

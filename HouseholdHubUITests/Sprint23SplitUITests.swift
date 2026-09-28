@@ -19,16 +19,26 @@ final class Sprint23SplitUITests: XCTestCase {
         let amounts = app.textFields.matching(identifier: "split.row.amount")
         XCTAssertTrue(amounts.firstMatch.waitForExistence(timeout: 5), "Split sheet did not open")
         XCTAssertEqual(amounts.count, 2, "A split starts with two parts")
-        XCTAssertTrue(waitForRow(app, identifier: "split.remaining", toRead: "100.00"), "All 100 is left to assign")
+        let first = amounts.element(boundBy: 0)
+        XCTAssertEqual(first.value as? String, "100.00", "Part 1 starts with the whole total")
+        XCTAssertTrue(waitForRow(app, identifier: "split.remaining", toRead: "0.00"), "Part 1 holds all 100")
         let save = app.buttons["split.save"]
-        XCTAssertFalse(save.isEnabled, "Nothing is assigned yet")
+        XCTAssertFalse(save.isEnabled, "Part 2 has no amount yet")
 
-        replaceText(in: amounts.element(boundBy: 0), with: "60")
-        XCTAssertTrue(waitForRow(app, identifier: "split.remaining", toRead: "40.00"), "40 is left to assign")
-        XCTAssertFalse(save.isEnabled, "Save waits until nothing is left to assign")
+        // Typing part 2 is enough: part 1 keeps what is left.
         replaceText(in: amounts.element(boundBy: 1), with: "40")
+        let sixtyLeft = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "60.00"), object: first)
+        XCTAssertEqual(XCTWaiter().wait(for: [sixtyLeft], timeout: 10), .completed, "Part 1 follows to 60")
         let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: save)
         XCTAssertEqual(XCTWaiter().wait(for: [enabled], timeout: 10), .completed, "60 + 40 adds up to 100")
+
+        // Once typed in, part 1 keeps its amount and the check waits for the parts to add up again.
+        replaceText(in: first, with: "70")
+        XCTAssertTrue(waitForRow(app, identifier: "split.remaining", toRead: "10.00"), "70 + 40 is 10 over")
+        XCTAssertFalse(save.isEnabled, "Save waits until the parts add up")
+        replaceText(in: first, with: "60")
+        let enabledAgain = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: save)
+        XCTAssertEqual(XCTWaiter().wait(for: [enabledAgain], timeout: 10), .completed, "60 + 40 again")
         XCTAssertTrue(app.buttons["split.add"].exists, "More parts can be added")
         captureScreen(app, named: "sprint23-split-sheet-light")
         tapSaveAndWaitForClose(save, closes: amounts.firstMatch)

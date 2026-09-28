@@ -4,7 +4,8 @@ import SwiftUI
 
 /// Split… from an expense's or income's editor (Sprint 23, F4): one payment divided into 2 to 10 parts, each with its
 /// own amount, category and note. The parts share the date, status, account and merchant, and must add up to the
-/// total exactly: "Left to assign" reaches zero before Save.
+/// total exactly: "Left to assign" reaches zero before Save. Part 1 starts at the whole total and keeps whatever the
+/// other parts leave, so typing part 2 is enough; once the user types in part 1 it keeps what they typed.
 struct SplitTransactionView: View {
     let record: TransactionRecord
     /// Called once the split is saved, so the editor (now showing part one) can close after this sheet.
@@ -22,12 +23,17 @@ struct SplitTransactionView: View {
         var amountText = ""
         var categoryID: UUID?
         var notes = ""
+        /// The amount is what the other parts leave, until the user types in it.
+        var followsRemainder = false
     }
 
     init(record: TransactionRecord, onSplit: @escaping () -> Void) {
         self.record = record
         self.onSplit = onSplit
-        _rows = State(initialValue: [Row(categoryID: record.categoryID), Row(categoryID: record.categoryID)])
+        let first = Row(
+            amountText: LedgerFormat.editableAmount(record.amount), categoryID: record.categoryID,
+            followsRemainder: true)
+        _rows = State(initialValue: [first, Row(categoryID: record.categoryID)])
     }
 
     /// Each row's amount, nil where it doesn't parse as a positive amount.
@@ -71,7 +77,7 @@ struct SplitTransactionView: View {
             ForEach($rows) { $row in
                 Section {
                     FocusingRow("Amount") {
-                        TextField("0.00", text: $row.amountText)
+                        TextField("0.00", text: typedAmount($row))
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .accessibilityIdentifier("split.row.amount")
@@ -109,6 +115,7 @@ struct SplitTransactionView: View {
         .themedScreen()
         .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.interactively)
+        .onChange(of: rows.map(\.amountText)) { rebalance() }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") { dismiss() }
@@ -123,6 +130,28 @@ struct SplitTransactionView: View {
 
     private func position(of id: UUID) -> Int {
         (rows.firstIndex { $0.id == id } ?? 0) + 1
+    }
+
+    /// The amount field's text; typing in it stops the part following what the others leave.
+    private func typedAmount(_ row: Binding<Row>) -> Binding<String> {
+        Binding(
+            get: { row.wrappedValue.amountText },
+            set: { text in
+                guard text != row.wrappedValue.amountText else { return }
+                row.wrappedValue.amountText = text
+                row.wrappedValue.followsRemainder = false
+            })
+    }
+
+    /// Sets the following part (part 1 until typed in) to what the other parts leave, empty when they take it all.
+    private func rebalance() {
+        guard let index = rows.firstIndex(where: \.followsRemainder) else { return }
+        let parsed = amounts
+        let others = parsed.indices.filter { $0 != index }.compactMap { parsed[$0] }
+        let text = SplitPart.balancingAmount(of: record.amount, after: others).map(LedgerFormat.editableAmount) ?? ""
+        if rows[index].amountText != text {
+            rows[index].amountText = text
+        }
     }
 
     /// A new part starts with whatever is left to assign, when something is.
