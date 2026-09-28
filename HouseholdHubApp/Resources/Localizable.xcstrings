@@ -391,12 +391,32 @@
         }
       }
     },
+    "A part has refunds, so the parts can't be merged. Delete its refunds first.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una parte tiene reembolsos, así que no se pueden unir. Elimina primero sus reembolsos."
+          }
+        }
+      }
+    },
     "A purchase that still has refunds is kept.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Una compra que aún tiene reembolsos se conserva."
+          }
+        }
+      }
+    },
+    "A purchase with refunds can't be split.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una compra con reembolsos no se puede dividir."
           }
         }
       }
@@ -657,6 +677,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Agregar artículo"
+          }
+        }
+      }
+    },
+    "Add part": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir parte"
           }
         }
       }
@@ -1361,6 +1391,16 @@
         }
       }
     },
+    "Choose another category for each part.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige otra categoría para cada parte."
+          }
+        }
+      }
+    },
     "Choose the Date and Amount columns.": {
       "localizations": {
         "es": {
@@ -2051,6 +2091,16 @@
         }
       }
     },
+    "Duplicate": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplicar"
+          }
+        }
+      }
+    },
     "Each month starts again at the limit.": {
       "localizations": {
         "es": {
@@ -2297,6 +2347,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cada 2 semanas"
+          }
+        }
+      }
+    },
+    "Every part keeps this payment's date, status, account and merchant.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cada parte conserva la fecha, el estado, la cuenta y el comercio de este pago."
           }
         }
       }
@@ -2961,6 +3021,16 @@
         }
       }
     },
+    "Its account is archived. Choose another account to record it again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Su cuenta está archivada. Elige otra cuenta para registrarla de nuevo."
+          }
+        }
+      }
+    },
     "Its account, balance and wishlist item are not changed.": {
       "localizations": {
         "es": {
@@ -3127,6 +3197,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se pudo calcular el resumen del mes pasado. Tus datos están a salvo."
+          }
+        }
+      }
+    },
+    "Left to assign": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falta asignar"
           }
         }
       }
@@ -3327,6 +3407,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Comercio"
+          }
+        }
+      }
+    },
+    "Merge the parts back into one transaction?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Unir las partes en una sola transacción?"
           }
         }
       }
@@ -4061,6 +4151,16 @@
         }
       }
     },
+    "Only a posted or pending expense or income can be split, not a recurring or wishlist one.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo se puede dividir un gasto o ingreso registrado o pendiente, no uno recurrente ni de la lista de deseos."
+          }
+        }
+      }
+    },
     "Only a wishlist item still wanted can get a goal.": {
       "localizations": {
         "es": {
@@ -4231,12 +4331,32 @@
         }
       }
     },
+    "Part %lld": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parte %lld"
+          }
+        }
+      }
+    },
     "Part of a recurring series": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Parte de una serie recurrente"
+          }
+        }
+      }
+    },
+    "Part of a split (%lld parts)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parte de una división (%lld partes)"
           }
         }
       }
@@ -4901,6 +5021,16 @@
         }
       }
     },
+    "Remove part": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar parte"
+          }
+        }
+      }
+    },
     "Remove photo": {
       "localizations": {
         "es": {
@@ -5501,6 +5631,26 @@
         }
       }
     },
+    "Split": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dividir"
+          }
+        }
+      }
+    },
+    "Split…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dividir…"
+          }
+        }
+      }
+    },
     "Start a Savings Goal": {
       "localizations": {
         "es": {
@@ -6061,6 +6211,16 @@
         }
       }
     },
+    "The first part takes the total and keeps its category and note; the other parts are removed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La primera parte toma el total y conserva su categoría y nota; las demás partes se eliminan."
+          }
+        }
+      }
+    },
     "The goal couldn't be changed.": {
       "localizations": {
         "es": {
@@ -6117,6 +6277,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "El bloqueo no puede proteger Household Hub"
+          }
+        }
+      }
+    },
+    "The parts couldn't be merged.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron unir las partes."
+          }
+        }
+      }
+    },
+    "The parts must add up to the total.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las partes deben sumar el total."
+          }
+        }
+      }
+    },
+    "The parts share their date, status, account and merchant: changing them here changes every part.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las partes comparten fecha, estado, cuenta y comercio: cambiarlos aquí cambia todas las partes."
           }
         }
       }
@@ -6191,6 +6381,16 @@
         }
       }
     },
+    "The split couldn't be saved. Nothing was changed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar la división. No se cambió nada."
+          }
+        }
+      }
+    },
     "The starting balance of %@, the default account. Each account has its own.": {
       "localizations": {
         "es": {
@@ -6227,6 +6427,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Se eliminarán la tarea y sus subtareas."
+          }
+        }
+      }
+    },
+    "The transaction couldn't be duplicated.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo duplicar la transacción."
           }
         }
       }
@@ -6501,6 +6711,16 @@
         }
       }
     },
+    "This transaction is already split.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta transacción ya está dividida."
+          }
+        }
+      }
+    },
     "This week": {
       "localizations": {
         "es": {
@@ -6577,6 +6797,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Principales comercios"
+          }
+        }
+      }
+    },
+    "Total": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
           }
         }
       }
@@ -6787,6 +7017,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Desbloquear con %@"
+          }
+        }
+      }
+    },
+    "Unsplit": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unir"
+          }
+        }
+      }
+    },
+    "Up to %lld parts.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hasta %lld partes."
           }
         }
       }
