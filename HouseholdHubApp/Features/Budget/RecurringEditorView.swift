@@ -4,6 +4,8 @@ import SwiftUI
 
 /// Creates or edits a recurring series (spec §7.5–7.6). Only the v1 rule forms are offered; the service validates.
 /// Editing changes future occurrences only (§9.4); transactions already posted from the series stay as they are.
+/// Sprint 22: a series is a bill (owed: rent, a subscription) or a purchase (something bought again and again, like
+/// groceries every week), which is always an expense and names the store.
 struct RecurringEditorView: View {
     enum RuleKind: String, CaseIterable, Identifiable {
         case daily
@@ -20,8 +22,13 @@ struct RecurringEditorView: View {
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
     @Query(sort: \Account.sortOrder) private var accounts: [Account]
+    @Query private var merchants: [Merchant]
 
     @State private var name = ""
+    @State private var kind = RecurringKind.bill
+    @State private var store = ""
+    /// The series' store, looked up once the merchants are loaded (queries aren't available in `init`).
+    private let merchantID: UUID?
     /// nil = the default account; a transfer also names `toAccountID` (Sprint 10 decision 6).
     @State private var accountID: UUID?
     @State private var toAccountID: UUID?
@@ -47,10 +54,13 @@ struct RecurringEditorView: View {
     init() {
         seriesID = nil
         endDate = nil
+        merchantID = nil
     }
 
     init(series: RecurringTransaction) {
         seriesID = series.id
+        merchantID = series.merchantID
+        _kind = State(initialValue: series.kind)
         _name = State(initialValue: series.notes ?? "")
         _type = State(initialValue: series.type)
         _amountText = State(initialValue: LedgerFormat.editableAmount(series.templateAmount))
@@ -93,7 +103,7 @@ struct RecurringEditorView: View {
 
     /// Active categories for the type, plus the series' own even if it was archived since.
     private var pickableCategories: [CategoryRecord] {
-        categories.filter { ($0.id == categoryID || !$0.isArchived) && $0.kind.allows(type) }
+        categories.filter { ($0.id == categoryID || !$0.isArchived) && $0.kind.allows(effectiveType) }
     }
 
     private var rule: RecurrenceRule {
@@ -110,27 +120,41 @@ struct RecurringEditorView: View {
         NavigationStack {
             Form {
                 Section {
+                    Picker("Kind", selection: $kind) {
+                        Text("Bill").tag(RecurringKind.bill)
+                        Text("Purchase").tag(RecurringKind.purchase)
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("recurringEditor.kind")
                     FocusingRow("Name") {
-                        TextField("e.g. Rent", text: $name)
+                        TextField(kind == .purchase ? "e.g. Groceries" : "e.g. Rent", text: $name)
                             .multilineTextAlignment(.trailing)
                             .accessibilityIdentifier("recurringEditor.name")
                     }
-                    Picker("Type", selection: $type) {
-                        Text("Expense").tag(TransactionType.expense)
-                        Text("Income").tag(TransactionType.income)
-                        if pickableAccounts.count > 1 || type == .transfer {
-                            Text("Transfer").tag(TransactionType.transfer)
+                    if kind == .purchase {
+                        FocusingRow("Store") {
+                            TextField("Optional", text: $store)
+                                .multilineTextAlignment(.trailing)
+                                .accessibilityIdentifier("recurringEditor.store")
                         }
+                    } else {
+                        Picker("Type", selection: $type) {
+                            Text("Expense").tag(TransactionType.expense)
+                            Text("Income").tag(TransactionType.income)
+                            if pickableAccounts.count > 1 || type == .transfer {
+                                Text("Transfer").tag(TransactionType.transfer)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .accessibilityIdentifier("recurringEditor.type")
                     }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("recurringEditor.type")
                     FocusingRow("Amount") {
                         TextField("0.00", text: $amountText)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .accessibilityIdentifier("recurringEditor.amount")
                     }
-                    if type != .transfer {
+                    if effectiveType != .transfer {
                         Picker("Category", selection: $categoryID) {
                             Text("None").tag(UUID?.none)
                             ForEach(pickableCategories) { category in
@@ -139,7 +163,7 @@ struct RecurringEditorView: View {
                         }
                     }
                     if pickableAccounts.count > 1 {
-                        Picker(type == .transfer ? "From" : "Account", selection: $accountID) {
+                        Picker(effectiveType == .transfer ? "From" : "Account", selection: $accountID) {
                             Text("Default account").tag(UUID?.none)
                             ForEach(pickableAccounts) { account in
                                 Text(account.name).tag(UUID?.some(account.id))
@@ -147,7 +171,7 @@ struct RecurringEditorView: View {
                         }
                         .accessibilityIdentifier("recurringEditor.account")
                     }
-                    if type == .transfer {
+                    if effectiveType == .transfer {
                         Picker("To", selection: $toAccountID) {
                             Text("Choose").tag(UUID?.none)
                             ForEach(pickableAccounts) { account in
@@ -188,8 +212,16 @@ struct RecurringEditorView: View {
                         .accessibilityIdentifier("recurringEditor.save")
                 }
             }
+            .onAppear {
+                if store.isEmpty, let merchantID {
+                    store = merchants.first { $0.id == merchantID }?.displayName ?? ""
+                }
+            }
         }
     }
+
+    /// A purchase is always an expense; the type picker is for bills.
+    private var effectiveType: TransactionType { kind == .purchase ? .expense : type }
 
     @ViewBuilder
     private var ruleFields: some View {
@@ -233,26 +265,31 @@ struct RecurringEditorView: View {
         defer { isSaving = false }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let notes = trimmed.isEmpty ? nil : trimmed
-        // A transfer has no category, and only a transfer names a destination.
+        let type = effectiveType
+        // A transfer has no category, and only a transfer names a destination; only a purchase names a store.
         let category = type == .transfer ? nil : categoryID
         let destination = type == .transfer ? toAccountID : nil
+        let storeName = kind == .purchase ? store.trimmingCharacters(in: .whitespacesAndNewlines) : ""
+        let merchant = storeName.isEmpty ? nil : storeName
         do {
             if let seriesID {
                 try await services.transactions.updateSeries(
                     seriesID, templateAmount: amount, type: type, rule: rule, startDate: startDate, endDate: endDate,
                     categoryID: category, notes: notes, accountID: accountID, transferAccountID: destination,
-                    now: .now)
+                    kind: kind, merchantName: merchant, now: .now)
             } else {
                 try await services.transactions.createSeries(
                     templateAmount: amount, type: type, rule: rule, timeZone: .current, startDate: startDate,
                     categoryID: category, notes: notes, accountID: accountID, transferAccountID: destination,
-                    now: .now)
+                    kind: kind, merchantName: merchant, now: .now)
             }
             dismiss()
         } catch RecurrenceRuleError.invalid {
             errorMessage = String(localized: "That date doesn't exist in the chosen month.")
         } catch LedgerError.transferNeedsTwoAccounts {
             errorMessage = String(localized: "A transfer needs two different accounts.")
+        } catch LedgerError.purchaseMustBeExpense {
+            errorMessage = String(localized: "A recurring purchase is always an expense.")
         } catch {
             errorMessage = String(localized: "This recurring item couldn't be saved.")
         }
