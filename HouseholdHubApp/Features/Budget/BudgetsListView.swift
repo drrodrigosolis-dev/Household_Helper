@@ -159,9 +159,12 @@ struct BudgetsListView: View {
 
     /// The current month opens this month's transactions; a past month opens the category's whole history, since
     /// the transaction filter has no month of its own.
+    /// The category's transactions in the month shown (Sprint 23: a past month opens that month only).
     private func showTransactions(_ category: CategoryRecord) {
-        let period: TransactionFilter.Period = isCurrentMonth ? .thisMonth : .all
-        router.showBudget(.transactions, filter: TransactionFilter(period: period, categoryID: category.id))
+        var filter = TransactionFilter(period: isCurrentMonth ? .thisMonth : .all, categoryID: category.id)
+        filter.dateRange = DateInterval(
+            start: month.start(in: calendar), end: month.adding(months: 1).start(in: calendar))
+        router.showBudget(.transactions, filter: filter)
     }
 
     private func refresh() async {

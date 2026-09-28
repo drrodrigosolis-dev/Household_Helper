@@ -217,6 +217,8 @@ struct AnalyticsView: View {
     private func showBudget(_ categoryID: UUID?) {
         // The same statuses as the figure that was tapped: posted only, or posted and pending.
         var filter = TransactionFilter(period: filterPeriod, status: includesPending ? nil : .posted)
+        // Exactly the tapped figure's dates (Sprint 23: the filter's date range, from F6).
+        filter.dateRange = selectedPeriod.interval(now: .now, calendar: calendar)
         if let categoryID {
             filter.categoryID = categoryID
         } else {
@@ -225,19 +227,13 @@ struct AnalyticsView: View {
         router.showBudget(.transactions, filter: filter)
     }
 
-    /// Sprint 23 (A-018): a week or month bar opens Budget at the narrowest period the filter has that holds it: this
-    /// week, this month, or every date.
+    /// Sprint 23 (A-018): a week or month bar opens Budget › Transactions for exactly that week or month.
     private func showBucket(startingAt start: Date) {
-        let now = Date.now
-        let range: TransactionFilter.Period
-        if selectedPeriod.bucket == .week, start == calendar.startOfWeek(for: now) {
-            range = .thisWeek
-        } else if selectedPeriod == .thisMonth || start == calendar.startOfMonth(for: now) {
-            range = .thisMonth
-        } else {
-            range = .all
+        let component: Calendar.Component = selectedPeriod.bucket == .week ? .weekOfYear : .month
+        var filter = TransactionFilter(period: .all, status: includesPending ? nil : .posted)
+        if let end = calendar.calendar.date(byAdding: component, value: 1, to: start) {
+            filter.dateRange = DateInterval(start: start, end: end)
         }
-        let filter = TransactionFilter(period: range, status: includesPending ? nil : .posted)
         router.showBudget(.transactions, filter: filter)
     }
 }
