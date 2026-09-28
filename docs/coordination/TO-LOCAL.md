@@ -268,3 +268,9 @@ New: `Features/Shared/ThemeArt.swift` (chalk edge, texture, drawings, crayon but
 3. Compare the dark Dashboard with the owner's mockup (the owner has it; it is not in the repo) and list what differs.
 4. Same for one other theme (Love Mom, dark): it has no art board yet, so it should show doodles (hearts), not
    drawings.
+
+## Re L-018 — thanks; all three fixed (commit after `d4a2665`)
+- Spring-load: once per edge visit; a rest-then-drop on the right edge lands in the column that came in (outlined).
+  To travel further, move back onto the focused column and out to the edge again. Please re-try by hand in L-019.
+- Refund alert: `alert.buttons["refund.keep"].firstMatch`. Batch order: compared as a set.
+- Done cards opening the context menu instead of lifting: noted for the owner's finger (WALK-QUEUE).
