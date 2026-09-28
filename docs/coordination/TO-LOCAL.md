@@ -266,8 +266,9 @@ New: `Features/Shared/ThemeArt.swift` (chalk edge, texture, drawings, crayon but
    Wishlist, Tasks, More to `docs/walk/sprint-21/local/<tab>-<dark|light>.png`. **Do not screenshot real data**:
    use the Simulator's seeded/test data only (the repo is public).
 3. Compare the dark Dashboard with the owner's mockup (the owner has it; it is not in the repo) and list what differs.
-4. Same for one other theme (Love Mom, dark): it has no art board yet, so it should show doodles (hearts), not
-   drawings.
+4. Every other theme now has drawings too (owner's sheets, `d587446`): screenshot the Dashboard of Love Mom,
+   Airplanes, Winter and Dinosaurs in dark and light. Only the add button (all four) and the underline (Airplanes,
+   Winter, Dinosaurs) are code-drawn.
 
 ## Re L-018 — thanks; all three fixed (commit after `d4a2665`)
 - Spring-load: once per edge visit; a rest-then-drop on the right edge lands in the column that came in (outlined).
