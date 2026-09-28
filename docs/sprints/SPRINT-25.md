@@ -77,3 +77,12 @@ iOS 26 — Sprint 25 research").
    free text in one breath ("Add to my wishlist in Household Hub, headphones for 149") actually deliver as a
    single dictated `String`, the way `LogTransactionIntent` assumes today? This is the load-bearing assumption
    behind "one sentence" in the sprint's plan.
+
+## Owner answers (2026-09-28)
+1. Wishlist: "<name> for <amount>", the amount optional. Tasks: the whole dictated text is the title.
+2. Tasks added by Siri go to the first column. A column picker is a later item.
+3. **Foundation Models refinement this sprint** (owner chose it over the default). A free-form sentence ("I spent
+   40 on groceries at Safeway yesterday") goes to the on-device model first where Apple Intelligence is available.
+   The deterministic grammar is the fallback everywhere else and is what CI tests. The model's output is a draft
+   shown in `requestConfirmation`, and it never writes (§6).
+4. Question 4 (one-breath dictation) is checked on the phone as the sprint's first walk item.
