@@ -12,8 +12,10 @@ extension XCTestCase {
     @MainActor
     /// - Parameter language: an app language such as "es" (Sprint 16 walk); formats still follow the region.
     /// - Parameter theme: a Sprint 19 style's stored name, such as "toyBox".
+    /// - Parameter extraArguments: more launch arguments, such as Sprint 24's `-uiTestingTour`.
     func launchApp(
-        onboarded: Bool = true, variant: WalkVariant = .light, language: String? = nil, theme: String? = nil
+        onboarded: Bool = true, variant: WalkVariant = .light, language: String? = nil, theme: String? = nil,
+        extraArguments: [String] = []
     ) -> XCUIApplication {
         let app = XCUIApplication()
         var arguments = ["-uiTesting"]
@@ -32,6 +34,7 @@ extension XCTestCase {
         if let language {
             arguments += ["-AppleLanguages", "(\(language))"]
         }
+        arguments += extraArguments
         app.launchArguments = arguments
         XCUIDevice.shared.appearance = variant == .dark ? .dark : .light
         app.launch()
