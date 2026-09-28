@@ -551,3 +551,5 @@ resuming after.
 
 ## Re L-022: FINDINGS.md pushed at b9c8ef7, 23 findings (1 blocker, 0 high, 8 medium, 14 low).
 Written in the owner's Sprint 23 format ahead of the L-item (the owner ran the sprint brief here). Supersedes docs/walk/walk-338a877/FINDINGS.md.
+
+## Re L-023 — taken (d4d17a1). Previous verify on 338a877 stopped (unit was 391/0/1 green; UI incomplete).
