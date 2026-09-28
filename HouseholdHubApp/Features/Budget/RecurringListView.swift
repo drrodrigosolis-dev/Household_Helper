@@ -4,7 +4,8 @@ import SwiftUI
 
 /// Budget › Recurring (spec §24.2): series definitions with their next due date. Posting an occurrence creates
 /// exactly one transaction (§9.4). A series can be edited (future occurrences only) and deleted while nothing has
-/// been posted from it; after that it can be disabled.
+/// been posted from it; after that it can be disabled. Sprint 23 F2: patterns found in the history are offered above
+/// the list ("Make it a bill?"); adding one opens the editor prefilled, and nothing is created until it is saved.
 struct RecurringListView: View {
     @Environment(\.services) private var services
     @Query(sort: \RecurringTransaction.createdAt) private var series: [RecurringTransaction]
@@ -13,10 +14,12 @@ struct RecurringListView: View {
     @State private var editing: RecurringTransaction?
     @State private var deleting: RecurringTransaction?
     @State private var errorMessage: String?
+    @State private var suggestions = RecurringSuggestionsModel()
+    @State private var suggesting: RecurringSuggestion?
 
     var body: some View {
         Group {
-            if series.isEmpty {
+            if series.isEmpty && suggestions.visible.isEmpty {
                 ContentUnavailableView {
                     EmptyStateLabel(Text("No recurring items"), systemImage: "arrow.triangle.2.circlepath")
                 } description: {
@@ -27,16 +30,27 @@ struct RecurringListView: View {
                 }
             } else {
                 List {
-                    ForEach(series) { item in
-                        row(item).themedRow()
+                    if !suggestions.visible.isEmpty {
+                        Section("Suggestions") {
+                            ForEach(suggestions.visible) { suggestion in
+                                suggestionRow(suggestion).themedRow()
+                            }
+                        }
                     }
-                    if let errorMessage {
-                        ErrorText(errorMessage)
+                    Section {
+                        ForEach(series) { item in
+                            row(item).themedRow()
+                        }
+                        if let errorMessage {
+                            ErrorText(errorMessage)
+                        }
                     }
                 }
                 .listStyle(.insetGrouped)
             }
         }
+        // Re-read on appear and whenever a series is added or removed (an added suggestion then disappears).
+        .task(id: series.map(\.id)) { await suggestions.load(services) }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Add recurring item", systemImage: "plus") { isCreating = true }
@@ -45,6 +59,7 @@ struct RecurringListView: View {
         }
         .sheet(isPresented: $isCreating) { RecurringEditorView() }
         .sheet(item: $editing) { item in RecurringEditorView(series: item) }
+        .sheet(item: $suggesting) { suggestion in RecurringEditorView(suggestion: suggestion) }
         .confirmationDialog(
             deleteTitle, isPresented: deletingBinding, titleVisibility: .visible, presenting: deleting
         ) { item in
@@ -61,6 +76,25 @@ struct RecurringListView: View {
 
     private var deletingBinding: Binding<Bool> {
         Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })
+    }
+
+    /// "Streaming Co · about monthly · $17.99 — Make it a bill?" with Add and Dismiss.
+    private func suggestionRow(_ suggestion: RecurringSuggestion) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(RecurringSuggestionsModel.text(for: suggestion))
+            HStack(spacing: 12) {
+                // Bordered styles, so each button takes only its own taps inside the row.
+                Button("Add") { suggesting = suggestion }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("recurring.suggestion.add")
+                Button("Dismiss") { suggestions.dismiss(suggestion) }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("recurring.suggestion.dismiss")
+            }
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("recurring.suggestion")
     }
 
     private func row(_ item: RecurringTransaction) -> some View {
@@ -229,5 +263,60 @@ enum RecurrenceFormat {
         let formatter = NumberFormatter()
         formatter.numberStyle = .ordinal
         return formatter.string(from: NSNumber(value: ordinal)) ?? String(ordinal)
+    }
+}
+
+/// Recurring › Suggestions (Sprint 23 F2): what the detector found, minus what this device dismissed. Dismissals are
+/// a device preference (UserDefaults, by merchant and type), never SwiftData or a backup.
+@MainActor
+@Observable
+final class RecurringSuggestionsModel {
+    static let dismissedKey = "recurring.dismissedSuggestions"
+
+    private(set) var all: [RecurringSuggestion] = []
+    private(set) var dismissals: RecurringSuggestionDismissals
+    @ObservationIgnored private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        dismissals = RecurringSuggestionDismissals(defaults.stringArray(forKey: Self.dismissedKey) ?? [])
+    }
+
+    var visible: [RecurringSuggestion] { dismissals.visible(all) }
+
+    func show(_ suggestions: [RecurringSuggestion]) {
+        all = suggestions
+    }
+
+    func dismiss(_ suggestion: RecurringSuggestion) {
+        dismissals.dismiss(suggestion)
+        defaults.set(dismissals.stored, forKey: Self.dismissedKey)
+    }
+
+    /// Reads the history; a failed read shows no suggestions rather than an error (they are only a convenience).
+    func load(_ services: AppServices?) async {
+        guard let services else { return }
+        let calendar = HouseholdCalendar(timeZone: .current)
+        let found = try? await services.transactions.recurringSuggestions(now: .now, calendar: calendar)
+        show(found ?? [])
+    }
+
+    /// "Streaming Co · about monthly · $17.99 — Make it a bill?"
+    static func text(for suggestion: RecurringSuggestion) -> String {
+        let cadence: String
+        switch suggestion.cadence {
+        case .weekly: cadence = String(localized: "about weekly")
+        case .biweekly: cadence = String(localized: "about every two weeks")
+        case .monthly: cadence = String(localized: "about monthly")
+        }
+        let question: String
+        if suggestion.type == .income {
+            question = String(localized: "Make it recurring income?")
+        } else if suggestion.kind == .purchase {
+            question = String(localized: "Make it a recurring purchase?")
+        } else {
+            question = String(localized: "Make it a bill?")
+        }
+        return "\(suggestion.merchantName) · \(cadence) · \(suggestion.amount.formatted()) — \(question)"
     }
 }

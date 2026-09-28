@@ -1,11 +1,13 @@
 import SwiftUI
 
 /// Settings › Reminders (Sprint 14): two switches, both off until turned on. Turning one on asks for notification
-/// permission; if it is refused the switch goes back off and says where to allow it.
+/// permission; if it is refused the switch goes back off and says where to allow it. Sprint 23 F7 adds budget alerts,
+/// on by default (they arrive once notifications are allowed).
 struct RemindersSection: View {
     @Environment(\.services) private var services
     @AppStorage(ReminderSync.tasksKey) private var tasksDue = false
     @AppStorage(ReminderSync.billsKey) private var billsDue = false
+    @AppStorage(ReminderSync.budgetAlertsKey) private var budgetAlerts = true
     @State private var permissionDenied = false
 
     var body: some View {
@@ -14,6 +16,8 @@ struct RemindersSection: View {
                 .accessibilityIdentifier("settings.remindTasks")
             Toggle("Bills due tomorrow", isOn: binding($billsDue))
                 .accessibilityIdentifier("settings.remindBills")
+            Toggle("Budget alerts", isOn: binding($budgetAlerts))
+                .accessibilityIdentifier("settings.budgetAlerts")
             if permissionDenied {
                 Text("Notifications are off for Household Hub. Allow them in the Settings app to get reminders.")
                     .font(.footnote)
@@ -22,7 +26,10 @@ struct RemindersSection: View {
         } header: {
             Text("Reminders")
         } footer: {
-            Text("Reminders arrive at 9:00 on this device. They show names only, never amounts.")
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Reminders arrive at 9:00 on this device. They show names only, never amounts.")
+                Text("Budget alerts come once a month per category, at 80 and at 100 percent of its budget.")
+            }
         }
     }
 

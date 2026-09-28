@@ -58,6 +58,33 @@ struct RecurringEditorView: View {
         merchantID = nil
     }
 
+    /// Prefilled from a detected pattern (Sprint 23 F2). The merchant is kept for bills too, so a suggested bill posts
+    /// under its store like the transactions it was found from.
+    init(suggestion: RecurringSuggestion) {
+        seriesID = nil
+        endDate = nil
+        merchantID = suggestion.merchantID
+        _kind = State(initialValue: suggestion.kind)
+        _name = State(initialValue: suggestion.merchantName)
+        _store = State(initialValue: suggestion.merchantName)
+        _type = State(initialValue: suggestion.type)
+        _amountText = State(initialValue: LedgerFormat.editableAmount(suggestion.amount))
+        _categoryID = State(initialValue: suggestion.categoryID)
+        _accountID = State(initialValue: suggestion.accountID)
+        _startDate = State(initialValue: suggestion.nextDate)
+        switch suggestion.rule {
+        case .weekly(let interval, let weekday):
+            _ruleKind = State(initialValue: .weekly)
+            _interval = State(initialValue: interval)
+            _weekday = State(initialValue: weekday)
+        case .monthlyOnDay(let day):
+            _ruleKind = State(initialValue: .monthlyOnDay)
+            _dayOfMonth = State(initialValue: day)
+        default:
+            break
+        }
+    }
+
     init(series: RecurringTransaction) {
         seriesID = series.id
         merchantID = series.merchantID

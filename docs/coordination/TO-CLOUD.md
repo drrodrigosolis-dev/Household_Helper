@@ -553,3 +553,9 @@ resuming after.
 Written in the owner's Sprint 23 format ahead of the L-item (the owner ran the sprint brief here). Supersedes docs/walk/walk-338a877/FINDINGS.md.
 
 ## Re L-023 — taken (d4d17a1). Previous verify on 338a877 stopped (unit was 391/0/1 green; UI incomplete).
+L-023 verify on d4d17a1 (Xcode 27.0) — lint clean, **build succeeded**, unit **411 passed / 1 failed / 1 skipped**:
+```
+HouseholdHubTests / theStringCatalogIsCompleteAndKeepsPlaceholders(): Expectation failed: unit?["value"]:
+HouseholdHubApp/Resources/Localizable.xcstrings: no Spanish for “Delete %lld transactions”
+```
+(the new bulk-delete plural string has no `es` value). UI tests running; hand checks after.
