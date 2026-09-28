@@ -1,6 +1,7 @@
 import HouseholdHubCore
 import SwiftData
 import SwiftUI
+import TipKit
 
 /// Settings (spec §24.2). Pushed inside the More tab's NavigationStack, so it must not create its own.
 /// Later phases add Face ID, AI toggles, backup/restore, export, and appearance here.
@@ -100,6 +101,7 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.navigationLink)
                     .accessibilityIdentifier("settings.style")
+                    .popoverTip(ThemeTip())
                     if themeIsOn {
                         Toggle("Theme animations", isOn: $themeAnimations)
                             .accessibilityIdentifier("settings.themeAnimations")

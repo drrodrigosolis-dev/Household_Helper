@@ -441,6 +441,16 @@
         }
       }
     },
+    "A one-minute look at what Household Hub can do.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un vistazo de un minuto a lo que Household Hub puede hacer."
+          }
+        }
+      }
+    },
     "A part has refunds, so the parts can't be merged. Delete its refunds first.": {
       "localizations": {
         "es": {
@@ -1221,6 +1231,16 @@
         }
       }
     },
+    "Bought something on your list? Tap Mark Purchased and the expense is recorded for you.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Compraste algo de tu lista? Toca Marcar como comprado y el gasto se registra por ti."
+          }
+        }
+      }
+    },
     "Budget": {
       "localizations": {
         "es": {
@@ -1421,6 +1441,16 @@
         }
       }
     },
+    "Change several at once": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambia varios a la vez"
+          }
+        }
+      }
+    },
     "Change the done column?": {
       "localizations": {
         "es": {
@@ -1477,6 +1507,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "Changed your mind?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Cambiaste de opinión?"
           }
         }
       }
@@ -1727,6 +1767,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Saldo actual"
+          }
+        }
+      }
+    },
+    "Current counts what's posted. Pending is still on its way, and Projected looks 30 days ahead.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actual cuenta lo ya registrado. Pendiente es lo que aún está en camino, y Proyectado mira 30 días adelante."
           }
         }
       }
@@ -2257,6 +2307,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hecho con amor"
+          }
+        }
+      }
+    },
+    "Drag a card to another column as things move along.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrastra una tarjeta a otra columna a medida que avanzan las cosas."
           }
         }
       }
@@ -2811,6 +2871,16 @@
         }
       }
     },
+    "Got some money back?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Te devolvieron dinero?"
+          }
+        }
+      }
+    },
     "Green": {
       "localizations": {
         "es": {
@@ -2977,6 +3047,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Household Hub se bloquea cuando sales. El código de tu dispositivo siempre funciona como alternativa."
+          }
+        }
+      }
+    },
+    "Household Hub noticed this repeats. Add it to see it in your projection, or Dismiss if it's not a bill.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Household Hub notó que esto se repite. Agrégalo para verlo en tu proyección, o descártalo si no es una factura."
           }
         }
       }
@@ -3531,6 +3611,26 @@
         }
       }
     },
+    "Look back": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mira atrás"
+          }
+        }
+      }
+    },
+    "Looks like a habit": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parece un hábito"
+          }
+        }
+      }
+    },
     "Looks like one already recorded": {
       "localizations": {
         "es": {
@@ -3607,6 +3707,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "¿Convertirlo en ingreso recurrente?"
+          }
+        }
+      }
+    },
+    "Make it yours": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hazlo tuyo"
           }
         }
       }
@@ -3797,6 +3907,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Más filtros…"
+          }
+        }
+      }
+    },
+    "More › Settings": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Más › Configuración"
           }
         }
       }
@@ -4031,6 +4151,16 @@
         }
       }
     },
+    "New: take a quick tour": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuevo: haz un recorrido rápido"
+          }
+        }
+      }
+    },
     "Next": {
       "localizations": {
         "es": {
@@ -4261,6 +4391,16 @@
         }
       }
     },
+    "Not now": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahora no"
+          }
+        }
+      }
+    },
     "Notes": {
       "localizations": {
         "es": {
@@ -4437,6 +4577,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Activado"
+          }
+        }
+      }
+    },
+    "Once you're back in Budget, Save search… under Filter keeps this text and these filters under a name.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De vuelta en Presupuesto, Guardar búsqueda… en Filtro guarda este texto y estos filtros con un nombre."
           }
         }
       }
@@ -4631,6 +4781,16 @@
         }
       }
     },
+    "Paid for more than one thing at once? Split… divides this into parts you can categorize separately.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Pagaste por más de una cosa a la vez? Dividir… separa este movimiento en partes que puedes categorizar por separado."
+          }
+        }
+      }
+    },
     "Paid from": {
       "localizations": {
         "es": {
@@ -4747,6 +4907,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Elige un archivo CSV de tu banco o de una hoja de cálculo. Verás cada fila antes de que se guarde algo."
+          }
+        }
+      }
+    },
+    "Pick a style here to change the app's colors, icons and a few small animations.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige un estilo aquí para cambiar los colores, los íconos y algunas animaciones pequeñas de la app."
+          }
+        }
+      }
+    },
+    "Pick a theme here, and replay this tour whenever you like.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige un tema aquí y repite este recorrido cuando quieras."
           }
         }
       }
@@ -5311,6 +5491,26 @@
         }
       }
     },
+    "Refund… records it against this purchase, so your spending stays accurate.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reembolso… lo registra contra esta compra, así tu gasto se mantiene exacto."
+          }
+        }
+      }
+    },
+    "Remember this bank's format": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recuerda el formato de este banco"
+          }
+        }
+      }
+    },
     "Reminders": {
       "localizations": {
         "es": {
@@ -5501,6 +5701,16 @@
         }
       }
     },
+    "Reset Tips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restablecer consejos"
+          }
+        }
+      }
+    },
     "Restore": {
       "localizations": {
         "es": {
@@ -5631,6 +5841,16 @@
         }
       }
     },
+    "Save as preset… remembers this file's columns, so the next file from the same bank maps itself.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar como preajuste… recuerda las columnas de este archivo, así el próximo archivo del mismo banco se asigna solo."
+          }
+        }
+      }
+    },
     "Save search": {
       "localizations": {
         "es": {
@@ -5647,6 +5867,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Guardar búsqueda…"
+          }
+        }
+      }
+    },
+    "Save this search": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guarda esta búsqueda"
           }
         }
       }
@@ -5727,6 +5957,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Seleccionar"
+          }
+        }
+      }
+    },
+    "Select lets you delete or recategorize more than one transaction together.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seleccionar te permite eliminar o cambiar la categoría de varios movimientos a la vez."
           }
         }
       }
@@ -5851,6 +6091,16 @@
         }
       }
     },
+    "Show the Tour Again": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver el recorrido otra vez"
+          }
+        }
+      }
+    },
     "Show transactions": {
       "localizations": {
         "es": {
@@ -5887,6 +6137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Muestra cuánto ahorrar cada mes para llegar a tiempo."
+          }
+        }
+      }
+    },
+    "Skip tour": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Omitir recorrido"
           }
         }
       }
@@ -6031,12 +6291,32 @@
         }
       }
     },
+    "Split one payment": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dividir un pago"
+          }
+        }
+      }
+    },
     "Split…": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Dividir…"
+          }
+        }
+      }
+    },
+    "Start": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empezar"
           }
         }
       }
@@ -6097,6 +6377,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Filtro de estado"
+          }
+        }
+      }
+    },
+    "Step %lld of %lld": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paso %1$lld de %2$lld"
+          }
+        }
+      }
+    },
+    "Step %lld of %lld: %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paso %1$lld de %2$lld: %3$@"
           }
         }
       }
@@ -6191,6 +6491,46 @@
         }
       }
     },
+    "Tap + and type “12 coffee”. It's saved as an expense.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca + y escribe “12 café”. Se guarda como un gasto."
+          }
+        }
+      }
+    },
+    "Tap a slice or a bar to see exactly those transactions in Budget.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca una porción o una barra para ver exactamente esos movimientos en Presupuesto."
+          }
+        }
+      }
+    },
+    "Tap one to edit it, swipe it for more, or tap Select to change several at once.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca uno para editarlo, deslízalo para ver más o toca Seleccionar para cambiar varios a la vez."
+          }
+        }
+      }
+    },
+    "Tap to dig in": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca para ver más"
+          }
+        }
+      }
+    },
     "Target": {
       "localizations": {
         "es": {
@@ -6267,6 +6607,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tareas"
+          }
+        }
+      }
+    },
+    "Tasks board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tablero de tareas"
           }
         }
       }
@@ -6921,6 +7271,16 @@
         }
       }
     },
+    "These arrows step through past months, so you can see how a budget has been doing.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estas flechas recorren los meses pasados, así ves cómo le ha ido a un presupuesto."
+          }
+        }
+      }
+    },
     "These dates can be read more than one way: choose how.": {
       "localizations": {
         "es": {
@@ -7171,6 +7531,16 @@
         }
       }
     },
+    "Tips show again as you reach each feature.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los consejos vuelven a aparecer al llegar a cada función."
+          }
+        }
+      }
+    },
     "Title": {
       "localizations": {
         "es": {
@@ -7391,6 +7761,16 @@
         }
       }
     },
+    "Tutorial": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutorial"
+          }
+        }
+      }
+    },
     "Type": {
       "localizations": {
         "es": {
@@ -7427,6 +7807,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Deshacer"
+          }
+        }
+      }
+    },
+    "Undo brings this back for a few seconds after a delete or a bulk change.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deshacer lo trae de vuelta durante unos segundos después de eliminar o de un cambio en bloque."
           }
         }
       }
@@ -7871,12 +8261,32 @@
         }
       }
     },
+    "Your money at a glance": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu dinero de un vistazo"
+          }
+        }
+      }
+    },
     "Your stocking is empty": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Tu calcetín de regalos está vacío"
+          }
+        }
+      }
+    },
+    "Your transactions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus movimientos"
           }
         }
       }
@@ -8073,6 +8483,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "igual que el mes anterior"
+          }
+        }
+      }
+    },
+    "tour.next": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siguiente"
           }
         }
       }
