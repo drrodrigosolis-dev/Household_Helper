@@ -16,6 +16,39 @@ public enum TaskBoardError: Error, Equatable, Sendable {
     /// A completed task is history: its repeat has moved on to the next task, and giving it a new one would start a
     /// second series (Sprint 13 data-safety review).
     case repeatOnCompletedTask
+    /// A due time is a time on the due day (Sprint 26): without a due date it is refused, not dropped, so a caller
+    /// never loses a time it meant to keep. Clearing the date means clearing the time in the same draft.
+    case timeNeedsDueDate
+    /// A due time is minutes after local midnight, 0...1439.
+    case invalidDueTime
+}
+
+/// A time of day as minutes after local midnight (Sprint 26): task due times and the reminder default time.
+public enum TimeOfDay {
+    public static let minutesPerDay = 24 * 60
+    /// 9:00, the reminder default time before the user sets one.
+    public static let defaultReminderMinutes = 9 * 60
+
+    public static func isValid(_ minutes: Int) -> Bool {
+        (0..<minutesPerDay).contains(minutes)
+    }
+
+    /// The minutes after midnight of `date`'s wall-clock time in `calendar`.
+    public static func minutes(of date: Date, calendar: HouseholdCalendar) -> Int {
+        let parts = calendar.calendar.dateComponents([.hour, .minute], from: date)
+        return (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
+    }
+
+    /// `minutes` after midnight on the day of `day` in `calendar`. On a day the time doesn't exist (spring forward)
+    /// it is the next valid time; on a day it happens twice (fall back), the first. Never nil for a valid day.
+    public static func date(minutes: Int, onDayOf day: Date, calendar: HouseholdCalendar) -> Date {
+        let clamped = min(max(minutes, 0), minutesPerDay - 1)
+        let start = calendar.startOfDay(for: day)
+        let found = calendar.calendar.date(
+            bySettingHour: clamped / 60, minute: clamped % 60, second: 0, of: start,
+            matchingPolicy: .nextTimePreservingSmallerComponents, repeatedTimePolicy: .first, direction: .forward)
+        return found ?? start.addingTimeInterval(TimeInterval(clamped * 60))
+    }
 }
 
 /// The user-editable fields of a task. Column, order, and completion change only through moves (spec §7.8).
@@ -24,6 +57,8 @@ public struct TaskDraft: Equatable, Sendable {
     public var notes: String?
     public var priority: Priority
     public var dueDate: Date?
+    /// Sprint 26: the due time, minutes after local midnight on the due day; nil = no time. Needs a due date.
+    public var dueTimeMinutes: Int?
     public var linkedWishlistItemID: UUID?
     /// A transaction the task is about (spec §2.1, §7.8); a link to one that no longer exists is dropped on save.
     public var linkedTransactionID: UUID?
@@ -34,13 +69,14 @@ public struct TaskDraft: Equatable, Sendable {
 
     public init(
         title: String, notes: String? = nil, priority: Priority = .medium, dueDate: Date? = nil,
-        linkedWishlistItemID: UUID? = nil, linkedTransactionID: UUID? = nil, recurrence: RecurrenceRule? = nil,
-        timeZone: TimeZone = .current
+        dueTimeMinutes: Int? = nil, linkedWishlistItemID: UUID? = nil, linkedTransactionID: UUID? = nil,
+        recurrence: RecurrenceRule? = nil, timeZone: TimeZone = .current
     ) {
         self.title = title
         self.notes = notes
         self.priority = priority
         self.dueDate = dueDate
+        self.dueTimeMinutes = dueTimeMinutes
         self.linkedWishlistItemID = linkedWishlistItemID
         self.linkedTransactionID = linkedTransactionID
         self.recurrence = recurrence
@@ -51,6 +87,10 @@ public struct TaskDraft: Equatable, Sendable {
 
     public func validate() throws {
         guard !trimmedTitle.isEmpty else { throw TaskBoardError.emptyTitle }
+        if let dueTimeMinutes {
+            guard dueDate != nil else { throw TaskBoardError.timeNeedsDueDate }
+            guard TimeOfDay.isValid(dueTimeMinutes) else { throw TaskBoardError.invalidDueTime }
+        }
         guard let recurrence else { return }
         guard dueDate != nil else { throw TaskBoardError.repeatNeedsDueDate }
         do {

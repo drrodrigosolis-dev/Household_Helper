@@ -46,6 +46,10 @@ public enum BackupValidator {
         if original.schemaVersion < 5, let group = original.transactions.compactMap(\.splitGroupID).first {
             throw BackupError.invalidValue(entity: "transactions", field: "splitGroupID", value: group.uuidString)
         }
+        // Task due times arrived in v6 (Sprint 26); an older file with one was not written by this app.
+        if original.schemaVersion < 6, let minutes = original.taskItems.compactMap(\.dueTimeMinutes).first {
+            throw BackupError.invalidValue(entity: "taskItems", field: "dueTimeMinutes", value: "\(minutes)")
+        }
         let backup = original.upgradedToCurrent()
         guard backup.schemaVersion == BackupDTO.currentSchemaVersion else {
             throw BackupError.unsupportedSchemaVersion(backup.schemaVersion)
@@ -206,6 +210,15 @@ public enum BackupValidator {
             try exists(task.columnID, in: columns, "taskItems", "columnID")
             try exists(task.linkedWishlistItemID, in: wishes, "taskItems", "linkedWishlistItemID")
             try exists(task.linkedTransactionID, in: transactions, "taskItems", "linkedTransactionID")
+            // A due time (Sprint 26): minutes after midnight, on a task with a due date.
+            if let minutes = task.dueTimeMinutes {
+                guard TimeOfDay.isValid(minutes) else {
+                    throw BackupError.invalidValue(entity: "taskItems", field: "dueTimeMinutes", value: "\(minutes)")
+                }
+                guard task.dueDate != nil else {
+                    throw BackupError.inconsistentLink(entity: "taskItems", field: "dueTimeMinutes")
+                }
+            }
             // A repeat (Sprint 13): a valid rule in a known zone, on a task with a due date; rule and zone go together.
             switch (task.recurrenceRule, task.recurrenceTimeZoneIdentifier) {
             case (nil, nil):

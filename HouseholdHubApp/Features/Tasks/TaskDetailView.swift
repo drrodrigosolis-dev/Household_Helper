@@ -42,7 +42,8 @@ struct TaskDetailView: View {
                     .accessibilityIdentifier("task.column")
                 LabeledContent("Priority", value: WishlistFormat.priorityText(task.priority))
                 if let due = task.dueDate {
-                    LabeledContent("Due", value: due.formatted(date: .abbreviated, time: .omitted))
+                    LabeledContent("Due", value: TaskDueFormat.text(due: due, minutes: task.dueTimeMinutes))
+                        .accessibilityIdentifier("task.due")
                 }
                 if let rule = task.recurrence {
                     LabeledContent("Repeats", value: RecurrenceFormat.describe(rule))
@@ -248,6 +249,9 @@ struct TaskEditorView: View {
     @State private var priority: Priority
     @State private var hasDueDate: Bool
     @State private var dueDate: Date
+    /// Sprint 26: an optional time on the due day; off means no time (reminds at the default time).
+    @State private var hasDueTime: Bool
+    @State private var dueTime: Date
     @State private var wishID: UUID?
     @State private var transactionID: UUID?
     /// nil = doesn't repeat. `keptRule` is a stored rule the picker can't express, kept unless the user picks again.
@@ -270,6 +274,12 @@ struct TaskEditorView: View {
         _priority = State(initialValue: task?.priority ?? .medium)
         _hasDueDate = State(initialValue: task?.dueDate != nil)
         _dueDate = State(initialValue: task?.dueDate ?? .now)
+        // A new time starts at the reminder default time, the time an untimed task would remind at anyway.
+        let storedTime = task?.dueDate == nil ? nil : task?.dueTimeMinutes
+        _hasDueTime = State(initialValue: storedTime != nil)
+        let clock = HouseholdCalendar(timeZone: .current)
+        let minutes = storedTime ?? ReminderSync.defaultTimeMinutes
+        _dueTime = State(initialValue: TimeOfDay.date(minutes: minutes, onDayOf: .now, calendar: clock))
         _wishID = State(initialValue: task?.linkedWishlistItemID)
         if let rule = task?.recurrence, let due = task?.dueDate {
             let calendar = HouseholdCalendar(timeZone: .current)
@@ -317,6 +327,12 @@ struct TaskEditorView: View {
                     .accessibilityIdentifier("task.editor.hasDueDate")
                 if hasDueDate {
                     DatePicker("Due", selection: $dueDate, displayedComponents: .date)
+                    Toggle("Due time", isOn: $hasDueTime)
+                        .accessibilityIdentifier("task.editor.hasDueTime")
+                    if hasDueTime {
+                        DatePicker("Time", selection: $dueTime, displayedComponents: .hourAndMinute)
+                            .accessibilityIdentifier("task.editor.dueTime")
+                    }
                 }
                 // A completed task is history; its repeat has moved on to the next task.
                 if hasDueDate, task?.completedAt == nil {
@@ -390,6 +406,8 @@ struct TaskEditorView: View {
         // A due date is a calendar day (spec §10): stored as the start of that day in the household calendar.
         let calendar = HouseholdCalendar(timeZone: .current)
         let due = hasDueDate ? calendar.startOfDay(for: dueDate) : nil
+        // A time is on the due day (Sprint 26): turning the due date off clears the time too.
+        let time = due != nil && hasDueTime ? TimeOfDay.minutes(of: dueTime, calendar: calendar) : nil
         // A repeat needs a due date (Sprint 13): turning the due date off stops the repeat.
         // A completed task keeps whatever rule it has (the picker is hidden); an open one takes the picker's choice.
         let recurrence: RecurrenceRule? =
@@ -399,8 +417,9 @@ struct TaskEditorView: View {
                 due.flatMap { day in repeatChoice?.rule(dueDate: day, calendar: calendar) ?? keptRule }
             }
         let draft = TaskDraft(
-            title: title, notes: notes, priority: priority, dueDate: due, linkedWishlistItemID: wishID,
-            linkedTransactionID: transactionID, recurrence: recurrence, timeZone: calendar.timeZone)
+            title: title, notes: notes, priority: priority, dueDate: due, dueTimeMinutes: time,
+            linkedWishlistItemID: wishID, linkedTransactionID: transactionID, recurrence: recurrence,
+            timeZone: calendar.timeZone)
         do {
             if let task {
                 try await services.board.updateTask(task.id, with: draft, now: .now)
@@ -427,6 +446,19 @@ private struct LinkedTransactionRow: View {
             LabeledContent("Transaction", value: TaskEditorView.transactionTitle(record))
                 .accessibilityIdentifier("task.transaction")
         }
+    }
+}
+
+/// A task's due date, with its time when it has one (Sprint 26), in the locale's styles: "Sep 28, 2026" or
+/// "Sep 28, 2026 at 6:30 PM".
+enum TaskDueFormat {
+    static func text(due: Date, minutes: Int?) -> String {
+        guard let minutes, TimeOfDay.isValid(minutes) else {
+            return due.formatted(date: .abbreviated, time: .omitted)
+        }
+        let calendar = HouseholdCalendar(timeZone: .current)
+        return TimeOfDay.date(minutes: minutes, onDayOf: due, calendar: calendar)
+            .formatted(date: .abbreviated, time: .shortened)
     }
 }
 
