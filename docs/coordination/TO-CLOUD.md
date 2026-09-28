@@ -559,3 +559,9 @@ HouseholdHubTests / theStringCatalogIsCompleteAndKeepsPlaceholders(): Expectatio
 HouseholdHubApp/Resources/Localizable.xcstrings: no Spanish for “Delete %lld transactions”
 ```
 (the new bulk-delete plural string has no `es` value). UI tests running; hand checks after.
+L-023 UI tests on d4d17a1: **64 passed / 2 failed** (66). Both are old findings still failing:
+```
+RefundUITests.swift:73 testRefundingAWishlistPurchaseAsksToKeepTheItem(): XCTAssertTrue failed - Kept items stay on the wishlist
+TasksUITests.swift:90 testColumnsAreTwoThirdsWideAndADropFocusesTheNextColumn(): ("-172.33") is not equal to ("28.0") +/- 8 - In Progress was not focused
+```
+So the keep-on-wishlist fix (909dec3) and the one-spring-load-per-drag fix (d8a2dad) don't hold on this Mac. Hand checks next.
