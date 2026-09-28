@@ -48,6 +48,9 @@ struct BudgetView: View {
                         .searchable(text: $searchText, isPresented: $isSearching, prompt: "Search transactions")
                         .refreshable { isPresentingQuickAdd = true }
                         .task(id: searchText) { await applySearch(searchText) }
+                        // Sprint 23 hand check: a custom date or amount range had no visible sign once set from the
+                        // filter menu or from Analytics (A-018); a removable chip says which is active.
+                        .safeAreaInset(edge: .top) { activeFilterChips(filter: $router.budgetFilter) }
                 case .recurring:
                     RecurringListView()
                 case .budgets:
@@ -128,14 +131,115 @@ struct BudgetView: View {
         settings.first?.currencyCode ?? Locale.current.currency?.identifier ?? "USD"
     }
 
-    /// Picking a period replaces custom dates set in More filters (Sprint 23, F6).
-    private func periodBinding(_ filter: Binding<TransactionFilter>) -> Binding<TransactionFilter.Period> {
+    private let calendar = HouseholdCalendar(timeZone: .current)
+
+    /// Any date range, amount range or search narrows the list beyond a plain period/category/status choice, so
+    /// there is something for "Clear All Filters" to earn its place over (Sprint 23 hand check).
+    private func hasAnyFilter(_ filter: TransactionFilter) -> Bool {
+        filter.isActive || !searchText.isEmpty
+    }
+
+    /// Picking a period replaces custom dates set in More filters (Sprint 23, F6). While a custom date range is
+    /// active, no preset reads as selected: the menu shows a non-editable "Custom" row ticked instead of the
+    /// misleading "All time" (Sprint 23 hand check, after Analytics' A-018 opens Budget with its own range).
+    private func periodBinding(_ filter: Binding<TransactionFilter>) -> Binding<TransactionFilter.Period?> {
         Binding(
-            get: { filter.wrappedValue.period },
+            get: { filter.wrappedValue.dateRange == nil ? filter.wrappedValue.period : nil },
             set: { period in
+                guard let period else { return }
                 filter.wrappedValue.period = period
                 filter.wrappedValue.dateRange = nil
             })
+    }
+
+    /// "Sep 1 – Sep 28": the range's first and last included day, in the household calendar.
+    private func dateRangeLabel(_ range: DateInterval) -> String {
+        let lastDay = calendar.calendar.date(byAdding: .day, value: -1, to: range.end) ?? range.start
+        let start = range.start.formatted(.dateTime.month(.abbreviated).day())
+        let end = lastDay.formatted(.dateTime.month(.abbreviated).day())
+        return String(localized: "\(start) – \(end)")
+    }
+
+    /// "$10.00 – $25.00", "≥ $10.00" or "≤ $25.00"; nil when neither bound is set.
+    private func amountRangeLabel(_ filter: TransactionFilter) -> String? {
+        let format: (Int64) -> String = { Money(minorUnits: $0, currencyCode: self.currencyCode).formatted() }
+        switch (filter.minimumAmountMinorUnits, filter.maximumAmountMinorUnits) {
+        case let (minimum?, maximum?): return String(localized: "\(format(minimum)) – \(format(maximum))")
+        case let (minimum?, nil): return String(localized: "≥ \(format(minimum))")
+        case let (nil, maximum?): return String(localized: "≤ \(format(maximum))")
+        case (nil, nil): return nil
+        }
+    }
+
+    /// A removable chip per active date/amount range (spec §24.2 filter chips), plus Clear All Filters once anything
+    /// narrows the list. Category, account and status already show in the filter menu's own "On" state.
+    @ViewBuilder
+    private func activeFilterChips(filter: Binding<TransactionFilter>) -> some View {
+        let amountLabel = amountRangeLabel(filter.wrappedValue)
+        if let range = filter.wrappedValue.dateRange {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    removableChip(dateRangeLabel(range), identifier: "budget.chip.dateRange") {
+                        filter.wrappedValue.dateRange = nil
+                    }
+                    if let amountLabel {
+                        removableChip(amountLabel, identifier: "budget.chip.amountRange") {
+                            filter.wrappedValue.minimumAmountMinorUnits = nil
+                            filter.wrappedValue.maximumAmountMinorUnits = nil
+                        }
+                    }
+                    clearAllChip(filter)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 6)
+            }
+        } else if let amountLabel {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    removableChip(amountLabel, identifier: "budget.chip.amountRange") {
+                        filter.wrappedValue.minimumAmountMinorUnits = nil
+                        filter.wrappedValue.maximumAmountMinorUnits = nil
+                    }
+                    clearAllChip(filter)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 6)
+            }
+        }
+    }
+
+    private func removableChip(_ text: String, identifier: String, remove: @escaping () -> Void) -> some View {
+        Button(action: remove) {
+            HStack(spacing: 4) {
+                Text(text)
+                Image(systemName: "xmark.circle.fill")
+                    .accessibilityHidden(true)
+            }
+            .font(.subheadline.weight(.medium))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(Color.accentColor.opacity(0.2)))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(text)
+        .accessibilityHint("Removes this filter")
+        .accessibilityIdentifier(identifier)
+    }
+
+    private func clearAllChip(_ filter: Binding<TransactionFilter>) -> some View {
+        Button("Clear All Filters", role: .destructive) { clearAllFilters(filter) }
+            .font(.subheadline.weight(.medium))
+            .buttonStyle(.plain)
+            .foregroundStyle(.red)
+            .accessibilityIdentifier("budget.clearAllFilters")
+    }
+
+    /// Resets every filter (category, uncategorized, date, amount, account, status) and the search text (Sprint 23
+    /// hand check: "All time" only ever cleared the dates, leaving an amount filter active with nothing to undo it).
+    private func clearAllFilters(_ filter: Binding<TransactionFilter>) {
+        filter.wrappedValue = TransactionFilter()
+        searchText = ""
+        appliedSearch = ""
     }
 
     private func filterMenu(filter: Binding<TransactionFilter>) -> some View {
@@ -151,7 +255,7 @@ struct BudgetView: View {
             // Near the top: the pickers below can make the menu long.
             Section {
                 Button("More filters…", systemImage: "slider.horizontal.3") { isShowingMoreFilters = true }
-                if filter.wrappedValue.isActive || !searchText.isEmpty {
+                if hasAnyFilter(filter.wrappedValue) {
                     Button("Save search…", systemImage: "bookmark") {
                         newSearchName = ""
                         isNamingSearch = true
@@ -162,10 +266,15 @@ struct BudgetView: View {
                 }
             }
             Picker("Period", selection: periodBinding(filter)) {
-                Text("All time").tag(TransactionFilter.Period.all)
-                Text("This week").tag(TransactionFilter.Period.thisWeek)
-                Text("This month").tag(TransactionFilter.Period.thisMonth)
-                Text("Last 30 days").tag(TransactionFilter.Period.last30Days)
+                Text("All time").tag(TransactionFilter.Period?.some(.all))
+                Text("This week").tag(TransactionFilter.Period?.some(.thisWeek))
+                Text("This month").tag(TransactionFilter.Period?.some(.thisMonth))
+                Text("Last 30 days").tag(TransactionFilter.Period?.some(.last30Days))
+                // Ticked only while a custom date range (More filters, or opened from Analytics) is active; picking
+                // it again does nothing, since there is no preset behind it to switch to.
+                if filter.wrappedValue.dateRange != nil {
+                    Text("Custom").tag(TransactionFilter.Period?.none)
+                }
             }
             Picker("Category", selection: filter.categoryChoice) {
                 Text("All categories").tag(TransactionFilter.CategoryChoice.all)
@@ -189,8 +298,9 @@ struct BudgetView: View {
                     Text(LedgerFormat.statusLabel(status)).tag(TransactionStatus?.some(status))
                 }
             }
-            if filter.wrappedValue.isActive {
-                Button("Clear filters", role: .destructive) { filter.wrappedValue = TransactionFilter() }
+            if hasAnyFilter(filter.wrappedValue) {
+                Button("Clear All Filters", role: .destructive) { clearAllFilters(filter) }
+                    .accessibilityIdentifier("budget.clearAllFilters.menu")
             }
         } label: {
             Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
