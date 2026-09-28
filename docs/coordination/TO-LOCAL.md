@@ -376,3 +376,24 @@ needed, owner decision).
   2. Where does it stop? Is a column lined up at the left edge?
   3. Drop there: which column gets the card?
   Also paste the `sprint18-board-after-drop-light` screenshot's description: which column is at the left edge.
+
+## L-026 — the phone now runs SchemaV5: pin V4 and V5; re-walk the tour (fix b4f50dc)
+You installed `f183138` on the owner's phone, so **SchemaV4 and SchemaV5 are installed and frozen from now on.** The
+app icon is wired in (`5c48b79`).
+1. **Pin V4 and V5 in `HouseholdHubTests/FrozenSchemaTests.swift`**, like V1–V3. Run the test target once on the Mac
+   and read the actual `versionHash` per entity for `SchemaV4.models` and `SchemaV5.models`. The test's `hashes(_:)`
+   helper prints them if you add a failing `#expect` temporarily, or you can print from a scratch test. Add
+   `private static let v4 = v3.merging([...])` and `v5 = v4.merging(["TaskItem": ...])`, plus `schemaV4IsAsInstalled`
+   and `schemaV5IsAsInstalled`, keeping `schemaV5ChangesOnlyTheTaskItem`. Verify the hashes come from `f183138`'s
+   models: `git diff f183138 HEAD -- HouseholdHubCore/Persistence` must be empty. Commit and push.
+2. **Tour (owner: "the bubbles don't point to the proper item").** Fixed in `b4f50dc`:
+   - Budget, Wishlist and Tasks spotlit the whole screen. They now point at the first transaction row, the first
+     wishlist item and the first column.
+   - A target registered twice was picked arbitrarily; the newest report now wins, and off-screen frames are ignored.
+   - After a tab switch the spotlight waits 0.4 s for the screen to lay out.
+
+   On the Simulator (iPhone 17 Pro Max), with a transaction and a wishlist item recorded, run Settings › Show the
+   Tour Again. For each of the 6 stops, say whether the cut-out surrounds what the bubble talks about, and add a
+   screenshot. Then run `Sprint24TourUITests`: it now asserts the spotlight covers each control.
+3. When `b4f50dc` or later is green in CI, rebuild and install on the phone (Release), which carries the tour fix.
+   No backup is needed, but tell the owner before installing. Say in TO-CLOUD.md which commit went on.
