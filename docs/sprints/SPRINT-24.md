@@ -1,23 +1,22 @@
-# Sprint 24 — v1.1: Siri (planned, starts after Sprint 23 closes)
+# Sprint 24 — v1.1: first-time tutorial (planned, starts after Sprint 23 closes)
 
-Owner request 2026-09-28: tell Siri to add an expense, add something to the wishlist, and similar; explore what
-Apple Intelligence ("Siri AI") allows for a third-party app.
+Owner request 2026-09-28: a detailed first-time user experience tutorial where highlights and short callouts teach
+everything the app can do. Siri moved to Sprint 25.
 
-## Today (baseline)
-`HouseholdHubApp/App/AppIntents.swift`: "Log a transaction in Household Hub" (Siri asks for the entry in Quick Add
-grammar, confirms, saves; Face ID when the lock is on) and "Quick Add in Household Hub" (opens the sheet). No
-wishlist or task intents, no one-sentence phrases with parameters, no Apple Intelligence integration.
+## Proposed shape (owner to confirm at sprint start)
+1. **First-run tour** after onboarding: 5–7 stops over the essentials (Dashboard figures, Quick Add, Budget, Wishlist
+   → purchase, Tasks board, More › Settings). A spotlight dims the screen around the highlighted control with a
+   short callout (one or two lines), Next / Skip, a step count. Skippable at any time; never blocks the app.
+2. **Contextual tips** the first time each deeper feature is in reach (split, undo, bulk select, saved searches,
+   import presets, recurring suggestions, refunds, themes, budget history, analytics taps) with Apple's TipKit
+   (free, iOS 17+; check its iOS 26 API first with household-research-apple-api).
+3. **Replay** from Settings ("Show the tour again", "Reset tips").
+4. **Accessibility:** every callout is read by VoiceOver and usable without seeing the highlight; respects Reduce
+   Motion, Dynamic Type (callouts wrap, never truncate), both languages, every theme, light and dark.
+5. **State** in device settings (UserDefaults / TipKit's store), not in SwiftData or backups; UI tests reset it.
+6. **Tests:** a UI test per tour stop with screenshots in every appearance, so a layout change that breaks a stop
+   fails CI; unit tests for the tour/tip state logic.
 
-## Plan
-1. Research first (household-research-apple-api, Apple docs only; record in docs/research/apple-api-decisions.md):
-   App Intents + App Shortcuts parameters in phrases, App Entities (categories, accounts, wishlist items, columns),
-   Apple Intelligence / assistant schemas and personal context in iOS 26 — what a third-party app can adopt, which
-   entitlements it needs, and whether a free Personal Team (no paid program, CLAUDE.md §2) can use it.
-2. Build what works under the free account: intents for Add to wishlist, Add a task, Log expense / income with
-   parameters ("Add headphones for 149 to my wishlist in Household Hub"), with confirmation for money, the app lock
-   honoured, localized phrases (English, Spanish).
-3. Apple Intelligence: adopt only what step 1 shows is available and free; otherwise record why not.
-4. Tests: intent logic unit-tested through the services; phrases and dialogs checked by hand on the phone (Siri
-   can't run in CI) — WALK-QUEUE items.
-
-Owner questions will be sent in one message with defaults when the sprint starts.
+## Open questions (one message with defaults at sprint start)
+Tour length and stops; whether tips appear on the owner's phone immediately after the update (existing user) or only
+on fresh installs; tone of the copy (plain vs. playful per theme).
