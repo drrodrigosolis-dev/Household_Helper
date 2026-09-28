@@ -351,8 +351,8 @@ struct PersistenceTests {
     }
 
     /// Sprint 23, the owner's data since `8a9ec36`: a store written by SchemaV3 opens through the app's factory and
-    /// migration plan with every record and field intact (refund links and recurring kinds included), and no
-    /// transaction is split until the owner splits one.
+    /// migration plan with every record and field intact (refund links, recurring kinds, and a repeating task's due
+    /// date and rule included), no transaction is split until the owner splits one, and no task has a time.
     @Test func aSchemaV3StoreOnDiskMigratesToSchemaV4WithEveryRecord() throws {
         let directory = FileManager.default.temporaryDirectory.appending(
             path: "v3-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -369,6 +369,8 @@ struct PersistenceTests {
         let purchaseSeries = UUID()
         let billSeries = UUID()
         let bike = UUID()
+        let due = Date(timeIntervalSince1970: 1_790_060_400)
+        let taskRule = RecurrenceRule.monthlyOnDay(day: 22)
         do {
             let schema = Schema(versionedSchema: SchemaV3.self)
             let v3 = try ModelContainer(
@@ -436,6 +438,9 @@ struct PersistenceTests {
                     targetDate: nil, wishlistItemID: nil, sortOrder: 0, now: now))
             let task = SchemaV1.TaskItem(title: "Call", columnID: column.id, priority: .medium, sortOrder: 1, now: now)
             task.linkedTransactionID = coffee
+            task.dueDate = due
+            task.recurrenceRuleData = try taskRule.encoded()
+            task.recurrenceTimeZoneIdentifier = "America/Vancouver"
             context.insert(task)
             context.insert(SchemaV1.SubtaskItem(title: "Find number", taskID: task.id, sortOrder: 1, now: now))
             try context.save()
@@ -466,7 +471,11 @@ struct PersistenceTests {
         #expect(try context.fetch(FetchDescriptor<Account>()).map(\.id) == [account])
         #expect(try context.fetch(FetchDescriptor<CategoryBudget>()).first?.rollsOver == true)
         #expect(try context.fetchCount(FetchDescriptor<SavingsGoal>()) == 1)
-        #expect(try context.fetch(FetchDescriptor<TaskItem>()).first?.linkedTransactionID == coffee)
+        let migratedTask = try #require(try context.fetch(FetchDescriptor<TaskItem>()).first)
+        #expect(migratedTask.linkedTransactionID == coffee)
+        #expect(migratedTask.dueDate == due && migratedTask.recurrence == taskRule, "The repeat survives")
+        #expect(migratedTask.recurrenceTimeZoneIdentifier == "America/Vancouver")
+        #expect(migratedTask.dueTimeMinutes == nil, "No time until the owner sets one")
         #expect(try context.fetchCount(FetchDescriptor<SubtaskItem>()) == 1)
 
         // A migrated record can join a split group, and opening the store again is a no-op.
