@@ -291,6 +291,46 @@
         }
       }
     },
+    "%lld transactions couldn't be changed back.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld transaction couldn't be changed back."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld transactions couldn't be changed back."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "No se pudo revertir %lld transacción."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "No se pudieron revertir %lld transacciones."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld transactions, %@": {
       "localizations": {
         "es": {
@@ -881,6 +921,16 @@
         }
       }
     },
+    "Any": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cualquiera"
+          }
+        }
+      }
+    },
     "Any priority": {
       "localizations": {
         "es": {
@@ -917,6 +967,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Apple Intelligence no está disponible en este dispositivo. Registro rápido y las categorías funcionan sin él."
+          }
+        }
+      }
+    },
+    "Apply": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplicar"
           }
         }
       }
@@ -1141,6 +1201,16 @@
         }
       }
     },
+    "Both days are included. Custom dates replace the period.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se incluyen ambos días. Las fechas personalizadas reemplazan el periodo."
+          }
+        }
+      }
+    },
     "Budget": {
       "localizations": {
         "es": {
@@ -1357,6 +1427,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "¿Cambiar el saldo inicial?"
+          }
+        }
+      }
+    },
+    "Changed the category of %lld transactions": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Changed the category of %lld transaction"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Changed the category of %lld transactions"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Se cambió la categoría de %lld transacción"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Se cambió la categoría de %lld transacciones"
+                }
+              }
+            }
           }
         }
       }
@@ -1621,6 +1731,16 @@
         }
       }
     },
+    "Custom dates": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fechas personalizadas"
+          }
+        }
+      }
+    },
     "Daily": {
       "localizations": {
         "es": {
@@ -1677,6 +1797,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fecha"
+          }
+        }
+      }
+    },
+    "Dates": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fechas"
           }
         }
       }
@@ -1851,6 +1981,16 @@
         }
       }
     },
+    "Delete and disable their series": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar y desactivar sus series"
+          }
+        }
+      }
+    },
     "Delete item": {
       "localizations": {
         "es": {
@@ -1957,6 +2097,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Eliminar movimiento"
+          }
+        }
+      }
+    },
+    "Deleted %lld transactions": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Deleted %lld transaction"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Deleted %lld transactions"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld transacción eliminada"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld transacciones eliminadas"
+                }
+              }
+            }
           }
         }
       }
@@ -2267,6 +2447,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Escribe un objetivo mayor que cero."
+          }
+        }
+      }
+    },
+    "Enter an amount such as 12.50, or leave it empty.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe un importe como 12,50, o déjalo vacío."
           }
         }
       }
@@ -3121,6 +3311,16 @@
         }
       }
     },
+    "Keeps the search text and filters under this name, on this iPhone.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guarda el texto de búsqueda y los filtros con este nombre, en este iPhone."
+          }
+        }
+      }
+    },
     "Kind": {
       "localizations": {
         "es": {
@@ -3391,6 +3591,16 @@
         }
       }
     },
+    "Maximum": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máximo"
+          }
+        }
+      }
+    },
     "Medium": {
       "localizations": {
         "es": {
@@ -3417,6 +3627,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "¿Unir las partes en una sola transacción?"
+          }
+        }
+      }
+    },
+    "Minimum": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mínimo"
           }
         }
       }
@@ -3507,6 +3727,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Más"
+          }
+        }
+      }
+    },
+    "More filters": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Más filtros"
+          }
+        }
+      }
+    },
+    "More filters…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Más filtros…"
           }
         }
       }
@@ -3871,6 +4111,16 @@
         }
       }
     },
+    "No saved searches": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay búsquedas guardadas"
+          }
+        }
+      }
+    },
     "No savings goals": {
       "localizations": {
         "es": {
@@ -4097,6 +4347,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "OK"
+          }
+        }
+      }
+    },
+    "Occurrences are marked as skipped; their series keep running unless you disable them.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las ocurrencias se marcan como omitidas; sus series siguen activas a menos que las desactives."
           }
         }
       }
@@ -5291,6 +5551,46 @@
         }
       }
     },
+    "Save search": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar búsqueda"
+          }
+        }
+      }
+    },
+    "Save search…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar búsqueda…"
+          }
+        }
+      }
+    },
+    "Saved searches": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Búsquedas guardadas"
+          }
+        }
+      }
+    },
+    "Saved searches…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Búsquedas guardadas…"
+          }
+        }
+      }
+    },
     "Savings": {
       "localizations": {
         "es": {
@@ -5597,6 +5897,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gasto"
+          }
+        }
+      }
+    },
+    "Spending and income alike, in %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para gastos e ingresos por igual, en %@."
           }
         }
       }
@@ -5961,6 +6271,16 @@
         }
       }
     },
+    "That can't be undone anymore. Nothing was changed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no se puede deshacer. No se cambió nada."
+          }
+        }
+      }
+    },
     "That category couldn't be changed.": {
       "localizations": {
         "es": {
@@ -6211,6 +6531,16 @@
         }
       }
     },
+    "The first day is after the last day.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El primer día es posterior al último."
+          }
+        }
+      }
+    },
     "The first part takes the total and keeps its category and note; the other parts are removed.": {
       "localizations": {
         "es": {
@@ -6277,6 +6607,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "El bloqueo no puede proteger Household Hub"
+          }
+        }
+      }
+    },
+    "The minimum is more than the maximum.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El mínimo es mayor que el máximo."
           }
         }
       }
@@ -6991,6 +7331,16 @@
         }
       }
     },
+    "Undo": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deshacer"
+          }
+        }
+      }
+    },
     "Unlock Household Hub": {
       "localizations": {
         "es": {
@@ -7057,6 +7407,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Usa Registro rápido para registrar un gasto o un ingreso."
+          }
+        }
+      }
+    },
+    "Use Save search… in the filter menu to keep a search and its filters.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa Guardar búsqueda… en el menú de filtros para guardar una búsqueda y sus filtros."
           }
         }
       }
@@ -7587,6 +7947,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "línea %lld"
+          }
+        }
+      }
+    },
+    "row.split": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Split"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dividida"
           }
         }
       }

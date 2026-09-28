@@ -523,7 +523,7 @@ struct TransactionRow: View {
         }
         // Sprint 23 (F4): one part of a split payment.
         if record.splitGroupID != nil {
-            parts.append(String(localized: "Split"))
+            parts.append(String(localized: "row.split", defaultValue: "Split"))
         }
         if record.type == .transfer {
             let source = accountName(record.accountID) ?? String(localized: "another account")
