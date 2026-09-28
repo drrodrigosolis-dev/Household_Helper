@@ -205,6 +205,9 @@ struct AccountsTests {
         try await ledger.deleteAccount(unused)
         await #expect(throws: LedgerError.accountInUse(referenceCount: 1)) { try await ledger.deleteAccount(used) }
         await #expect(throws: LedgerError.defaultAccountRequired) { try await ledger.deleteAccount(fixture.main) }
+        // Audit A-022: the up-front check names the same refusals delete makes (review B3).
+        #expect(try await ledger.deletionBlocker(forAccount: used) == .inUse(referenceCount: 1))
+        #expect(try await ledger.deletionBlocker(forAccount: fixture.main) == .isDefault)
         await #expect(throws: LedgerError.defaultAccountRequired) {
             try await ledger.setAccountArchived(true, account: fixture.main, now: now)
         }

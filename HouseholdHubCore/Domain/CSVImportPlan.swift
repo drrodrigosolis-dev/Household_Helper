@@ -64,7 +64,8 @@ public struct CSVPreviewRow: Equatable, Sendable, Identifiable {
     /// Same day, amount, type and description as a transaction already recorded: unticked by default.
     public let isLikelyDuplicate: Bool
     /// For a row the file left uncategorized: the category its merchant was last filed under by hand (Sprint 23,
-    /// A-006), active and allowing the row's type. Only offered: the row itself keeps the file's category.
+    /// A-006), active and allowing the row's type. Pre-selected in the preview, where it can be changed before
+    /// importing; the row itself keeps the file's category.
     public let suggestedCategoryID: UUID?
 
     public var id: Int { line }

@@ -317,7 +317,16 @@ public actor TransactionService {
         var merchant: Merchant?
         let name = draft.merchantName.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
         if !Merchant.normalize(name).isEmpty {
-            merchant = try findOrCreateMerchant(named: name, now: now)
+            // The same name keeps the record's own merchant: names aren't unique, so looking it up again could pick
+            // another one with the same name (Sprint 23 review S1; bulk Set category re-saves many rows).
+            let current = try record.merchantID.flatMap { id in
+                try modelContext.fetch(FetchDescriptor<Merchant>(predicate: #Predicate { $0.id == id })).first
+            }
+            if let current, current.normalizedName == Merchant.normalize(name) {
+                merchant = current
+            } else {
+                merchant = try findOrCreateMerchant(named: name, now: now)
+            }
         }
         let merchantID = merchant?.id
         // Only a new pairing teaches the merchant: an edit to the amount or date alone doesn't bring an older

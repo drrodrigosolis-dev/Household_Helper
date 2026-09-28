@@ -71,8 +71,6 @@ extension TransactionService {
         try commit()
     }
 
-    /// Deletes an account nothing references (Sprint 10 decision 4); otherwise it is refused and the caller offers
-    /// archiving. The default account can't be deleted, nor one a savings goal uses (Sprint 12 decision 6).
     /// What would stop `deleteAccount`, checked before the user is asked to confirm (audit A-022: the confirmation came
     /// first, then the refusal). Nil when the account can be deleted; `deleteAccount` checks again.
     public func deletionBlocker(forAccount id: UUID) throws -> AccountDeletionBlocker? {
@@ -89,6 +87,8 @@ extension TransactionService {
         return goals > 0 ? .usedByGoals(count: goals) : nil
     }
 
+    /// Deletes an account nothing references (Sprint 10 decision 4); otherwise it is refused and the caller offers
+    /// archiving. The default account can't be deleted, nor one a savings goal uses (Sprint 12 decision 6).
     public func deleteAccount(_ id: UUID) throws {
         begin()
         let settings = try requireSettings()

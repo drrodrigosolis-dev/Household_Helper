@@ -49,7 +49,7 @@ struct RecurrenceEngineTests {
     /// seconds, must still count (it was dropped, so a bill due today never reached Upcoming or the balance).
     @Test(arguments: [
         RecurrenceRule.daily(interval: 1), .weekly(interval: 1, weekday: 1), .monthlyOnDay(day: 27),
-        .yearly(month: 9, day: 27),
+        .monthlyOnWeekday(ordinal: -1, weekday: 1), .yearly(month: 9, day: 27),
     ])
     func aStartWithFractionsOfASecondKeepsItsFirstOccurrence(rule: RecurrenceRule) throws {
         // Sunday 2026-09-27 20:45:12.734 in Vancouver.

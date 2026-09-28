@@ -51,6 +51,17 @@ message with defaults; local re-verifies by finding ID.
 Waves: wave 1 = the fixes (lanes: import A-003/A-006/F1; list A-005/A-007/A-013/A-014/A-015 + Uncategorized filter; lead:
 the small ones). Wave 2 = features, after wave 1 is merged and pushed.
 
+## Data-safety review (wave 1 + analytics, recurring, presets; 2026-09-28)
+No loss of financial history, no double posting, no money writes in F2/F7, import still all-or-nothing.
+- B1 (A-001 tests): monthly-on-weekday case added; end-to-end service test (due today, in Upcoming, posts once).
+- B2 (bulk delete must offer "Delete and disable their series", §8.3): assigned to the undo lane (owns the list).
+- B3 (deletionBlocker parity): `.inUse` and `.isDefault` asserted next to deleteAccount's refusals.
+- S1 update keeps the record's merchant for the same name; S2 doc comment; S3 doc says "pre-selected"; S4 overflow
+  test. Open, not blocking: S5 months before a budget's start show its current limit (product call); S6 a category
+  that fell to zero isn't listed as "down"; S7 an occurrence earlier today is in Upcoming but not the projection
+  until posted (pre-existing); S8 import mid-way merchant failure has no test.
+- The split lane (SchemaV4) and the undo lane get their own review.
+
 ## Owner decisions
 - 2026-09-28: the phone holds no real data yet, so installing a build with SchemaV4 needs no backup first. SchemaV4
   still gets its migration tests and household-data-safety-review, and is installed only once CI is green; after

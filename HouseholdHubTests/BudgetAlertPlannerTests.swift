@@ -132,4 +132,14 @@ struct BudgetAlertPlannerTests {
             sources, month: BudgetMonth(containing: now, calendar: calendar), alreadySent: [])
         #expect(plan.alerts.map(\.threshold) == [.eighty])
     }
+
+    /// Review S4: amounts too large to cross-multiply fall back to dividing, with the same thresholds.
+    @Test(arguments: [
+        (Int64.max / 2, Int64.max / 2 + 1_000, BudgetAlertThreshold?.some(.eighty)),
+        (Int64.max / 4, Int64.max / 2, BudgetAlertThreshold?.none),
+        (Int64.max / 2, Int64.max / 2, BudgetAlertThreshold?.some(.hundred)),
+    ])
+    func hugeAmountsStillReachTheRightThreshold(spent: Int64, available: Int64, expected: BudgetAlertThreshold?) {
+        #expect(BudgetAlertPlanner.reached(spent: Self.cad(spent), available: Self.cad(available)) == expected)
+    }
 }
