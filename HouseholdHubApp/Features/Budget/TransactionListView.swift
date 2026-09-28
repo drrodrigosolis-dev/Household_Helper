@@ -72,6 +72,11 @@ enum BulkEdit {
             accountID: record.accountID)
     }
 
+    /// A recurring occurrence, which a delete marks skipped and can also disable the series of (spec §8.3).
+    static func isOccurrence(_ record: TransactionRecord) -> Bool {
+        record.recurringSeriesID != nil && record.scheduledOccurrence != nil
+    }
+
     /// Refunds go first, so a purchase whose refunds are also selected can be deleted after them.
     static func deletionOrder(_ records: [TransactionRecord]) -> [TransactionRecord] {
         records.filter { $0.type == .refund } + records.filter { $0.type != .refund }
@@ -300,7 +305,15 @@ private struct FilteredTransactions: View {
                     Text("Delete \(selected.count) transactions?"), isPresented: $isConfirmingBulkDelete,
                     titleVisibility: .visible
                 ) {
-                    Button("Delete \(selected.count) transactions", role: .destructive) { bulkDelete(selected) }
+                    Button("Delete \(selected.count) transactions", role: .destructive) {
+                        bulkDelete(selected, disablingSeries: false)
+                    }
+                    // Spec §8.3's third choice, for the recurring occurrences among them (data-safety review B2).
+                    if selected.contains(where: BulkEdit.isOccurrence) {
+                        Button("Delete and disable their series", role: .destructive) {
+                            bulkDelete(selected, disablingSeries: true)
+                        }
+                    }
                     Button("Cancel", role: .cancel) {}
                 } message: {
                     Text(bulkDeleteMessage(selected))
@@ -393,10 +406,12 @@ private struct FilteredTransactions: View {
         }
     }
 
-    /// Deletes each record through the service, as a single delete would: an occurrence is marked skipped, a purchase
-    /// with refunds is refused, a wishlist purchase reverts its item. Records that fail stay selected.
-    private func bulkDelete(_ selected: [TransactionRecord]) {
+    /// Deletes each record through the service, as a single delete would: an occurrence is marked skipped (and its
+    /// series disabled when asked), a purchase with refunds is refused, a wishlist purchase reverts its item. Records
+    /// that fail stay selected.
+    private func bulkDelete(_ selected: [TransactionRecord], disablingSeries: Bool) {
         let ids = BulkEdit.deletionOrder(selected).map(\.id)
+        let occurrences = Set(selected.filter(BulkEdit.isOccurrence).map(\.id))
         guard let services, !ids.isEmpty else { return }
         isWorking = true
         Task {
@@ -406,7 +421,7 @@ private struct FilteredTransactions: View {
             for id in ids {
                 do {
                     let entry = try await services.transactions.deleteTransactionForUndo(
-                        id, alsoDisableSeries: false, now: .now)
+                        id, alsoDisableSeries: disablingSeries && occurrences.contains(id), now: .now)
                     deleted.append(entry)
                 } catch LedgerError.purchaseHasRefunds {
                     failed.insert(id)
@@ -504,6 +519,10 @@ struct TransactionRow: View {
         if record.type == .refund {
             parts.append(String(localized: "Refund"))
         }
+        // Sprint 23 (F4): one part of a split payment.
+        if record.splitGroupID != nil {
+            parts.append(String(localized: "Split"))
+        }
         if record.type == .transfer {
             let source = accountName(record.accountID) ?? String(localized: "another account")
             let destination = accountName(record.transferAccountID) ?? String(localized: "another account")
@@ -548,9 +567,6 @@ struct TransactionRow: View {
 
     private var details: some View {
         VStack(alignment: .leading, spacing: 2) {
-            // Split badge (Sprint 23 F4): once SchemaV4 adds `splitGroupID`, show it next to the title for a row that
-            // is part of a split, e.g. `HStack { Text(title); if record.splitGroupID != nil {
-            // Image(systemName: "square.split.2x1").accessibilityLabel("Part of a split") } }`.
             Text(title)
                 .font(.body)
             if !subtitle.isEmpty {

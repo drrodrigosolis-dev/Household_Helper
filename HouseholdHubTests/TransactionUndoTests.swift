@@ -209,6 +209,110 @@ struct TransactionUndoTests {
         #expect(balancesAfter == balancesBefore)
     }
 
+    /// Bulk delete's "Delete and disable their series" (spec §8.3): two occurrences of one series are skipped and the
+    /// series disabled; one undo posts both again and runs the series as it did, with its own update time.
+    @Test func occurrencesDeletedWithTheirSeriesDisabledComeBackTogether() async throws {
+        let fixture = try await makeFixture()
+        let start = Self.date(2026, 8, 5)
+        let seriesID = try await fixture.ledger.createSeries(
+            templateAmount: cad(9_900), type: .expense, rule: .monthlyOnDay(day: 5), timeZone: calendar.timeZone,
+            startDate: start, notes: "Phone", now: now)
+        let rule = try fixture.series(seriesID).series()
+        let engine = RecurrenceEngine()
+        let august = try #require(engine.nextOccurrence(of: rule, after: start.addingTimeInterval(-1)))
+        let september = try #require(engine.nextOccurrence(of: rule, after: august))
+        var ids: [UUID] = []
+        for occurrence in [august, september] {
+            ids.append(try await fixture.ledger.materialize(seriesID: seriesID, occurrence: occurrence, now: now))
+        }
+        let before = try ids.map { try fixture.snapshot($0) }
+        let seriesUpdatedBefore = try fixture.series(seriesID).updatedAt
+        let balancesBefore = try await balances(fixture)
+
+        var entries: [DeletedTransaction] = []
+        for id in ids {
+            entries.append(try await fixture.ledger.deleteTransactionForUndo(id, alsoDisableSeries: true, now: later))
+        }
+        #expect(try fixture.series(seriesID).isEnabled == false)
+        let skipped = try ids.allSatisfy { try fixture.record($0)?.status == .cancelled }
+        #expect(skipped, "Occurrences are kept as skipped")
+
+        try await fixture.ledger.undo(.deletion(entries), now: later)
+        let after = try ids.map { try fixture.snapshot($0) }
+        #expect(after == before)
+        let series = try fixture.series(seriesID)
+        #expect(series.isEnabled)
+        #expect(series.updatedAt == seriesUpdatedBefore)
+        let balancesAfter = try await balances(fixture)
+        #expect(balancesAfter == balancesBefore)
+    }
+
+    // MARK: Splits
+
+    /// Splits a 60.00 purchase into 40.00 and 20.00; returns the parts, the original first.
+    private func splitParts(in fixture: Fixture) async throws -> (kept: UUID, other: UUID) {
+        let original = try await buy(6_000, in: fixture)
+        let split = [
+            SplitPart(amount: cad(4_000), categoryID: fixture.shopping), SplitPart(amount: cad(2_000), categoryID: nil),
+        ]
+        let parts = try await fixture.ledger.splitTransaction(original, into: split, now: now)
+        #expect(parts.count == 2)
+        return (try #require(parts.first), try #require(parts.last))
+    }
+
+    @Test func undoOfOnePartOfATwoPartSplitRebuildsTheSplit() async throws {
+        let fixture = try await makeFixture()
+        let parts = try await splitParts(in: fixture)
+        let before = [try fixture.snapshot(parts.kept), try fixture.snapshot(parts.other)]
+        #expect(before.allSatisfy { $0.splitGroupID != nil })
+        let balancesBefore = try await balances(fixture)
+
+        let deleted = try await fixture.ledger.deleteTransactionForUndo(
+            parts.other, alsoDisableSeries: false, now: later)
+        #expect(try fixture.record(parts.kept)?.splitGroupID == nil, "The last part left is no longer split")
+        try await fixture.ledger.undo(.deletion([deleted]), now: later)
+
+        let after = [try fixture.snapshot(parts.kept), try fixture.snapshot(parts.other)]
+        #expect(after == before, "Both parts share their split again, the kept one with its own update time")
+        let balancesAfter = try await balances(fixture)
+        #expect(balancesAfter == balancesBefore)
+    }
+
+    @Test func bothPartsOfASplitComeBackTogether() async throws {
+        let fixture = try await makeFixture()
+        let parts = try await splitParts(in: fixture)
+        let before = [try fixture.snapshot(parts.kept), try fixture.snapshot(parts.other)]
+
+        var entries: [DeletedTransaction] = []
+        for id in [parts.other, parts.kept] {
+            entries.append(try await fixture.ledger.deleteTransactionForUndo(id, alsoDisableSeries: false, now: later))
+        }
+        try await fixture.ledger.undo(.deletion(entries), now: later)
+
+        let after = [try fixture.snapshot(parts.kept), try fixture.snapshot(parts.other)]
+        #expect(after == before)
+    }
+
+    /// A part whose split can't be rebuilt (the other part changed since) comes back on its own, unsplit: a lone
+    /// part is not a split, and a backup would refuse it.
+    @Test func aPartWhoseSplitCantBeRebuiltComesBackUnsplit() async throws {
+        let fixture = try await makeFixture()
+        let parts = try await splitParts(in: fixture)
+        let deleted = try await fixture.ledger.deleteTransactionForUndo(
+            parts.other, alsoDisableSeries: false, now: later)
+        let kept = try #require(try fixture.record(parts.kept))
+        let moved = TransactionDraft(
+            amount: kept.amount, type: .expense, occurredAt: Self.date(2026, 9, 24), categoryID: kept.categoryID,
+            merchantName: kept.merchantNameSnapshot, notes: kept.notes, accountID: kept.accountID)
+        try await fixture.ledger.update(parts.kept, with: moved, now: later)
+
+        try await fixture.ledger.undo(.deletion([deleted]), now: later)
+        let restored = try #require(try fixture.record(parts.other))
+        #expect(restored.splitGroupID == nil)
+        #expect(restored.amountMinorUnits == 2_000, "The money comes back all the same")
+        #expect(try fixture.record(parts.kept)?.splitGroupID == nil)
+    }
+
     // MARK: Refusals
 
     @Test func undoIsRefusedWhenTheAccountIsGone() async throws {

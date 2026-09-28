@@ -22,6 +22,8 @@ public struct TransactionSnapshot: Equatable, Sendable {
     public let accountID: UUID?
     public let transferAccountID: UUID?
     public let refundOfTransactionID: UUID?
+    /// Sprint 23 (SchemaV4): the split the record was a part of.
+    public let splitGroupID: UUID?
     public let createdAt: Date
     public let updatedAt: Date
 
@@ -44,6 +46,7 @@ public struct TransactionSnapshot: Equatable, Sendable {
         accountID = record.accountID
         transferAccountID = record.transferAccountID
         refundOfTransactionID = record.refundOfTransactionID
+        splitGroupID = record.splitGroupID
         createdAt = record.createdAt
         updatedAt = record.updatedAt
     }
@@ -69,6 +72,7 @@ public struct TransactionSnapshot: Equatable, Sendable {
         record.accountID = accountID
         record.transferAccountID = transferAccountID
         record.refundOfTransactionID = refundOfTransactionID
+        record.splitGroupID = splitGroupID
         record.updatedAt = updatedAt
         return record
     }
@@ -111,11 +115,18 @@ public struct DeletedTransaction: Equatable, Sendable {
         let updatedAt: Date
     }
 
+    /// The last other part of a split, which the delete left unsplit (a split needs two parts).
+    struct SplitSurvivorState: Equatable, Sendable {
+        let transactionID: UUID
+        let updatedAt: Date
+    }
+
     public let record: TransactionSnapshot
     public let effect: Effect
     let series: SeriesState?
     let purchasedItem: PurchasedItemState?
     let linkedTasks: [TaskLinkState]
+    let splitSurvivor: SplitSurvivorState?
 }
 
 /// A bulk Set category edit to one transaction: the category it had, and the one the edit gave it (Sprint 23, F3).
@@ -168,6 +179,7 @@ extension TransactionService {
         }
         var itemState: DeletedTransaction.PurchasedItemState?
         var taskStates: [DeletedTransaction.TaskLinkState] = []
+        var survivorState: DeletedTransaction.SplitSurvivorState?
         if !isOccurrence {
             if let itemID = record.wishlistItemID, let item = try wishlistItem(itemID),
                 item.purchasedTransactionID == id
@@ -177,12 +189,16 @@ extension TransactionService {
                     actualPriceMinorUnits: item.actualPriceMinorUnits, updatedAt: item.updatedAt)
             }
             taskStates = try undoTasks(linkedTo: id).map { .init(taskID: $0.id, updatedAt: $0.updatedAt) }
+            let siblings = try splitSiblings(of: record)
+            if siblings.count == 1, let last = siblings.first {
+                survivorState = .init(transactionID: last.id, updatedAt: last.updatedAt)
+            }
         }
         let snapshot = TransactionSnapshot(of: record)
         try deleteTransaction(id, alsoDisableSeries: alsoDisableSeries, now: now)
         return DeletedTransaction(
             record: snapshot, effect: isOccurrence ? .markedSkipped : .removed, series: seriesState,
-            purchasedItem: itemState, linkedTasks: taskStates)
+            purchasedItem: itemState, linkedTasks: taskStates, splitSurvivor: survivorState)
     }
 
     /// Changes a transaction through `update` (so every rule of an edit applies) and returns its previous category.
@@ -223,6 +239,7 @@ extension TransactionService {
                 guard try undoTransaction(snapshot.id) == nil else { throw UndoError.recordAlreadyExists }
                 guard snapshot.currencyCode == settings.currencyCode else { throw UndoError.changedSince }
                 try requireLinkTargets(of: snapshot, restoring: restoring)
+                step.restored = snapshot.makeRecord()
                 if let state = entry.purchasedItem {
                     guard let item = try wishlistItem(state.itemID) else { throw UndoError.linkTargetMissing }
                     // Bought again since (or purchased by another record): putting the link back would give the item
@@ -264,8 +281,15 @@ extension TransactionService {
                 !(purchase.status == .pending && postedRefundPurchases.contains(purchaseID)), amount <= remaining
             else { throw UndoError.changedSince }
         }
-        for step in steps {
+        let rejoins = try rebuildSplits(steps)
+        // Newest first, so where two deletes changed the same thing (two occurrences disabling one series) the state
+        // from before the first one is what remains.
+        for step in steps.reversed() {
             applyRestore(step)
+        }
+        for rejoin in rejoins {
+            rejoin.record.splitGroupID = rejoin.groupID
+            rejoin.record.updatedAt = rejoin.updatedAt
         }
         try commit()
     }
@@ -306,6 +330,8 @@ extension TransactionService {
     /// The models one restored entry touches, fetched and checked before any edit.
     private struct RestoreStep {
         let entry: DeletedTransaction
+        /// The record to insert again, made but not yet inserted.
+        var restored: TransactionRecord?
         var skipped: TransactionRecord?
         var item: WishlistItem?
         var series: RecurringTransaction?
@@ -316,7 +342,9 @@ extension TransactionService {
         let snapshot = step.entry.record
         switch step.entry.effect {
         case .removed:
-            modelContext.insert(snapshot.makeRecord())
+            if let restored = step.restored {
+                modelContext.insert(restored)
+            }
         case .markedSkipped:
             step.skipped?.statusRawValue = snapshot.statusRawValue
             step.skipped?.updatedAt = snapshot.updatedAt
@@ -335,6 +363,47 @@ extension TransactionService {
             series.isEnabled = state.wasEnabled
             series.updatedAt = state.updatedAt
         }
+    }
+
+    /// A part left unsplit by a delete, to be put back in its split.
+    private struct SplitRejoin {
+        let record: TransactionRecord
+        let groupID: UUID
+        let updatedAt: Date
+    }
+
+    /// Restored split parts rejoin their split when it then has two or more parts that still describe one payment,
+    /// bringing back the part their delete left unsplit. Otherwise they come back unsplit: a lone or disagreeing part
+    /// is not a split (backups refuse one). Adjusts only records not yet inserted; returns the rejoins to apply.
+    private func rebuildSplits(_ steps: [RestoreStep]) throws -> [SplitRejoin] {
+        let restored = steps.compactMap(\.restored)
+        let restoredByID = Dictionary(restored.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var rejoins: [SplitRejoin] = []
+        for groupID in Set(restored.compactMap(\.splitGroupID)) {
+            let parts = restored.filter { $0.splitGroupID == groupID }
+            guard let first = parts.first else { continue }
+            let target: UUID? = groupID
+            let stored = try modelContext.fetch(
+                FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.splitGroupID == target }))
+            var returning: [SplitRejoin] = []
+            for step in steps where step.entry.record.splitGroupID == groupID {
+                guard let survivor = step.entry.splitSurvivor else { continue }
+                let record = try restoredByID[survivor.transactionID] ?? undoTransaction(survivor.transactionID)
+                // Split again, or into another split, since: it stays as it is.
+                if let record, record.splitGroupID == nil {
+                    returning.append(SplitRejoin(record: record, groupID: groupID, updatedAt: survivor.updatedAt))
+                }
+            }
+            let members = parts + stored + returning.map(\.record)
+            if members.count >= 2, members.allSatisfy({ Self.sharePayment($0, first) }) {
+                rejoins += returning
+            } else {
+                for part in parts {
+                    part.splitGroupID = nil
+                }
+            }
+        }
+        return rejoins
     }
 
     /// Every id the record points at must still exist; a refund's purchase may be coming back in the same undo.
