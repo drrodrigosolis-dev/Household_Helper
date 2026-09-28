@@ -48,6 +48,7 @@ struct TasksView: View {
     var body: some View {
         NavigationStack {
             board
+                .tourTarget(.tasksBoard)
                 .searchable(text: $searchText, prompt: "Search tasks")
                 .quickAddAccess()
                 .navigationTitle("Tasks")

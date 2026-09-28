@@ -15,9 +15,10 @@ extension XCTestCase {
     /// - Parameter tips: Sprint 24 — forces every contextual tip on, from a freshly reset datastore
     ///   (`-uiTestingTips`), for `Sprint24TipsUITests`. Every other walk leaves this false, so tips stay hidden and
     ///   never cover a control mid-test.
+    /// - Parameter extraArguments: more launch arguments, such as Sprint 24's `-uiTestingTour`.
     func launchApp(
         onboarded: Bool = true, variant: WalkVariant = .light, language: String? = nil, theme: String? = nil,
-        tips: Bool = false
+        tips: Bool = false, extraArguments: [String] = []
     ) -> XCUIApplication {
         let app = XCUIApplication()
         var arguments = ["-uiTesting"]
@@ -39,6 +40,7 @@ extension XCTestCase {
         if let language {
             arguments += ["-AppleLanguages", "(\(language))"]
         }
+        arguments += extraArguments
         app.launchArguments = arguments
         XCUIDevice.shared.appearance = variant == .dark ? .dark : .light
         app.launch()

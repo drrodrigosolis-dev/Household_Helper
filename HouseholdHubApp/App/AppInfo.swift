@@ -33,4 +33,6 @@ enum LaunchArguments {
     /// Sprint 24: forces every contextual tip on, from a freshly reset datastore, for `Sprint24TipsUITests`. Without
     /// it, `-uiTesting` hides every tip so the other UI tests never see a popover covering a control.
     static let uiTestingTips = "-uiTestingTips"
+    /// Sprint 24: lets the first-run tour and its Dashboard offer appear under `-uiTesting`, for the tour's own tests.
+    static let tourTesting = "-uiTestingTour"
 }

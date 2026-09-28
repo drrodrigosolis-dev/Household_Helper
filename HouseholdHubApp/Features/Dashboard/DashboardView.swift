@@ -86,8 +86,12 @@ struct DashboardView: View {
                     if theme != nil {
                         ThemeHeaderStrip()
                     }
+                    // Sprint 24: the one-time tour offer on installs set up before the tour existed.
+                    TourOffer()
                     if let summary {
-                        balanceCards(summary)
+                        // The tour's first stop: current, pending, and projected together.
+                        VStack(spacing: 16) { balanceCards(summary) }
+                            .tourTarget(.figures)
                         if summary.accounts.count > 1 {
                             accountsCard(summary.accounts)
                         }

@@ -93,6 +93,7 @@ struct WishlistView: View {
                     GoalsListView()
                 }
             }
+            .tourTarget(.wishlist)
             .safeAreaInset(edge: .top) {
                 Picker("View", selection: $router.wishlistSegment) {
                     Text("Items").tag(Segment.items)
