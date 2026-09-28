@@ -12,12 +12,41 @@ struct TransactionListView: View {
     /// Sprint 23 (A-007): Select mode, turned on and off from the Budget toolbar.
     @Binding var isSelecting: Bool
     @State private var limit = TransactionListView.pageSize
+    @Environment(\.services) private var services
+    /// Sprint 23 (F3): the Undo banner's state, owned by Budget; absent where no screen provides one.
+    @Environment(UndoCenter.self) private var undoCenter: UndoCenter?
 
     var body: some View {
         FilteredTransactions(filter: filter, search: SearchQuery(search), limit: limit, isSelecting: $isSelecting) {
             limit += TransactionListView.pageSize
         }
         .id(filter)
+        .safeAreaInset(edge: .bottom) {
+            if let banner = undoCenter?.banner {
+                UndoBannerView(banner: banner, undo: performUndo)
+                    // Clear of the floating + at the bottom trailing corner.
+                    .padding(.leading, 16)
+                    .padding(.trailing, 88)
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.default, value: undoCenter?.banner)
+    }
+
+    /// Takes the offered undo back through the service: a delete is restored in one save, or refused with nothing
+    /// changed; a bulk category edit is re-applied record by record.
+    private func performUndo() {
+        guard let undoCenter, let services, let undo = undoCenter.take() else { return }
+        Task {
+            do {
+                try await services.transactions.undo(undo, now: .now)
+            } catch UndoError.partiallyUndone(let failed) {
+                undoCenter.notify(UndoMessage.partlyUndone(failed: failed))
+            } catch {
+                undoCenter.notify(UndoMessage.refused)
+            }
+        }
     }
 }
 
@@ -58,6 +87,7 @@ private struct TransactionDay {
 private struct FilteredTransactions: View {
     @Environment(\.services) private var services
     @Environment(AppRouter.self) private var router
+    @Environment(UndoCenter.self) private var undoCenter: UndoCenter?
     @Query private var records: [TransactionRecord]
     @Query private var categories: [CategoryRecord]
     @Query(sort: \Account.sortOrder) private var accounts: [Account]
@@ -233,10 +263,13 @@ private struct FilteredTransactions: View {
     private func delete(_ record: TransactionRecord, disableSeries: Bool) {
         let id = record.id
         pendingDelete = nil
+        guard let services else { return }
         Task {
             do {
-                try await services?.transactions.deleteTransaction(id, alsoDisableSeries: disableSeries, now: .now)
+                let deleted = try await services.transactions.deleteTransactionForUndo(
+                    id, alsoDisableSeries: disableSeries, now: .now)
                 errorMessage = nil
+                undoCenter?.offer(.deletion([deleted]), message: UndoMessage.deleted(1))
             } catch LedgerError.purchaseHasRefunds {
                 errorMessage = String(localized: "This purchase has refunds. Delete its refunds first.")
             } catch {
@@ -340,15 +373,19 @@ private struct FilteredTransactions: View {
         isWorking = true
         Task {
             var failed: Set<UUID> = []
+            var changes: [CategoryChange] = []
             for (id, draft) in drafts {
                 do {
-                    try await services.transactions.update(id, with: draft, now: .now)
+                    changes.append(try await services.transactions.updateCategoryForUndo(id, with: draft, now: .now))
                 } catch {
                     failed.insert(id)
                 }
             }
             isWorking = false
             finishBulk(failed: failed)
+            if !changes.isEmpty {
+                undoCenter?.offer(.categoryChange(changes), message: UndoMessage.recategorized(changes.count))
+            }
             if !failed.isEmpty {
                 errorMessage = String(
                     localized: "\(failed.count) of \(drafts.count) couldn't be changed. They are still selected.")
@@ -365,9 +402,12 @@ private struct FilteredTransactions: View {
         Task {
             var failed: Set<UUID> = []
             var hasRefunds = 0
+            var deleted: [DeletedTransaction] = []
             for id in ids {
                 do {
-                    try await services.transactions.deleteTransaction(id, alsoDisableSeries: false, now: .now)
+                    let entry = try await services.transactions.deleteTransactionForUndo(
+                        id, alsoDisableSeries: false, now: .now)
+                    deleted.append(entry)
                 } catch LedgerError.purchaseHasRefunds {
                     failed.insert(id)
                     hasRefunds += 1
@@ -377,6 +417,9 @@ private struct FilteredTransactions: View {
             }
             isWorking = false
             finishBulk(failed: failed)
+            if !deleted.isEmpty {
+                undoCenter?.offer(.deletion(deleted), message: UndoMessage.deleted(deleted.count))
+            }
             if hasRefunds > 0 {
                 errorMessage = String(
                     localized: "\(hasRefunds) purchases have refunds and were kept. Delete their refunds first.")
@@ -505,6 +548,9 @@ struct TransactionRow: View {
 
     private var details: some View {
         VStack(alignment: .leading, spacing: 2) {
+            // Split badge (Sprint 23 F4): once SchemaV4 adds `splitGroupID`, show it next to the title for a row that
+            // is part of a split, e.g. `HStack { Text(title); if record.splitGroupID != nil {
+            // Image(systemName: "square.split.2x1").accessibilityLabel("Part of a split") } }`.
             Text(title)
                 .font(.body)
             if !subtitle.isEmpty {
