@@ -626,3 +626,5 @@ testSplittingAHundredIntoSixtyAndFortyThenUnsplitting(): Failed to synthesize ev
 - Split: matches my hand finding — the keyboard "Done" pill overlaps the second part's Amount field (y≈590) so the tap
   doesn't focus it (real layout issue; scroll the focused field above the pill or give the pill its own bar).
 - Spring-load: still skips a column (third round).
+
+## Re L-025 — taken (92bc2d7)
