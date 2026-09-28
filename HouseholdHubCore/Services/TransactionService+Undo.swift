@@ -130,7 +130,7 @@ public struct DeletedTransaction: Equatable, Sendable {
 }
 
 /// A bulk Set category edit to one transaction: the category it had, and the one the edit gave it (Sprint 23, F3).
-public struct CategoryChange: Equatable, Sendable {
+public struct CategoryUndoEntry: Equatable, Sendable {
     public let transactionID: UUID
     public let previousCategoryID: UUID?
     /// Whether the previous category was the on-device model's pick; undo restores it with the category.
@@ -141,7 +141,7 @@ public struct CategoryChange: Equatable, Sendable {
 /// What the Undo banner can take back (Sprint 23, F3). Kept in memory for a few seconds, never persisted.
 public enum TransactionUndo: Equatable, Sendable {
     case deletion([DeletedTransaction])
-    case categoryChange([CategoryChange])
+    case categoryChange([CategoryUndoEntry])
 
     /// How many transactions it covers.
     public var count: Int {
@@ -203,10 +203,10 @@ extension TransactionService {
 
     /// Changes a transaction through `update` (so every rule of an edit applies) and returns its previous category.
     @discardableResult
-    public func updateCategoryForUndo(_ id: UUID, with draft: TransactionDraft, now: Date) throws -> CategoryChange {
+    public func updateCategoryForUndo(_ id: UUID, with draft: TransactionDraft, now: Date) throws -> CategoryUndoEntry {
         begin()
         let record = try requireTransaction(id)
-        let change = CategoryChange(
+        let change = CategoryUndoEntry(
             transactionID: id, previousCategoryID: record.categoryID, previousIsAIClassified: record.isAIClassified,
             appliedCategoryID: draft.categoryID)
         try update(id, with: draft, now: now)
@@ -296,7 +296,7 @@ extension TransactionService {
 
     /// Gives each transaction back its previous category through `update`, the path the bulk edit took. Everything
     /// is checked first; a record changed since, or a previous category now archived or gone, refuses the whole undo.
-    func revert(_ changes: [CategoryChange], now: Date) throws {
+    func revert(_ changes: [CategoryUndoEntry], now: Date) throws {
         begin()
         var drafts: [(UUID, TransactionDraft)] = []
         for change in changes {

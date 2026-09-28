@@ -117,7 +117,8 @@ struct RecurringDetectorTests {
     @Test func anExistingSeriesForTheMerchantAndTypeHidesIt() {
         let merchant = UUID()
         let days = [(6, 15), (7, 15), (8, 15), (9, 15)]
-        let items = Self.history(days, amounts: [1_799, 1_799, 1_799, 1_799], merchant: "Netflix", merchantID: merchant)
+        let items = Self.history(
+            days, amounts: [1_799, 1_799, 1_799, 1_799], merchant: "Netflix", merchantID: merchant)
         let detector = RecurringDetector()
         let byID = [ExistingSeriesKey(type: .expense, merchantID: merchant, names: ["Movies"])]
         #expect(detector.suggestions(from: items, existing: byID, now: now, calendar: calendar).isEmpty)

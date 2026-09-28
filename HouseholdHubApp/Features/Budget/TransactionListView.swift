@@ -388,7 +388,7 @@ private struct FilteredTransactions: View {
         isWorking = true
         Task {
             var failed: Set<UUID> = []
-            var changes: [CategoryChange] = []
+            var changes: [CategoryUndoEntry] = []
             for (id, draft) in drafts {
                 do {
                     changes.append(try await services.transactions.updateCategoryForUndo(id, with: draft, now: .now))

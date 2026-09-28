@@ -387,7 +387,7 @@ struct TransactionUndoTests {
         let dining = try await categories.create(
             name: "Dining", icon: "fork.knife", color: .black, kind: .expense, now: now)
 
-        var changes: [CategoryChange] = []
+        var changes: [CategoryUndoEntry] = []
         for id in [filed, loose] {
             let record = try #require(try fixture.record(id))
             let draft = TransactionDraft(

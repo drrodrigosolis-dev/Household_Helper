@@ -94,7 +94,8 @@ extension CSVImportPreset: Codable {
 /// Where CSV import presets are kept (Sprint 23, F8): `UserDefaults`, a device setting, not app data — never read or
 /// written by backup/restore.
 public struct CSVImportPresetStore: Sendable {
-    private let defaults: UserDefaults
+    /// UserDefaults is documented as thread-safe but isn't marked Sendable in the SDK (CI run 36379230728).
+    nonisolated(unsafe) private let defaults: UserDefaults
     private let key = "csvImportPresets"
 
     public init(defaults: UserDefaults = .standard) {
