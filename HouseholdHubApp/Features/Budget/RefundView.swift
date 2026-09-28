@@ -17,6 +17,10 @@ struct RefundView: View {
     @State private var isSaving = false
     /// Set when this refund completed a wishlist purchase's refund: the owner chooses what happens to the item.
     @State private var itemToResolve: UUID?
+    /// Whether the keep-or-remove question is showing. Kept apart from `itemToResolve`: the alert clears its binding
+    /// as it closes, before the chosen button's task runs, and clearing the item with it made both choices do nothing
+    /// (run 36362839424: the refund sheet stayed open and the item unresolved).
+    @State private var isAsking = false
 
     init(purchase: TransactionRecord, summary: RefundSummary) {
         self.purchase = purchase
@@ -81,10 +85,10 @@ struct RefundView: View {
                     .accessibilityIdentifier("refund.save")
             }
         }
-        .alert("Keep it on your wishlist?", isPresented: resolving) {
-            Button("Keep on wishlist") { Task { await resolve(.keepOnWishlist) } }
+        .alert("Keep it on your wishlist?", isPresented: $isAsking) {
+            Button("Keep on wishlist") { choose(.keepOnWishlist) }
                 .accessibilityIdentifier("refund.keep")
-            Button("Remove from wishlist", role: .destructive) { Task { await resolve(.removeFromWishlist) } }
+            Button("Remove from wishlist", role: .destructive) { choose(.removeFromWishlist) }
                 .accessibilityIdentifier("refund.remove")
         } message: {
             Text("This purchase is fully refunded. Keep the item on your wishlist to buy it again, or remove it.")
@@ -92,8 +96,10 @@ struct RefundView: View {
         .interactiveDismissDisabled(itemToResolve != nil)
     }
 
-    private var resolving: Binding<Bool> {
-        Binding(get: { itemToResolve != nil }, set: { if !$0 { itemToResolve = nil } })
+    /// Reads the item when the button is tapped, not when the task runs.
+    private func choose(_ choice: RefundedItemChoice) {
+        guard let item = itemToResolve else { return }
+        Task { await resolve(choice, item: item) }
     }
 
     private func save() async {
@@ -106,6 +112,7 @@ struct RefundView: View {
                 calendar: HouseholdCalendar(timeZone: .current), now: .now)
             if let item = result.wishlistItemToResolve {
                 itemToResolve = item
+                isAsking = true
             } else {
                 dismiss()
             }
@@ -114,8 +121,8 @@ struct RefundView: View {
         }
     }
 
-    private func resolve(_ choice: RefundedItemChoice) async {
-        guard let services, let item = itemToResolve else { return }
+    private func resolve(_ choice: RefundedItemChoice, item: UUID) async {
+        guard let services else { return }
         do {
             try await services.transactions.resolveRefundedWishlistItem(item, choice: choice, now: .now)
             itemToResolve = nil

@@ -64,6 +64,9 @@ final class RefundUITests: XCTestCase {
         XCTAssertTrue(alert.buttons["refund.remove"].firstMatch.exists)
         captureScreen(app, named: "sprint20-wishlist-keep-or-remove-dark")
         keep.tap()
+        // The choice closes the refund sheet (run 36362839424: it stayed open and the item unresolved).
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: save)
+        XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 10), .completed, "Keeping should close the refund")
 
         app.tabBars.buttons["Wishlist"].tap()
         let row = wishlistRow(app, containing: "Desk lamp")

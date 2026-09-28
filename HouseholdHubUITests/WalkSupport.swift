@@ -86,13 +86,15 @@ extension XCTestCase {
 
     /// Types into Quick Add and waits until the field holds all of it. On a slow simulator the app can receive the
     /// keystrokes seconds after `typeText` returns (run 36326496000: an AutoFill prompt after "+" held back the rest of
-    /// "+ 1200 paycheck"), and a partial "+ 1" would already parse as an amount.
+    /// "+ 1200 paycheck"), and a partial "+ 1" would already parse as an amount. Run 36362839424 (large text) needed
+    /// more than 10 s on a runner taking ~5 s per element lookup; the failure now says what the field did hold.
     @MainActor
     func typeIntoQuickAdd(_ field: XCUIElement, _ text: String) {
         field.tap()
         field.typeText(text)
         let holds = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", text), object: field)
-        XCTAssertEqual(XCTWaiter().wait(for: [holds], timeout: 10), .completed, "Quick Add never showed '\(text)'")
+        let result = XCTWaiter().wait(for: [holds], timeout: 20)
+        XCTAssertEqual(result, .completed, "Quick Add never showed '\(text)'; it holds '\(field.value ?? "nil")'")
     }
 
     /// Taps Save once it is enabled: a tap on the disabled button does nothing and the sheet stays open.
