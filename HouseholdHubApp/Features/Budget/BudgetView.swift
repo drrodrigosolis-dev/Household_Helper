@@ -89,7 +89,8 @@ struct BudgetView: View {
                         // An explicit buttonStyle (iOS 26: a toolbar Button with none can fail to show its popover).
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("transactions.select")
-                        .popoverTip(BulkSelectTip())
+                        // Never over the tour: a tip's popover sits above the tour's modal overlay (a11y audit).
+                        .popoverTip(TourController.shared.isRunning ? nil : BulkSelectTip())
                     }
                     // Transfers need two accounts (Sprint 10 decision 8).
                     if !isSelecting, accounts.filter({ !$0.isArchived }).count > 1 {

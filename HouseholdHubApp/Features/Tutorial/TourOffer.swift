@@ -11,6 +11,7 @@ struct TourOffer: View {
                 Label("New: take a quick tour", systemImage: "sparkles")
                     .themedFont(.headline)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
                 Text("A one-minute look at what Household Hub can do.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

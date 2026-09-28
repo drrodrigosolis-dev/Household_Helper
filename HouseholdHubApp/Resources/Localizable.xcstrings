@@ -2411,12 +2411,12 @@
         }
       }
     },
-    "Drag a card to another column as things move along.": {
+    "Drag a card to another column as things move along, or touch and hold it and choose Move to…": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Arrastra una tarjeta a otra columna a medida que avanzan las cosas."
+            "value": "Arrastra una tarjeta a otra columna a medida que avanzan las cosas, o mantenla pulsada y elige Mover a…"
           }
         }
       }
@@ -6577,16 +6577,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Paso %1$lld de %2$lld"
-          }
-        }
-      }
-    },
-    "Step %lld of %lld: %@": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Paso %1$lld de %2$lld: %3$@"
           }
         }
       }

@@ -21,6 +21,7 @@ struct AppRootView: View {
     @AppStorage(ThemeSettings.animationsKey) private var themeAnimations = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
 
     private var lockEnabled: Bool { settings.first?.faceIDEnabled == true }
 
@@ -152,6 +153,9 @@ struct AppRootView: View {
         }
         .environment(router)
         .overlay { CelebrationOverlay() }
+        // VoiceOver reaches only the tour while it runs: `.isModal` on an overlay alone may not hide the tab bar. Only
+        // for VoiceOver: other pointers (Voice Control, Switch Control) tap by position, and the dimming takes those.
+        .accessibilityHidden(TourController.shared.isRunning && voiceOverEnabled)
         // Sprint 24: the first-run tour's spotlight, over the tab bar too.
         .overlay { TourOverlay() }
         .task { await bootstrap() }

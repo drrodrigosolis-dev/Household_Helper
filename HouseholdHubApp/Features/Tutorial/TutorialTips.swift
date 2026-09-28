@@ -73,7 +73,7 @@ struct BulkSelectTip: Tip {
     var title: Text { Text("Change several at once") }
     var message: Text? { Text("Select lets you delete or recategorize more than one transaction together.") }
     var rules: [Rule] {
-        #Rule(Self.screenSeen) { $0.donations.count >= 1 }
+        #Rule(Self.screenSeen) { $0.donations.count >= 2 }
     }
     var options: [any Option] { [MaxDisplayCount(1)] }
 }
@@ -140,7 +140,7 @@ struct BudgetHistoryTip: Tip {
     var title: Text { Text("Look back") }
     var message: Text? { Text("These arrows step through past months, so you can see how a budget has been doing.") }
     var rules: [Rule] {
-        #Rule(Self.screenSeen) { $0.donations.count >= 1 }
+        #Rule(Self.screenSeen) { $0.donations.count >= 2 }
     }
     var options: [any Option] { [MaxDisplayCount(1)] }
 }
@@ -154,7 +154,7 @@ struct AnalyticsTapsTip: Tip {
     var title: Text { Text("Tap to dig in") }
     var message: Text? { Text("Tap a slice or a bar to see exactly those transactions in Budget.") }
     var rules: [Rule] {
-        #Rule(Self.screenSeen) { $0.donations.count >= 1 }
+        #Rule(Self.screenSeen) { $0.donations.count >= 2 }
     }
     var options: [any Option] { [MaxDisplayCount(1)] }
 }

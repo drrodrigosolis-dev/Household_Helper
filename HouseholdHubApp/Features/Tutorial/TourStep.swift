@@ -68,7 +68,7 @@ struct TourStep: Identifiable, Sendable {
             message: "Bought something on your list? Tap Mark Purchased and the expense is recorded for you."),
         TourStep(
             target: .tasksBoard, screen: .tasks, title: "Tasks board",
-            message: "Drag a card to another column as things move along."),
+            message: "Drag a card to another column as things move along, or touch and hold it and choose Move to…"),
         TourStep(
             target: .settings, screen: .more, title: "More › Settings",
             message: "Pick a theme here, and replay this tour whenever you like."),

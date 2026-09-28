@@ -95,12 +95,13 @@ private struct TourSpotlight: View {
     let onSkip: () -> Void
 
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.colorSchemeContrast) private var contrast
     @AccessibilityFocusState private var headerFocused: Bool
+    /// Room the callout needs beside the cut-out; with less it docks over the target. Grows with the text size.
+    @ScaledMetric(relativeTo: .body) private var calloutRoom: CGFloat = 240
 
     private static let cornerRadius: CGFloat = 14
     private static let corner = CGSize(width: cornerRadius, height: cornerRadius)
-    /// Room the callout needs beside the cut-out; with less it docks at the bottom over the target.
-    private static let calloutRoom: CGFloat = 240
 
     private var isLast: Bool { index + 1 == count }
 
@@ -120,12 +121,12 @@ private struct TourSpotlight: View {
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
         .accessibilityAction(.escape) { onSkip() }
-        .task(id: index) {
-            // Each stop is announced and VoiceOver moves to its callout, so it is usable without seeing the highlight.
-            let title = String(localized: step.title)
-            let announcement = String(localized: "Step \(index + 1) of \(count): \(title)")
-            AccessibilityNotification.Announcement(announcement).post()
-            try? await Task.sleep(for: .milliseconds(350))
+        // VoiceOver moves to each stop's header ("Step N of M, title"), so the tour is usable without seeing the
+        // highlight. It waits for the target to be placed (a tab switch settles first), since the callout moves then;
+        // with no target, a longer wait and the docked callout.
+        .task(id: "\(index)-\(target != nil)") {
+            try? await Task.sleep(for: .milliseconds(target == nil ? 700 : 350))
+            guard !Task.isCancelled else { return }
             headerFocused = true
         }
     }
@@ -185,7 +186,7 @@ private struct TourSpotlight: View {
     }
 
     /// The callout, inside the safe area: below the cut-out when there is room, else above it, else docked at the
-    /// bottom. At accessibility text sizes it always docks at the bottom at full width.
+    /// bottom. At accessibility text sizes it docks at full width, on the side away from the target.
     private var calloutLayer: some View {
         GeometryReader { proxy in
             // Placement looks at the whole target, even the part the screen edge hides.
@@ -210,11 +211,15 @@ private struct TourSpotlight: View {
 
     private func calloutPlacement(hole: CGRect?, height: CGFloat) -> Placement {
         let docked = Placement(alignment: .bottom, top: 8, bottom: 8)
-        guard !typeSize.isAccessibilitySize, let hole else { return docked }
-        if height - hole.maxY - 12 >= Self.calloutRoom {
+        guard let hole else { return docked }
+        // Accessibility sizes dock full width, at the top when the target is in the lower half so it stays visible.
+        if typeSize.isAccessibilitySize {
+            return hole.midY > height / 2 ? Placement(alignment: .top, top: 8, bottom: 8) : docked
+        }
+        if height - hole.maxY - 12 >= calloutRoom {
             return Placement(alignment: .top, top: max(hole.maxY + 12, 8), bottom: 8)
         }
-        if hole.minY - 12 >= Self.calloutRoom {
+        if hole.minY - 12 >= calloutRoom {
             return Placement(alignment: .bottom, top: 8, bottom: max(height - hole.minY + 12, 8))
         }
         return docked
@@ -228,6 +233,11 @@ private struct TourSpotlight: View {
         }
         .padding(20)
         .themedSurface(cornerRadius: 20, standard: .background)
+        // An edge the dimmed screen can't swallow (a dark card on dark dimming), stronger with Increase Contrast.
+        .overlay {
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(.separator, lineWidth: contrast == .increased ? 2 : 1)
+        }
         .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("tour.callout")
@@ -281,11 +291,15 @@ private struct TourSpotlight: View {
             isLast ? Text("Done") : Text(String(localized: "tour.next", defaultValue: "Next"))
         }
         .buttonStyle(.borderedProminent)
+        .controlSize(.large)
         .accessibilityIdentifier("tour.next")
     }
 
     private var skipButton: some View {
+        // The only way out of the tour, so a full-size target (44 pt), not bare text.
         Button("Skip tour", action: onSkip)
+            .buttonStyle(.bordered)
+            .controlSize(.large)
             .accessibilityIdentifier("tour.skip")
     }
 }
