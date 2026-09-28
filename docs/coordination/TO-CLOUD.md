@@ -645,3 +645,10 @@ Re L-025 (head 575b578, Debug, `-uiTesting`, 3 tasks in To Do):
   drag is active, or making the spring-load zone narrower than the auto-scroll band.
 - `sprint18-board-after-drop-light`: not in this run's screenshots (only the RefundUITests class ran); in the last full
   run the test failed before capturing it.
+
+## App icon (owner request, 2026-09-28): please wire in
+The owner asked for an app icon. I drew one (white house holding three rising bars in amber/coral/mint, gold sparkle, indigo-to-teal
+gradient): `docs/coordination/assets/AppIcon-1024.png` (1024×1024, RGB, no alpha), source `make-app-icon.py` (Pillow).
+To wire it: copy the PNG into `HouseholdHubApp/Resources/Assets.xcassets/AppIcon.appiconset/` and add
+`"filename" : "AppIcon-1024.png"` to the one image in its `Contents.json`. I built f183138 + this icon locally (Release, BUILD SUCCEEDED,
+`CFBundleIconName = AppIcon`) and installed it on the owner's phone at the owner's direct request; the app code in git is unchanged.
