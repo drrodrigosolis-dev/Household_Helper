@@ -184,3 +184,151 @@ availability conditions, deprecations, fallback. Verified against official Apple
   `aSchemaV1StoreOnDiskMigratesToTheCurrentSchemaWithEveryRecord` runs a V1 store through all three stages. Backup
   format v5 carries the group (v1 to v4 files still read, nothing split; an older file with a group is refused).
 - **Fallback:** as for SchemaV2: `StoreUnavailableView`, nothing deleted; a backup before installing the build.
+
+## First-run tutorial: TipKit vs. custom spotlight tour — Sprint 24, 2026-09-28
+Verified against Apple's official documentation (JSON API behind developer.apple.com, fetched directly since the
+rendered pages are JS-only) and current Apple Developer Forums threads for known regressions. Every declaration
+below is quoted from the live doc, not from memory.
+
+### TipKit — current API shape (framework `TipKit`)
+- **`Tip`**: `protocol Tip : Identifiable, Sendable` — iOS 17.0+
+  (developer.apple.com/documentation/tipkit/tip). So `Tip` **is** `Sendable`; a conforming type must itself be
+  `Sendable` under Swift 6 strict concurrency (a plain `struct` with `Text`/`Image`/`String` properties is fine —
+  `Text` and `Image` are `Sendable`). Required: `title: Text`; optional with defaults: `message: Text?`,
+  `image: Image?`, `rules: [Rule]` (`@Tips.RuleBuilder`, iOS 17+, doc …/tipkit/tip/rules), `options: [TipOption]`,
+  `actions: [TipAction]`, `id` (default from `Self`'s name). `Tip.Rule` is a `typealias` for `Tips.Rule`, built with
+  the `#Rule` macro over a `Tips.Event` or a `Tips.Parameter<Value>` (`Value: Codable & Sendable`) — both iOS 17+
+  (…/tipkit/tips/parameter, …/tipkit/tips/event).
+- **`Tips` namespace**: `@frozen enum Tips`, iOS 17.0+ (…/tipkit/tips).
+  - `static func configure(_ configuration: [Tips.ConfigurationOption] = []) throws` — iOS 17.0+
+    (…/tipkit/tips/configure(_:)). Call once per app launch (Apple's own sample calls it from `App.init()`).
+  - `static func resetDatastore() throws` — iOS 17.0+ (…/tipkit/tips/resetdatastore()): "Resets the tips' datastore
+    to the initial state for re-testing tip display rules and eligibility." Must run **before** `configure()`.
+  - `static func showAllTipsForTesting()` / `static func hideAllTipsForTesting()` — **both iOS 17.0+**, not 18+ as
+    early web summaries claim (…/tipkit/tips/showalltipsfortesting(), …/tipkit/tips/hidealltipsfortesting()).
+  - `Tips.ConfigurationOption.datastoreLocation(_:)` — iOS 17.0+; default is `.applicationDefault` (Application
+    Support on iOS/macOS/watchOS/visionOS, `UserDefaults` on tvOS). **No App Groups or entitlement needed** for the
+    default location — `.groupContainer(identifier:)` exists only if you deliberately opt into a shared container,
+    which this project does not (zero-cost constraint, §2). `.displayFrequency(_:)` throttles how often *new* tips
+    appear app-wide (default `.daily`); a tip can opt out per-tip with the `IgnoresDisplayFrequency` option.
+  - `Tip.Option` (`= TipOption`): `MaxDisplayCount(_:)` (iOS 17.0+, invalidates after N displays, default
+    unlimited), `MaxDisplayDuration(_:)` (**iOS 18.0+**, cumulative on-screen time, 60 s minimum before
+    auto-invalidation), `IgnoresDisplayFrequency(true)` (iOS 17.0+, default false).
+- **`TipView<Content>`**: `@MainActor @preconcurrency struct TipView<Content> where Content: Tip` — iOS 17.0+
+  (…/tipkit/tipview). Inline card; the surrounding layout reflows to fit it. Apple's own guidance: "Use this style
+  of tip whenever possible to avoid covering UI elements."
+- **`.popoverTip(_:arrowEdge:action:)`**: `@preconcurrency nonisolated func popoverTip(_ tip: (any Tip)?, arrowEdge:
+  Edge? = nil, action: @escaping @MainActor @Sendable (Tips.Action) -> Void = { _ in }) -> some View` — iOS 17.0+
+  (…/swiftui/view/popovertip(_:arrowedge:action:)). Presents as a system popover anchored to the modified view when
+  the tip becomes eligible.
+- **`TipGroup`**: `final class TipGroup`, **iOS 18.0+** (…/tipkit/tipgroup — this is the one clearly new-since-17
+  type). `init(_ priority: TipGroup.Priority = .firstAvailable, @Tips.GroupBuilder _ builder: () -> [any Tip])`;
+  `Priority` is `.ordered` (show tips in listed order, one at a time) or `.firstAvailable` (show whichever's rules
+  are met first); `@MainActor final var currentTip: (any Tip)?` and `currentTipUpdates` (an `AsyncSequence`) expose
+  the tip currently due. No built-in numbering ("step 3 of 6") — the app must count `currentTip`'s index itself if
+  it wants a step count.
+- **Swift 6 concurrency**: `Tip` conforms to `Sendable`, and `TipView`/`popoverTip`'s closures are pinned
+  `@MainActor @Sendable`, so both are safe to use from `@MainActor` SwiftUI code without extra annotations.
+  `Tips.Parameter<Value>`'s `Value` must be `Codable & Sendable`; a `@Tips.Parameter static var` on a `Tip` type is
+  a plain stored static that TipKit itself observes for rule re-evaluation — no actor-isolation conflict was found
+  in the docs, but a static `Parameter` on a non-`Sendable` value type would not compile, which the required
+  `Value: Sendable` constraint already prevents.
+- **UI test launch pattern** (not literal doc text, but built directly on the two testing APIs above, both stable
+  since iOS 17): in `App.init()`, branch on `ProcessInfo.processInfo.arguments` before `Tips.configure()`:
+  `-uiTestingShowAllTips` → `try? Tips.resetDatastore()` then `Tips.showAllTipsForTesting()` before `configure()`;
+  `-uiTestingHideAllTips` → `Tips.hideAllTipsForTesting()` before `configure()`. Both calls are synchronous and
+  process-wide, so a single flag per XCUITest launch is enough; no datastore file needs to be seeded from the host.
+- **Known pitfalls (Apple Developer Forums, live at research time, cited because they are unresolved regressions
+  the docs do not mention):**
+  - **iOS 26 tab-switch regression**: a `popoverTip` can re-appear every time the user switches `TabView` tabs
+    instead of once (forums thread 805796; DTS engineer acknowledged a possible regression, filed as FB20904972).
+    Workaround in the thread: set `MaxDisplayCount(1)` so the tip cannot show a second time regardless of the
+    replay bug. Relevant to us because the tour's own tips must not spam every tab switch.
+  - **Toolbar items**: a `popoverTip` on a bare `Button` inside `ToolbarItem` frequently fails to appear at all
+    (forums thread 735961). Workarounds that reporters confirm work: give the button an explicit `.buttonStyle(...)`
+    before `.popoverTip(...)`, or attach `.popoverTip(...)` to the inner `Label`/`Image` rather than the `Button`
+    itself, or pass an explicit `arrowEdge:`. `ToolbarItemPlacement.bottomBar` is reported as unreliable regardless
+    of workaround — avoid it for a tip anchor.
+  - **iOS 26.1 toolbar *menu* buttons**: `popoverTip` reported not displaying at all on a `Menu` placed in a
+    toolbar (forums thread 804587); no confirmed workaround yet — avoid anchoring a tip to a toolbar `Menu`.
+  - **Sheets**: not independently verified here; treat a tip anchored to content presented in a `.sheet` as
+    unverified until it is exercised in this app's own UI tests (§18 "record remaining uncertainty").
+
+### Spotlight/coach-mark tour — pure SwiftUI technique (no packages)
+All APIs below are confirmed on developer.apple.com; the tour composition itself is this project's design, not an
+Apple recipe.
+- **Capturing a target's frame across the app**: `nonisolated func anchorPreference<A, K>(key: K.Type = K.self,
+  value: Anchor<A>.Source, transform: @escaping (Anchor<A>) -> K.Value) -> some View where K: PreferenceKey` — iOS
+  13.0+ (…/swiftui/view/anchorpreference(key:value:transform:)). Each spotlighted control tags itself with
+  `.anchorPreference(key: SpotlightAnchorKey.self, value: .bounds) { [stopID: $0] }`; a single
+  `.overlayPreferenceValue(_:_:)` (iOS 13.0+, …/swiftui/view/overlaypreferencevalue(_:_:)) placed high in the view
+  tree (e.g. on the root `TabView`/`NavigationStack`) collects the dictionary of anchors and resolves the current
+  stop's `Anchor<CGRect>` into that overlay's own coordinate space with a `GeometryProxy` subscript
+  (`proxy[anchor]`), which is what lets the cut-out track the control regardless of which screen or nested
+  `NavigationStack` it lives in. `matchedGeometryEffect` (iOS 14.0+) is the wrong tool here: it animates one view's
+  own geometry to match another view's, it does not report a frame to an ancestor, so it cannot feed a spotlight
+  cut-out computed in an overlay.
+  - **Toolbar items**: `anchorPreference` works normally on a view placed inside `ToolbarItem`'s content closure,
+    because that content is still an ordinary SwiftUI view (mind the popoverTip toolbar pitfalls above only if the
+    stop *also* uses a Tip there; the tour's own preference-based highlight does not depend on TipKit).
+  - **Tab bar items**: **do not** try to anchor a cut-out to an individual tab bar button. Apple's own `TabView`
+    renders the bar chrome itself (including the iOS 26 liquid-glass tab bar); the tab labels declared inside
+    `TabView`/`Tab` are configuration data, not SwiftUI views in the app's own hierarchy, so no modifier (including
+    `anchorPreference`) attaches to one. For any tour stop about a tab, either (a) skip the literal cut-out and show
+    a bottom-anchored callout with an arrow that visually points at the tab bar without a precise per-icon hole, or
+    (b) approximate the icon's rect from the tab bar's own frame (captured once via `anchorPreference` on the
+    `TabView` itself) divided evenly by tab count — a documented approximation, not an Apple-provided anchor, and
+    it breaks if Dynamic Type or an iPad regular-width sidebar changes the bar's layout, so it needs a fallback to
+    (a) when the computed rect looks wrong (e.g. outside the tab bar's own bounds).
+- **Dimming with a cut-out**: build the dim layer as `Color.black.opacity(0.55)` sized to the full screen, and mask
+  it with a `Path` that adds the full rect plus a rounded-rect subtraction at the target frame using the even-odd
+  fill rule (`Path.fill(style: FillStyle(eoFill: true))`) via `.mask(alignment:_:)` (iOS 15.0+,
+  …/swiftui/view/mask(alignment:_:)). Equivalently, layer two rectangles and blend them with
+  `.compositingGroup()` (iOS 13.0+, …/swiftui/view/compositinggroup()) followed by `.blendMode(.destinationOut)`
+  (`BlendMode.destinationOut`, iOS 13.0+, …/swiftui/blendmode/destinationout) on the cut-out shape so it erases the
+  dim layer beneath it; `compositingGroup()` is required before `blendMode` or the blend applies against the whole
+  window instead of just the dim layer. Either technique is placed in a full-screen `overlay`/`ZStack` above the
+  `TabView`, driven by the anchor collected above, so it sits above tab content and the tab bar alike.
+- **Reduce Motion**: read `@Environment(\.accessibilityReduceMotion)` (`EnvironmentValues.accessibilityReduceMotion:
+  Bool`, iOS 13.0+) and skip the cross-fade/move animation between stops when it is true — cut directly to the next
+  cut-out and callout position instead of animating the mask or repositioning.
+- **VoiceOver focus and modality**: give the callout card a stable identity and pull VoiceOver to it with
+  `@AccessibilityFocusState` (`AccessibilityFocusState<Value>`, iOS 15.0+,
+  …/swiftui/accessibilityfocusstate) bound via `.accessibilityFocused($focus, equals: stopID)`, set right after the
+  stop appears (and again after Reduce Motion's instant transition). Mark the callout `.accessibilityAddTraits(.isModal)`
+  (`accessibilityAddTraits(_:)`, iOS 14.0+, …/swiftui/view/accessibilityaddtraits(_:); `.isModal`,
+  `AccessibilityTraits.isModal`, iOS 13.0+, …/swiftui/accessibilitytraits/ismodal) so VoiceOver's swipe navigation
+  stays confined to the tour overlay instead of leaking into the dimmed app content underneath. Announce each new
+  stop explicitly with `AccessibilityNotification.Announcement("Step \(n) of \(total): \(title)").post()`
+  (`struct Announcement`, iOS 17.0+, developer.apple.com/documentation/accessibility/accessibilitynotification/announcement)
+  fired when the stop changes, since a modal region appearing does not always generate its own VoiceOver
+  announcement.
+- **Step count / Next / Skip**: plain SwiftUI state (`@Observable` tour model holding `stops: [Stop]` and
+  `currentIndex`), not an Apple API — "Step \(currentIndex + 1) of \(stops.count)" as both visible text and the
+  accessibility announcement above.
+
+### Recommendation: custom spotlight overlay for (a), TipKit only for (b)
+- **Use a custom `anchorPreference`/mask overlay for the 5–7 stop spotlight tour, not TipKit.** TipKit has no
+  concept of dimming the rest of the screen, no built-in cut-out/spotlight visual, no numbered step count, and (per
+  `TipGroup`'s own doc) presents its tips as ordinary popovers/inline cards — a `TipGroup` can sequence tips, but it
+  cannot black out the rest of the screen around them, and per the tab-bar limitation above it cannot anchor cleanly
+  to a tab bar item either. Reusing it would mean fighting the framework for the one visual effect ((a)) explicitly
+  asks for, while the pieces the tour actually needs — anchor capture, masking, focus, Reduce Motion, VoiceOver
+  modality — are all plain, stable SwiftUI/Accessibility APIs already used elsewhere in this app.
+- **Use TipKit as specified for (b), the contextual tips**, exactly because that is what it is built for: per-
+  feature `Tip`s with `#Rule`-based eligibility (e.g. a `Tips.Event` donated the first time a deeper screen is
+  reached), `TipView` inline where a feature can be highlighted without covering controls, `.popoverTip` where it
+  must point at a specific control (respecting the toolbar/tab-switch pitfalls above), and `Tips.resetDatastore()`
+  wired to Settings' "Reset tips" action.
+- **Settings replay (c)**: "Show the tour again" simply resets and restarts the custom tour's own state (no TipKit
+  involvement — the tour never used TipKit's datastore). "Reset tips" calls `Tips.resetDatastore()` followed by
+  `Tips.configure()` so contextual tips can reappear, matching Apple's own sample pattern of calling `configure()`
+  once per session after any datastore reset.
+- **Fallback / zero-cost check**: both mechanisms are pure on-device SwiftUI/TipKit state — no entitlement, no App
+  Groups, no paid membership, works under a free Personal Team and in the Simulator. TipKit's default datastore
+  location needs nothing beyond the app's own sandbox.
+- **Unverified / left for CI and the walk**: the exact visual quality of the tab-bar approximation in (2) above,
+  the iOS 26 tab-switch popoverTip regression's real-world impact on this app's own tips (mitigate with
+  `MaxDisplayCount(1)` from the start rather than waiting to hit it), and whether the modal VoiceOver region
+  correctly blocks interaction with dimmed controls in the Simulator's accessibility inspector (record in
+  `docs/research/open-questions.md` if the Phase 10 accessibility audit finds it does not).
