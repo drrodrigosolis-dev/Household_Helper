@@ -163,3 +163,24 @@ availability conditions, deprecations, fallback. Verified against official Apple
   `aSchemaV1StoreOnDiskMigratesToTheCurrentSchemaWithEveryRecord` runs a V1 store through both stages. Backup format
   v4 carries the kind (v1 to v3 files still read, every series a bill; an older file naming a kind is refused).
 - **Fallback:** as for SchemaV2: `StoreUnavailableView`, nothing deleted; a backup before installing the build.
+
+## SwiftData schema versioning — SchemaV3 → SchemaV4 (Sprint 23, 2026-09-28)
+- **API:** the same as SchemaV3: `VersionedSchema` `SchemaV4` 4.0.0 added to `HouseholdMigrationPlan.schemas`
+  (`[SchemaV1, SchemaV2, SchemaV3, SchemaV4]`) with a third stage, `MigrationStage.lightweight(fromVersion:
+  SchemaV3.self, toVersion: SchemaV4.self)`. `CurrentSchema` is SchemaV4. iOS 17+; project floor iOS 26, Xcode 27.
+- **Change:** `TransactionRecord` gains one optional stored property, `splitGroupID: UUID?` (shared by the parts of
+  one split payment; nil = not split). Adding an optional attribute is a lightweight migration: every existing record
+  gets nil; nothing is renamed, retyped or dropped.
+- **How the V1–V3 hashes are kept:** SchemaV3 was installed on the owner's iPhone at `8a9ec36`, so it is frozen like
+  SchemaV1 and SchemaV2. `SchemaV2.TransactionRecord` (`Persistence/Models/V1/TransactionRecordV2.swift`) is a frozen
+  copy of the class installed at `fd7e67e` and shared unchanged by SchemaV3; its `@Model` body (stored properties,
+  attributes, init) was checked line for line against `git show 8a9ec36:` of the old model file (the file had not
+  changed since `fd7e67e`). SchemaV2 and SchemaV3 still list that class; SchemaV4 lists `SchemaV4.TransactionRecord`,
+  `SchemaV3.RecurringTransaction` and the ten SchemaV1 classes, so only `TransactionRecord`'s entity hash differs
+  from V3 and the checksums stay distinct. `FrozenSchemaTests` is unchanged.
+- **Evidence:** `PersistenceTests.aSchemaV3StoreOnDiskMigratesToSchemaV4WithEveryRecord` writes one row of every
+  model (a refund link, a recurring occurrence, a purchase series, a task link) through SchemaV3 to a store on disk,
+  opens it through the app's factory and plan, reads every row back and checks nothing is split;
+  `aSchemaV1StoreOnDiskMigratesToTheCurrentSchemaWithEveryRecord` runs a V1 store through all three stages. Backup
+  format v5 carries the group (v1 to v4 files still read, nothing split; an older file with a group is refused).
+- **Fallback:** as for SchemaV2: `StoreUnavailableView`, nothing deleted; a backup before installing the build.

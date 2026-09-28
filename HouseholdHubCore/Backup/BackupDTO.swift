@@ -1,16 +1,17 @@
 import Foundation
 
-/// The portable backup format, v4 (spec §26; v2 adds accounts and transfers, Sprint 10; v3 adds refunds, Sprint 20; v4
-/// adds recurring purchases, Sprint 22). v1–v3 files still read: `upgradedToCurrent()` turns one into v4 before
-/// anything validates or restores it.
+/// The portable backup format, v5 (spec §26; v2 adds accounts and transfers, Sprint 10; v3 adds refunds, Sprint 20; v4
+/// adds recurring purchases, Sprint 22; v5 adds split transactions, Sprint 23). v1–v4 files still read:
+/// `upgradedToCurrent()` turns one into v5 before anything validates or restores it.
 /// Plain Codable values with every stored field of every model; money in integer minor units, dates ISO 8601, enums
 /// as their raw strings, recurrence rules as JSON objects. Image bytes are never inline: `mediaManifest` lists the
 /// files that travel next to `backup.json` (§26.1).
 public struct BackupDTO: Codable, Equatable, Sendable {
-    public static let currentSchemaVersion = 4
+    public static let currentSchemaVersion = 5
     /// Versions this app reads; older ones are upgraded on the way in. An older app refuses a newer file with its
-    /// "made by a newer version" message rather than restore it without its refunds (v3) or purchases (v4).
-    public static let readableSchemaVersions: ClosedRange<Int> = 1...4
+    /// "made by a newer version" message rather than restore it without its refunds (v3), purchases (v4) or splits
+    /// (v5).
+    public static let readableSchemaVersions: ClosedRange<Int> = 1...5
 
     public var schemaVersion: Int
     public var exportedAt: Date
@@ -103,6 +104,8 @@ public struct BackupDTO: Codable, Equatable, Sendable {
         public var transferAccountID: UUID?
         /// v3: the expense a refund belongs to; absent in older files and for every other transaction.
         public var refundOfTransactionID: UUID? = nil
+        /// v5: shared by the parts of one split payment; absent in older files and for a record that is not split.
+        public var splitGroupID: UUID? = nil
         public var createdAt: Date
         public var updatedAt: Date
     }
@@ -265,9 +268,9 @@ public struct BackupDTO: Codable, Equatable, Sendable {
 extension BackupDTO {
     /// The same backup in the current format. A v1 file had one household baseline in its settings; it becomes the
     /// first account, "Main account", which gets the settings row's id (so every read of the same file produces the
-    /// same account) and holds every transaction and recurring item. A v2 or v3 file only changes its version: v3 adds
-    /// refund links and v4 recurring kinds, which an older file has none of (every series in it is a bill). A v4 file
-    /// is returned as it is.
+    /// same account) and holds every transaction and recurring item. A v2 to v4 file only changes its version: v3 adds
+    /// refund links, v4 recurring kinds and v5 split groups, which an older file has none of (every series in it is a
+    /// bill, no transaction is split). A v5 file is returned as it is.
     public func upgradedToCurrent() -> BackupDTO {
         guard schemaVersion < Self.currentSchemaVersion else { return self }
         guard schemaVersion == 1 else {

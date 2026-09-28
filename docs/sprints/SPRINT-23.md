@@ -5,7 +5,7 @@ finding gets an outcome; verify against the code first; data/money first; a test
 message with defaults; local re-verifies by finding ID.
 
 ## Ground rules
-- SchemaV1–V3 are frozen (FrozenSchemaTests); a stored-model change would be SchemaV4 (none planned).
+- SchemaV1–V3 are frozen (FrozenSchemaTests); F4's split adds SchemaV4 (`TransactionRecord.splitGroupID`).
 - Data-sensitive fixes (A-001, A-003) pass household-data-safety-review.
 - Local re-verifies in batches (one L-item per round), answering closed / reopened / not verified per ID.
 
@@ -42,7 +42,7 @@ message with defaults; local re-verifies by finding ID.
 | F1 | Categories learned from manual edits, applied to imports and Quick Add | `Merchant.defaultCategoryID` (exists, never set until now); import lane | ☐ | ☐ |
 | F2 | Recurring detection from history | Core finds merchant+amount repeating weekly/monthly; Recurring shows "Make it a bill?" suggestions | ☐ | ☐ |
 | F3 | Undo for delete and bulk edits | Undo banner; restores the same records (same ids, links) | ☐ | ☐ |
-| F4 | Duplicate and split transactions | Duplicate: no schema. Split: **SchemaV4** (optional `splitGroupID` on TransactionRecord), parts sum to the original | ☐ | ☐ |
+| F4 | Duplicate and split transactions | Duplicate: no schema. Split: **SchemaV4** (optional `splitGroupID` on TransactionRecord), parts sum to the original. **Written (split lane)**: backup v5; editing a part's status/date/account/merchant moves every part, its type is fixed; deleting to one part unsplits it | ☐ | ☐ |
 | F5 | Month-end summary | Analytics section: last month spent vs budgets, top categories, goals | ☐ | ☐ |
 | F6 | Search filters + saved searches | Amount range, date range, account; saved searches in device settings (not SwiftData) | ☐ | ☐ |
 | F7 | Budget alerts at 80 % / 100 % | Local notifications (names only), reusing the reminders plumbing | ☐ | ☐ |

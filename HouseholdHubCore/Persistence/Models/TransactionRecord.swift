@@ -1,9 +1,9 @@
 import Foundation
 import SwiftData
 
-extension SchemaV2 {
+extension SchemaV4 {
     /// A financial event (spec §7.2). Named `TransactionRecord` because `Transaction` collides with SwiftUI's type.
-    /// The amount is a positive magnitude; `type` gives the sign.
+    /// The amount is a positive magnitude; `type` gives the sign. Sprint 23 (SchemaV4) adds its split group.
     @Model
     public final class TransactionRecord {
         @Attribute(.unique) public var id: UUID
@@ -29,6 +29,9 @@ extension SchemaV2 {
         public var transferAccountID: UUID?
         /// Sprint 20 (SchemaV2): the expense this refund gives money back for; nil for every other transaction.
         public var refundOfTransactionID: UUID?
+        /// Sprint 23 (SchemaV4): shared by every part of one split payment; nil when the record is not split (every
+        /// record stored before V4).
+        public var splitGroupID: UUID?
         public var createdAt: Date
         public var updatedAt: Date
 
@@ -84,4 +87,4 @@ extension SchemaV2 {
     }
 }
 
-public typealias TransactionRecord = SchemaV2.TransactionRecord
+public typealias TransactionRecord = SchemaV4.TransactionRecord
