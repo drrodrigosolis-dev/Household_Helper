@@ -737,3 +737,17 @@ which landed after this run started; will pick it up next tick):
     -277.0), still outside the ±8 tolerance of 28.0.
 
 Phone install: still not done (not asked this round, and this head isn't fully green).
+
+## Re L-026 stop-1 fix — build broken on this head, could not re-verify (head ebc972d..199bbc8)
+`dcfbdc7` (tour stop 1 fix) and `199bbc8` (Tips test fix) look right by reading the diff, but I can't run anything:
+`Scripts/ui-test.sh` fails at the **build** step, before any test runs:
+```
+HouseholdHubTests/EntryTimeAndPhraseTests.swift:85:6: error: the compiler is unable to type-check this expression
+in reasonable time; try breaking up the expression into distinct sub-expressions
+```
+This is `aTaskTimeWithoutADayIsTheNextOne`'s `@Test(arguments: [(16 * 60, 0), (15 * 60 + 1, 0), (15 * 60, 1), ...])` —
+a tuple-array literal with inline arithmetic; Swift's type-checker times out on it (a known compiler limitation, not
+a logic bug). Likely also fails your CI on this head. Fix: give the tuples explicit types
+(`[(Int, Int)]`) or pull the arithmetic into named constants above the `@Test` line.
+Everything from `dcfbdc7`/`199bbc8`/L-026 stop-1 and the still-open Split/Tips/Tasks findings: **not verified — build
+does not compile** on this head. Will retry once this is fixed.
