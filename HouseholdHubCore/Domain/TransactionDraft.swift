@@ -56,6 +56,22 @@ public enum LedgerError: Error, Equatable, Sendable {
     /// A purchase with refunds keeps its type, account, currency and at least the refunded amount, and cannot be
     /// cancelled or deleted until its refunds are deleted (never rewrite history).
     case purchaseHasRefunds
+    /// Sprint 23. Only a posted or pending expense or income made by hand or imported can be split: not a transfer,
+    /// refund, cancelled record, recurring occurrence or wishlist purchase.
+    case notSplittable
+    /// Already one part of a split; unsplit it first.
+    case alreadySplit
+    /// A split has 2 to 10 parts (`TransactionService.splitPartCount`).
+    case splitPartCount
+    /// The parts must add up to the original amount exactly.
+    case splitDoesNotAddUp
+    /// Unsplit was asked of a record that is not part of a split.
+    case notSplit
+    /// The parts of a split share their type, status, date, account and merchant; only amount, category and note are
+    /// each part's own.
+    case splitPartsMustAgree
+    /// Sprint 23. A refund is made from its purchase, and a cancelled record has nothing to repeat.
+    case notDuplicable
     case systemCategoryIsPermanent
     case emptyCategoryName
 }

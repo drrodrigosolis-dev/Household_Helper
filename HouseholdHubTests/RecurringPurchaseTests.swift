@@ -234,7 +234,7 @@ struct RecurringPurchaseTests {
             templateAmount: cad(120_000), type: .expense, rule: .monthlyOnDay(day: 1), timeZone: zone, startDate: now,
             notes: "Rent", now: now)
         let backup = try await snapshot(container)
-        #expect(backup.schemaVersion == 4)
+        #expect(backup.schemaVersion == BackupDTO.currentSchemaVersion)
         let kinds = Dictionary(uniqueKeysWithValues: backup.recurringTransactions.map { ($0.id, $0.kind) })
         #expect(kinds[purchase] == .some("purchase"))
         #expect(kinds[rent] == .some(nil), "A bill is written without a kind, as it is stored")

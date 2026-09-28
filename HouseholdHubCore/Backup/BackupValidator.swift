@@ -42,6 +42,10 @@ public enum BackupValidator {
         if original.schemaVersion < 4, let kind = original.recurringTransactions.compactMap(\.kind).first {
             throw BackupError.invalidValue(entity: "recurringTransactions", field: "kind", value: kind)
         }
+        // Split transactions arrived in v5 (Sprint 23); an older file with a split group was not written by this app.
+        if original.schemaVersion < 5, let group = original.transactions.compactMap(\.splitGroupID).first {
+            throw BackupError.invalidValue(entity: "transactions", field: "splitGroupID", value: group.uuidString)
+        }
         let backup = original.upgradedToCurrent()
         guard backup.schemaVersion == BackupDTO.currentSchemaVersion else {
             throw BackupError.unsupportedSchemaVersion(backup.schemaVersion)
@@ -262,6 +266,7 @@ public enum BackupValidator {
             try refundShape(record, purchases: transactions)
         }
         try refundTotals(backup.transactions, purchases: transactions)
+        try splitGroups(backup.transactions)
         for item in backup.recurringTransactions {
             // Refunds are only ever made from a purchase, never from a series (Sprint 20).
             guard item.type != TransactionType.refund.rawValue else {
@@ -377,6 +382,28 @@ public enum BackupValidator {
         }
     }
 
+    /// The parts of a split (Sprint 23) are one expense or income paid once: at least two records sharing their type,
+    /// status, date, account(s), merchant and currency, none a recurring occurrence or wishlist purchase. Refunds and
+    /// transfers are never split.
+    private static func splitGroups(_ records: [BackupDTO.Transaction]) throws {
+        let split = records.filter { $0.splitGroupID != nil }
+        for parts in Dictionary(grouping: split, by: { $0.splitGroupID }).values {
+            guard parts.count >= 2, let first = parts.first else {
+                throw BackupError.inconsistentLink(entity: "transactions", field: "splitGroupID")
+            }
+            for part in parts {
+                guard part.type == TransactionType.expense.rawValue || part.type == TransactionType.income.rawValue,
+                    part.type == first.type, part.status == first.status, part.occurredAt == first.occurredAt,
+                    part.accountID == first.accountID, part.transferAccountID == first.transferAccountID,
+                    part.merchantID == first.merchantID, part.currencyCode == first.currencyCode,
+                    part.recurringSeriesID == nil, part.scheduledOccurrence == nil, part.wishlistItemID == nil,
+                    part.source != TransactionSource.recurring.rawValue,
+                    part.source != TransactionSource.wishlistPurchase.rawValue
+                else { throw BackupError.inconsistentLink(entity: "transactions", field: "splitGroupID") }
+            }
+        }
+    }
+
     /// A transfer names two different accounts and no category; nothing else names a destination (Sprint 10).
     private static func transferShape(
         _ type: String, _ source: UUID?, _ destination: UUID?, _ category: UUID?, _ entity: String
@@ -449,6 +476,14 @@ extension BackupDTO {
                 }
             }
             goals = list
+        }
+        // A split needs two parts: a lone part (the rest deleted by a path that missed it) is simply not split.
+        let partCounts = Dictionary(transactions.compactMap(\.splitGroupID).map { ($0, 1) }, uniquingKeysWith: +)
+        for index in transactions.indices {
+            if let group = transactions[index].splitGroupID, partCounts[group] == 1 {
+                transactions[index].splitGroupID = nil
+                dropped += 1
+            }
         }
         let backLinks = Dictionary(
             taskItems.compactMap { task in task.linkedWishlistItemID.map { (task.id, $0) } },

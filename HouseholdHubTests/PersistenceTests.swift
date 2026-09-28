@@ -76,17 +76,18 @@ struct PersistenceTests {
         #expect(try context.fetchCount(descriptor) == 2)
     }
 
-    /// Sprint 20 and 22: SchemaV1 (frozen at the first iPhone install), SchemaV2 (frozen at its install) and SchemaV3,
-    /// one lightweight stage between each pair.
-    @Test func migrationPlanGoesFromSchemaV1ThroughSchemaV3() {
+    /// Sprint 20, 22 and 23: SchemaV1 (frozen at the first iPhone install), SchemaV2 and SchemaV3 (each frozen at its
+    /// install) and SchemaV4, one lightweight stage between each pair.
+    @Test func migrationPlanGoesFromSchemaV1ThroughSchemaV4() {
         let versions = HouseholdMigrationPlan.schemas.map { $0.versionIdentifier }
-        #expect(versions == [Schema.Version(1, 0, 0), Schema.Version(2, 0, 0), Schema.Version(3, 0, 0)])
+        #expect(versions == (1...4).map { Schema.Version($0, 0, 0) })
         #expect(HouseholdMigrationPlan.schemas.first == SchemaV1.self)
         #expect(HouseholdMigrationPlan.schemas.last == CurrentSchema.self)
-        #expect(HouseholdMigrationPlan.stages.count == 2)
-        #expect(CurrentSchema.versionIdentifier == Schema.Version(3, 0, 0))
+        #expect(HouseholdMigrationPlan.stages.count == 3)
+        #expect(CurrentSchema.versionIdentifier == Schema.Version(4, 0, 0))
         #expect(SchemaV1.models.count == SchemaV2.models.count)
         #expect(SchemaV2.models.count == SchemaV3.models.count)
+        #expect(SchemaV3.models.count == SchemaV4.models.count)
     }
 
     /// Each version names its own class for the model it changed and the frozen classes for the rest.
@@ -99,9 +100,24 @@ struct PersistenceTests {
         #expect(names(SchemaV3.models).contains(String(reflecting: SchemaV2.TransactionRecord.self)))
     }
 
+    /// Sprint 23: SchemaV4 names its own `TransactionRecord` and keeps SchemaV3's `RecurringTransaction`; SchemaV2 and
+    /// SchemaV3 keep the frozen V2 `TransactionRecord`.
+    @Test func eachSchemaVersionUsesItsOwnTransactionClass() {
+        let names = { (models: [any PersistentModel.Type]) in models.map { String(reflecting: $0) } }
+        let v1 = String(reflecting: SchemaV1.TransactionRecord.self)
+        let v2 = String(reflecting: SchemaV2.TransactionRecord.self)
+        let v4 = String(reflecting: SchemaV4.TransactionRecord.self)
+        #expect(names(SchemaV1.models).contains(v1))
+        #expect(names(SchemaV2.models).contains(v2) && names(SchemaV3.models).contains(v2))
+        #expect(names(SchemaV4.models).contains(v4))
+        #expect(!names(SchemaV4.models).contains(v2) && !names(SchemaV3.models).contains(v4))
+        #expect(names(SchemaV4.models).contains(String(reflecting: SchemaV3.RecurringTransaction.self)))
+        #expect(String(reflecting: TransactionRecord.self) == v4)
+    }
+
     /// Sprint 20, the owner's real data: a store written by SchemaV1 (as installed at `063a510`) opens through the
-    /// app's factory and migration plan (now through SchemaV2 to SchemaV3) with every record and field intact, new
-    /// refund links empty and every series a bill.
+    /// app's factory and migration plan (now through SchemaV2 and SchemaV3 to SchemaV4) with every record and field
+    /// intact, new refund links empty, every series a bill and no transaction split.
     @Test func aSchemaV1StoreOnDiskMigratesToTheCurrentSchemaWithEveryRecord() throws {
         let directory = FileManager.default.temporaryDirectory.appending(
             path: "v1-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -178,6 +194,7 @@ struct PersistenceTests {
         #expect(records.first?.accountID == account)
         #expect(records.last?.scheduledOccurrence == now)
         #expect(records.allSatisfy { $0.refundOfTransactionID == nil })
+        #expect(records.allSatisfy { $0.splitGroupID == nil })
         #expect(try context.fetch(FetchDescriptor<WishlistItem>()).map(\.id) == [bike])
         #expect(try context.fetchCount(FetchDescriptor<BoardColumn>()) == 1)
         #expect(try context.fetchCount(FetchDescriptor<AppSettings>()) == 1)
@@ -286,6 +303,7 @@ struct PersistenceTests {
         #expect(records.first?.refundOfTransactionID == coffee, "Sprint 20 refund links survive")
         #expect(records.last?.merchantNameSnapshot == "Store")
         #expect(records.last?.categoryID == categoryID)
+        #expect(records.allSatisfy { $0.splitGroupID == nil })
         let bySeries = FetchDescriptor<RecurringTransaction>(sortBy: [SortDescriptor(\.templateAmountMinorUnits)])
         let series = try context.fetch(bySeries)
         #expect(series.map(\.id) == [rentID, payID])
@@ -315,8 +333,136 @@ struct PersistenceTests {
         #expect(try reopened.fetchCount(FetchDescriptor<TransactionRecord>()) == 2)
     }
 
+    /// Sprint 23, the owner's data since `8a9ec36`: a store written by SchemaV3 opens through the app's factory and
+    /// migration plan with every record and field intact (refund links and recurring kinds included), and no
+    /// transaction is split until the owner splits one.
+    @Test func aSchemaV3StoreOnDiskMigratesToSchemaV4WithEveryRecord() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(
+            path: "v3-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "Household.store")
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        let coffee = UUID()
+        let refund = UUID()
+        let rent = UUID()
+        let account = UUID()
+        let categoryID = UUID()
+        let merchantID = UUID()
+        let purchaseSeries = UUID()
+        let billSeries = UUID()
+        let bike = UUID()
+        do {
+            let schema = Schema(versionedSchema: SchemaV3.self)
+            let v3 = try ModelContainer(
+                for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none))
+            let context = ModelContext(v3)
+            let spent = SchemaV2.TransactionRecord(
+                id: coffee, amount: Money(minorUnits: 4_750, currencyCode: "CAD"), type: .expense, status: .posted,
+                source: .manual, occurredAt: now, now: now)
+            spent.accountID = account
+            spent.categoryID = categoryID
+            spent.merchantID = merchantID
+            spent.merchantNameSnapshot = "Store"
+            spent.notes = "coffee"
+            let back = SchemaV2.TransactionRecord(
+                id: refund, amount: Money(minorUnits: 1_000, currencyCode: "CAD"), type: .refund, status: .posted,
+                source: .manual, occurredAt: now, now: now)
+            back.accountID = account
+            back.refundOfTransactionID = coffee
+            let paid = SchemaV2.TransactionRecord(
+                id: rent, amount: Money(minorUnits: 120_000, currencyCode: "CAD"), type: .expense, status: .pending,
+                source: .recurring, occurredAt: now, now: now)
+            paid.accountID = account
+            paid.recurringSeriesID = billSeries
+            paid.scheduledOccurrence = now
+            context.insert(spent)
+            context.insert(back)
+            context.insert(paid)
+            context.insert(SchemaV1.AppSettings(currencyCode: "CAD", now: now))
+            context.insert(
+                SchemaV1.CategoryRecord(
+                    id: categoryID, name: "Shopping", icon: "bag", color: .black, kind: .expense, sortOrder: 0,
+                    now: now))
+            context.insert(SchemaV1.Merchant(id: merchantID, displayName: "Store", now: now))
+            let groceries = try SchemaV3.RecurringTransaction(
+                id: purchaseSeries, templateAmount: Money(minorUnits: 18_000, currencyCode: "CAD"), type: .expense,
+                rule: .monthlyOnDay(day: 5), timeZone: TimeZone(identifier: "America/Vancouver")!, startDate: now,
+                now: now)
+            groceries.kind = .purchase
+            groceries.merchantID = merchantID
+            groceries.accountID = account
+            context.insert(groceries)
+            let bill = try SchemaV3.RecurringTransaction(
+                id: billSeries, templateAmount: Money(minorUnits: 120_000, currencyCode: "CAD"), type: .expense,
+                rule: .monthlyOnDay(day: 1), timeZone: TimeZone(identifier: "America/Vancouver")!, startDate: now,
+                now: now)
+            bill.accountID = account
+            context.insert(bill)
+            context.insert(
+                SchemaV1.WishlistItem(
+                    id: bike, name: "bike", estimatedPrice: Money(minorUnits: 25_000, currencyCode: "CAD"),
+                    priority: .medium, now: now))
+            let column = SchemaV1.BoardColumn(name: "To Do", sortOrder: 0, isSystem: true, now: now)
+            context.insert(column)
+            context.insert(
+                SchemaV1.Account(
+                    id: account, name: "Main", kind: .bank, startingBalance: Money(minorUnits: 0, currencyCode: "CAD"),
+                    startingBalanceDate: now, sortOrder: 0, now: now))
+            context.insert(
+                SchemaV1.CategoryBudget(
+                    categoryID: categoryID, limit: Money(minorUnits: 50_000, currencyCode: "CAD"), rollsOver: true,
+                    start: BudgetMonth(year: 2026, month: 9), now: now))
+            context.insert(
+                SchemaV1.SavingsGoal(
+                    name: "Trip", target: Money(minorUnits: 300_000, currencyCode: "CAD"), accountID: account,
+                    targetDate: nil, wishlistItemID: nil, sortOrder: 0, now: now))
+            let task = SchemaV1.TaskItem(title: "Call", columnID: column.id, priority: .medium, sortOrder: 1, now: now)
+            task.linkedTransactionID = coffee
+            context.insert(task)
+            context.insert(SchemaV1.SubtaskItem(title: "Find number", taskID: task.id, sortOrder: 1, now: now))
+            try context.save()
+        }
+
+        let onDisk = PersistenceConfiguration(storeURL: url)
+        let migrated = try HouseholdContainerFactory().makeContainer(configuration: onDisk)
+        let context = ModelContext(migrated)
+        let byAmount = FetchDescriptor<TransactionRecord>(sortBy: [SortDescriptor(\.amountMinorUnits)])
+        let records = try context.fetch(byAmount)
+        #expect(records.map(\.id) == [refund, coffee, rent])
+        #expect(records.allSatisfy { $0.splitGroupID == nil }, "Nothing is split before the owner splits it")
+        #expect(records.first?.refundOfTransactionID == coffee, "Sprint 20 refund links survive")
+        #expect(records[1].merchantNameSnapshot == "Store" && records[1].notes == "coffee")
+        #expect(records[1].categoryID == categoryID && records[1].accountID == account)
+        #expect(records.last?.status == .pending && records.last?.source == .recurring)
+        #expect(records.last?.recurringSeriesID == billSeries && records.last?.scheduledOccurrence == now)
+        let bySeries = FetchDescriptor<RecurringTransaction>(sortBy: [SortDescriptor(\.templateAmountMinorUnits)])
+        let series = try context.fetch(bySeries)
+        #expect(series.map(\.id) == [purchaseSeries, billSeries])
+        #expect(series.map(\.kind) == [.purchase, .bill], "Sprint 22 kinds survive")
+        #expect(series.first?.merchantID == merchantID)
+        #expect(try context.fetchCount(FetchDescriptor<AppSettings>()) == 1)
+        #expect(try context.fetch(FetchDescriptor<CategoryRecord>()).map(\.id) == [categoryID])
+        #expect(try context.fetch(FetchDescriptor<Merchant>()).map(\.id) == [merchantID])
+        #expect(try context.fetch(FetchDescriptor<WishlistItem>()).map(\.id) == [bike])
+        #expect(try context.fetchCount(FetchDescriptor<BoardColumn>()) == 1)
+        #expect(try context.fetch(FetchDescriptor<Account>()).map(\.id) == [account])
+        #expect(try context.fetch(FetchDescriptor<CategoryBudget>()).first?.rollsOver == true)
+        #expect(try context.fetchCount(FetchDescriptor<SavingsGoal>()) == 1)
+        #expect(try context.fetch(FetchDescriptor<TaskItem>()).first?.linkedTransactionID == coffee)
+        #expect(try context.fetchCount(FetchDescriptor<SubtaskItem>()) == 1)
+
+        // A migrated record can join a split group, and opening the store again is a no-op.
+        let group = UUID()
+        records[1].splitGroupID = group
+        try context.save()
+        let reopened = ModelContext(try HouseholdContainerFactory().makeContainer(configuration: onDisk))
+        #expect(try reopened.fetch(byAmount).map(\.splitGroupID) == [nil, group, nil])
+        #expect(try reopened.fetchCount(FetchDescriptor<RecurringTransaction>()) == 2)
+    }
+
     /// Phase 10 migration check: a store written to disk opens again through the factory and its migration plan
-    /// with every record intact. The V1 → V3 and V2 → V3 migrations have their own tests above.
+    /// with every record intact. The V1 → V4, V2 → V3 and V3 → V4 migrations have their own tests above.
     @Test func onDiskStoreReopensThroughTheMigrationPlan() async throws {
         let directory = FileManager.default.temporaryDirectory.appending(
             path: "store-\(UUID().uuidString)", directoryHint: .isDirectory)

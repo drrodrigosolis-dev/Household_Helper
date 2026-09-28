@@ -3,7 +3,8 @@ import SwiftData
 import SwiftUI
 
 /// Transaction detail and edit (spec §7.2). Saves through `TransactionService.update`; provenance is kept. An expense
-/// offers Refund… (Sprint 20); a refund edits its amount, date, status and note through `updateRefund`.
+/// offers Refund… (Sprint 20); a refund edits its amount, date, status and note through `updateRefund`. Sprint 23
+/// (F4): Duplicate records the same payment again today; Split… divides it into parts, and a part offers Unsplit.
 struct TransactionEditorView: View {
     let record: TransactionRecord
 
@@ -20,6 +21,12 @@ struct TransactionEditorView: View {
     /// The wishlist item this purchase bought, if any: once fully refunded, the owner decides keep or remove.
     @Query private var boughtItems: [WishlistItem]
     @State private var isRefunding = false
+    /// Every part of this record's split, itself included; empty when it is not split (Sprint 23).
+    @Query private var splitParts: [TransactionRecord]
+    @State private var isSplitting = false
+    /// Set by the split sheet once it saved: the editor then closes, as this record is now part one.
+    @State private var didSplit = false
+    @State private var isConfirmingUnsplit = false
 
     @State private var type: TransactionType
     @State private var amountText: String
@@ -52,6 +59,12 @@ struct TransactionEditorView: View {
         } else {
             _refundedPurchase = Query(filter: #Predicate<TransactionRecord> { _ in false })
         }
+        if let group = record.splitGroupID {
+            let target: UUID? = group
+            _splitParts = Query(filter: #Predicate<TransactionRecord> { $0.splitGroupID == target })
+        } else {
+            _splitParts = Query(filter: #Predicate<TransactionRecord> { _ in false })
+        }
     }
 
     private var isRefund: Bool { record.type == .refund }
@@ -76,6 +89,18 @@ struct TransactionEditorView: View {
 
     private var isPurchase: Bool { record.source == .wishlistPurchase || record.wishlistItemID != nil }
 
+    private var isSplitPart: Bool { record.splitGroupID != nil }
+
+    /// Split… is offered on a live expense or income entered by hand or imported, not yet split and without refunds;
+    /// the service refuses the rest (Sprint 23).
+    private var canBeSplit: Bool {
+        (record.type == .expense || record.type == .income) && record.status != .cancelled && !isSplitPart
+            && !isPurchase && record.recurringSeriesID == nil && record.source != .recurring && refunds.isEmpty
+    }
+
+    /// Duplicate repeats anything but a refund (made from its purchase) or a cancelled record.
+    private var canBeDuplicated: Bool { !isRefund && record.status != .cancelled }
+
     /// Cancelling a purchase, or one with refunds, is refused by the service; deleting a wishlist purchase reverts
     /// its item instead.
     private var selectableStatuses: [TransactionStatus] {
@@ -89,6 +114,9 @@ struct TransactionEditorView: View {
                 // neither offers a type change; nor does an expense that has refunds.
                 if isRefund {
                     LabeledContent("Type", value: String(localized: "Refund"))
+                } else if isSplitPart {
+                    // The parts of a split share their type (Sprint 23); unsplit to change it.
+                    LabeledContent("Type") { Text(LedgerFormat.typeLabel(record.type)) }
                 } else if isPurchase {
                     LabeledContent("Type", value: String(localized: "Wishlist purchase"))
                 } else if !refunds.isEmpty {
@@ -127,6 +155,9 @@ struct TransactionEditorView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            if !isRefund {
+                splitSection
+            }
             if !linkedTasks.isEmpty {
                 Section("Linked tasks") {
                     ForEach(linkedTasks) { task in
@@ -153,6 +184,49 @@ struct TransactionEditorView: View {
         .sheet(isPresented: $isRefunding) {
             if let refundSummary {
                 NavigationStack { RefundView(purchase: record, summary: refundSummary) }
+            }
+        }
+        .sheet(isPresented: $isSplitting, onDismiss: closeAfterSplit) {
+            NavigationStack {
+                SplitTransactionView(record: record) { didSplit = true }
+            }
+        }
+        .confirmationDialog(
+            "Merge the parts back into one transaction?", isPresented: $isConfirmingUnsplit,
+            titleVisibility: .visible
+        ) {
+            Button("Unsplit") { Task { await unsplit() } }
+                .accessibilityIdentifier("editor.unsplit.confirm")
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The first part takes the total and keeps its category and note; the other parts are removed.")
+        }
+    }
+
+    /// Duplicate, Split… and, on a part of a split, what it belongs to and Unsplit (Sprint 23).
+    @ViewBuilder
+    private var splitSection: some View {
+        Section {
+            if isSplitPart {
+                Label("Part of a split (\(max(splitParts.count, 1)) parts)", systemImage: "square.split.2x1")
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("editor.splitInfo")
+                Button("Unsplit", systemImage: "arrow.triangle.merge") { isConfirmingUnsplit = true }
+                    .disabled(hasChanges || isSaving)
+                    .accessibilityIdentifier("editor.unsplit")
+            } else if canBeSplit {
+                Button("Split…", systemImage: "square.split.2x1") { isSplitting = true }
+                    .disabled(hasChanges || isSaving)
+                    .accessibilityIdentifier("editor.split")
+            }
+            if canBeDuplicated {
+                Button("Duplicate", systemImage: "plus.square.on.square") { Task { await duplicate() } }
+                    .disabled(hasChanges || isSaving)
+                    .accessibilityIdentifier("editor.duplicate")
+            }
+        } footer: {
+            if isSplitPart {
+                Text("The parts share their date, status, account and merchant: changing them here changes every part.")
             }
         }
     }
@@ -271,6 +345,47 @@ struct TransactionEditorView: View {
         } catch {
             errorMessage = String(localized: "The wishlist item couldn't be updated.")
         }
+    }
+
+    private func closeAfterSplit() {
+        if didSplit {
+            dismiss()
+        }
+    }
+
+    /// A new entry dated today; the editor closes and the list shows it at the top.
+    private func duplicate() async {
+        guard let services, !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            try await services.transactions.duplicateTransaction(
+                record.id, now: .now, calendar: HouseholdCalendar(timeZone: .current))
+            dismiss()
+        } catch LedgerError.archivedAccount {
+            errorMessage = String(localized: "Its account is archived. Choose another account to record it again.")
+        } catch {
+            errorMessage = String(localized: "The transaction couldn't be duplicated.")
+        }
+    }
+
+    /// Checked first so a refusal shows here; then the editor closes before the merge, as merging removes every part
+    /// but the first, and this one may be among them.
+    private func unsplit() async {
+        guard let services, !isSaving else { return }
+        do {
+            try await services.transactions.checkUnsplit(record.id)
+        } catch LedgerError.purchaseHasRefunds {
+            errorMessage = String(
+                localized: "A part has refunds, so the parts can't be merged. Delete its refunds first.")
+            return
+        } catch {
+            errorMessage = String(localized: "The parts couldn't be merged.")
+            return
+        }
+        let id = record.id
+        dismiss()
+        _ = try? await services.transactions.unsplitTransaction(id, now: .now)
     }
 
     private func loadRefundSummary() async {
