@@ -36,6 +36,12 @@ public struct CSVImportRow: Equatable, Sendable {
     public let description: String?
     /// nil = Uncategorized: the file's category matched no active category allowing this type (decision 5).
     public let categoryID: UUID?
+
+    /// The same row filed under `categoryID`: the category the user settled on in the preview (Sprint 23).
+    public func filed(under categoryID: UUID?) -> CSVImportRow {
+        CSVImportRow(
+            occurredAt: occurredAt, amount: amount, type: type, description: description, categoryID: categoryID)
+    }
 }
 
 public enum CSVSkipReason: Equatable, Sendable {
@@ -57,6 +63,9 @@ public struct CSVPreviewRow: Equatable, Sendable, Identifiable {
     public let outcome: Result<CSVImportRow, CSVSkipError>
     /// Same day, amount, type and description as a transaction already recorded: unticked by default.
     public let isLikelyDuplicate: Bool
+    /// For a row the file left uncategorized: the category its merchant was last filed under by hand (Sprint 23,
+    /// A-006), active and allowing the row's type. Only offered: the row itself keeps the file's category.
+    public let suggestedCategoryID: UUID?
 
     public var id: Int { line }
     public var row: CSVImportRow? { try? outcome.get() }
@@ -71,9 +80,12 @@ public enum CSVImportPlanner {
     /// - Parameters:
     ///   - records: the data records (header excluded), with their file lines.
     ///   - headerCount: how many fields the header has; rows with a different count are skipped.
+    ///   - suggestions: learned categories keyed by `Merchant.normalize(_:)` of a description
+    ///     (`TransactionService.importCategorySuggestions(for:)`), offered for rows the file left uncategorized.
     public static func preview(
         records: [CSVRecord], headerCount: Int, mapping: CSVMapping, currency: Currency,
-        categories: [CSVImportCategory], existing: [CSVExistingTransaction], calendar: HouseholdCalendar
+        categories: [CSVImportCategory], existing: [CSVExistingTransaction], suggestions: [String: UUID] = [:],
+        calendar: HouseholdCalendar
     ) -> [CSVPreviewRow] {
         let known = Set(existing.map { key($0.occurredAt, $0.amount.minorUnits, $0.type, $0.text, calendar) })
         return records.map { record in
@@ -86,17 +98,31 @@ public enum CSVImportPlanner {
             guard fields.count == headerCount else {
                 let reason = CSVSkipReason.columnCount(expected: headerCount, found: fields.count)
                 let skipped = CSVSkipError(reason: reason)
-                return CSVPreviewRow(line: line, outcome: .failure(skipped), isLikelyDuplicate: false)
+                return CSVPreviewRow(
+                    line: line, outcome: .failure(skipped), isLikelyDuplicate: false, suggestedCategoryID: nil)
             }
             switch read(fields, mapping: mapping, currency: currency, categories: categories, calendar: calendar) {
             case .success(let row):
                 let duplicate = known.contains(
                     key(row.occurredAt, row.amount.minorUnits, row.type, row.description, calendar))
-                return CSVPreviewRow(line: line, outcome: .success(row), isLikelyDuplicate: duplicate)
+                return CSVPreviewRow(
+                    line: line, outcome: .success(row), isLikelyDuplicate: duplicate,
+                    suggestedCategoryID: suggestion(for: row, in: suggestions, categories: categories))
             case .failure(let error):
-                return CSVPreviewRow(line: line, outcome: .failure(error), isLikelyDuplicate: false)
+                return CSVPreviewRow(
+                    line: line, outcome: .failure(error), isLikelyDuplicate: false, suggestedCategoryID: nil)
             }
         }
+    }
+
+    /// The learned category for a row without one from the file, if it is still offered (active) and allows the row.
+    private static func suggestion(
+        for row: CSVImportRow, in suggestions: [String: UUID], categories: [CSVImportCategory]
+    ) -> UUID? {
+        guard row.categoryID == nil, let description = row.description,
+            let id = suggestions[Merchant.normalize(description)]
+        else { return nil }
+        return categories.first { $0.id == id && $0.kind.allows(row.type) }?.id
     }
 
     static func read(
