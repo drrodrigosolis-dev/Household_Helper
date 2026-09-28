@@ -466,3 +466,74 @@ Step 3 (compare with the owner's mockup): I don't have the mockup (not in the re
 ~2.3 s: the board went **two columns**, to "Put away", and on release the card was dropped nowhere (it stayed in
 Waiting to play; Playing is empty). So the spring-load still repeats while resting at the edge (build includes ad395c5).
 Screenshot `l018-springload-once.png`.
+
+## Re L-020 — taken (bb5e396); no phone install
+
+## Re L-020 step 1 — lint clean, build OK; unit 387 pass / 1 FAIL (5f90b10)
+PersistenceTests (V2→V3 on disk, V1→V3), RecurringPurchaseTests and BackupTests all **pass**. One failure, a stale literal:
+```
+HouseholdHubTests / refundsRoundTripThroughABackup(): Expectation failed: exported.schemaVersion == 3 → 4
+```
+RefundTests.swift:354 expects backup format 3; `BackupDTO.currentSchemaVersion` is now 4 (Sprint 22). Use
+`BackupDTO.currentSchemaVersion` instead of the literal.
+
+## Re L-020 step 5 — frozen schema hashes
+`Schema.Entity` has no public `versionHash` (compile error), so I used Core Data's:
+`NSManagedObjectModel.makeManagedObjectModel(for: SchemaVn.models)!.entities` → `entity.versionHash.base64EncodedString()`.
+At **fd7e67e** (scratch worktree, test not committed, worktree removed):
+```
+V1 Account z8vYhvnjK/te4y7y6DljMmwO+2iy1UuwpSEpB6yfsqE=
+V1 AppSettings PclbrgFUgnyPFx/XBhB/qKu92jpbLQm1COGAXlhf8DA=
+V1 BoardColumn otW/nUsNm6JmixgMPaSfXzQKcN4TpRQPPUGsn7jnXCc=
+V1 CategoryBudget VAEI6gouN4/Rxh1sazObIrp0WmXZkaJGB1U2nLhNQ+A=
+V1 CategoryRecord cUsNCAgPc2gpLihb3KPSdaNKvFO7/B4U9Vl+JpBMpUw=
+V1 Merchant s6+cFd3vZXSEfg7LVPwvIgyni9MzWu0zbh7rFZUjNzU=
+V1 RecurringTransaction oijWj8kd4Qliu8X7ya4opWf6YHpcszEX9uqplqLYJdA=
+V1 SavingsGoal mUZ5lA3rraIbpy7Wa46GGYVKa+Y0V370fRnsYN0UATY=
+V1 SubtaskItem vZQ3n0NYJGO8BxsXX4uo3anzMtE0fKjDyV46vRtmHnU=
+V1 TaskItem zSCRBvZul4FQCWPnYOzgXEGlpyDbzbi73NGZo+Dhulo=
+V1 TransactionRecord 9eg/co5II3NEWXB1AlD8Tjiu7K1d4lP9xi5cCoyiE20=
+V1 WishlistItem bPgBJmmAIe2iJw9B3LFaHmdIJSBZZgJ+vxJH74SqYPo=
+V2 Account z8vYhvnjK/te4y7y6DljMmwO+2iy1UuwpSEpB6yfsqE=
+V2 AppSettings PclbrgFUgnyPFx/XBhB/qKu92jpbLQm1COGAXlhf8DA=
+V2 BoardColumn otW/nUsNm6JmixgMPaSfXzQKcN4TpRQPPUGsn7jnXCc=
+V2 CategoryBudget VAEI6gouN4/Rxh1sazObIrp0WmXZkaJGB1U2nLhNQ+A=
+V2 CategoryRecord cUsNCAgPc2gpLihb3KPSdaNKvFO7/B4U9Vl+JpBMpUw=
+V2 Merchant s6+cFd3vZXSEfg7LVPwvIgyni9MzWu0zbh7rFZUjNzU=
+V2 RecurringTransaction oijWj8kd4Qliu8X7ya4opWf6YHpcszEX9uqplqLYJdA=
+V2 SavingsGoal mUZ5lA3rraIbpy7Wa46GGYVKa+Y0V370fRnsYN0UATY=
+V2 SubtaskItem vZQ3n0NYJGO8BxsXX4uo3anzMtE0fKjDyV46vRtmHnU=
+V2 TaskItem zSCRBvZul4FQCWPnYOzgXEGlpyDbzbi73NGZo+Dhulo=
+V2 TransactionRecord 2g9ao8KCDDqQBAa3ERmZEHquayXhZfIjTQzbqhK+Nm0=
+V2 WishlistItem bPgBJmmAIe2iJw9B3LFaHmdIJSBZZgJ+vxJH74SqYPo=
+```
+Same dump on **today's head** (temporary test, deleted, not committed): V1 and V2 are **byte-identical** to the lists above,
+so nothing frozen has drifted. SchemaV3 differs only in `RecurringTransaction` → `Ah+kRpqWLOcB/TVzas/mI6QzL9RoRU2wsiRDA2BS7M4=`
+(TransactionRecord is V2's `2g9ao8K…`; the rest are V1's). Only TransactionRecord differs V1→V2, as intended.
+FrozenSchemaTests: yours to add (the snippet above is all it needs). UI tests (step 2) and the spring-load re-try (step 3) next.
+
+## Owner-directed install of 8a9ec36 (SchemaV3) on the owner's iPhone — overrides L-020 step 4
+The owner asked to install now and confirmed the app on the phone holds **nothing to keep**, so no backup was taken.
+Release build at 8a9ec36, installed over the fd7e67e (SchemaV2) install with devicectl; the app **launched** (so the
+V2→V3 lightweight migration opened the existing store). CI had not finished green. **SchemaV3 is now on the owner's
+device: treat it as frozen** (next stored change is SchemaV4), and add its hashes to FrozenSchemaTests (V3 list in my
+step 5 report).
+
+## Re L-020 steps 2–3 — UI 58/61; spring-load still skips a column (8a9ec36)
+```
+TasksUITests testColumnsAreTwoThirdsWideAndADropFocusesTheNextColumn(): ("-251.33") is not equal to ("28.0") +/- 8 — In Progress was not focused
+RecurringUITests.swift:102 testRecurringPurchaseNamesItsStore(): XCTAssertTrue failed - Posted purchase missing
+RefundUITests.swift:70 testRefundingAWishlistPurchaseAsksToKeepTheItem(): XCTAssertTrue failed - Kept items stay on the wishlist
+```
+- **Spring-load, by hand (step 3), build includes 673c31e:** drag "Call plumber" from To Do, rest on the right-edge peek
+  ~2 s, release → the board is on **Done** (two columns over), 0 cards there; the card was not dropped. So resting still
+  re-fires. My guess: after the first slide the finger is no longer "over the peek" but is still inside the drop strip /
+  over the newly focused column's trailing edge, so it re-arms and fires again. Test it with a finger held still at the
+  edge for 3 s. Screenshot `docs/walk/sprint-22/local/l020-springload-rest-2s.png`.
+- RecurringUITests:102: after Post and tapping Transactions, no `transaction.row` containing "Groceries" appears in 10 s.
+  Possibly the posted purchase row is labelled with the store ("Corner Market") rather than the category, or Post opens
+  a confirmation for purchases so the Transactions tap never lands. Needs the failure screenshot; I can repro by hand if
+  you want.
+- RefundUITests:70: after "Keep on wishlist", the item's row isn't on the Wishlist tab within 10 s. Either the item keeps
+  a status the default "Active" filter hides, or the row query doesn't match. Could be a real bug (kept item hidden).
+Unit: still 1 stale literal (RefundTests.swift:354, backup version 3 → 4).
