@@ -5,9 +5,20 @@ import UserNotifications
 /// kind behind its own switch (off until turned on), on this device only: the switches are device preferences, not
 /// backed-up data. No push server; nothing leaves the device. Rebuilt from the store whenever the app goes to the
 /// background or a switch changes, so edits are picked up without tracking each one.
+///
+/// Sprint 23 F7: budget alerts when a category reaches 80 % and 100 % of its budget, once each per category per
+/// month. On by default, but they only arrive once notifications are allowed (turning any switch on asks). Which ones
+/// were sent is remembered on this device, like the switches.
 enum ReminderSync {
     static let tasksKey = "reminders.tasksDue"
     static let billsKey = "reminders.billsDue"
+    static let budgetAlertsKey = "reminders.budgetAlerts"
+    /// The "already sent" keys of this month's budget alerts (`BudgetAlertPlanner.key`).
+    static let budgetAlertsSentKey = "reminders.budgetAlertsSent"
+    /// Budget alerts default to on (Sprint 23 F7); `bool(forKey:)` would read a missing value as off.
+    static var budgetAlertsOn: Bool {
+        UserDefaults.standard.object(forKey: budgetAlertsKey) as? Bool ?? true
+    }
     /// How far ahead bills are looked at; the plan keeps the 60 soonest reminders anyway.
     private static let billDays = 62
 
@@ -37,12 +48,17 @@ enum ReminderSync {
         let center = UNUserNotificationCenter.current()
         let pending = await center.pendingNotificationRequests().map(\.identifier).filter(isOurs)
         center.removePendingNotificationRequests(withIdentifiers: pending)
-        guard settings.tasksDue || settings.billsDue else { return }
+        let budgetAlerts = budgetAlertsOn
+        guard settings.tasksDue || settings.billsDue || budgetAlerts else { return }
         let status = await center.notificationSettings().authorizationStatus
         guard status == .authorized || status == .provisional || status == .ephemeral else { return }
 
         let now = Date.now
         let calendar = HouseholdCalendar(timeZone: .current)
+        if budgetAlerts {
+            await sendBudgetAlerts(services, now: now, calendar: calendar)
+        }
+        guard settings.tasksDue || settings.billsDue else { return }
         let tasks = (try? await services.board.reminderSources()) ?? []
         let upcoming = try? await services.transactions.upcomingOccurrences(
             now: now, calendar: calendar, days: billDays)
@@ -58,6 +74,41 @@ enum ReminderSync {
             let parts = calendar.calendar.dateComponents(fields, from: reminder.fireDate)
             let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
             try? await center.add(UNNotificationRequest(identifier: reminder.id, content: content, trigger: trigger))
+        }
+    }
+
+    /// Budget alerts due now (Sprint 23 F7), delivered a few seconds later so they show once the app is in the
+    /// background. `refresh` never removes them: each is sent once, and its key is remembered as soon as it is
+    /// planned, so an alert never arrives twice.
+    @MainActor
+    private static func sendBudgetAlerts(_ services: AppServices, now: Date, calendar: HouseholdCalendar) async {
+        let report = try? await services.transactions.budgetAlertSources(month: now, calendar: calendar)
+        guard let sources = report, !sources.isEmpty else { return }
+        let defaults = UserDefaults.standard
+        let sent = Set(defaults.stringArray(forKey: budgetAlertsSentKey) ?? [])
+        let month = BudgetMonth(containing: now, calendar: calendar)
+        let plan = BudgetAlertPlanner().plan(sources, month: month, alreadySent: sent)
+        defaults.set(plan.sentKeys, forKey: budgetAlertsSentKey)
+        let center = UNUserNotificationCenter.current()
+        for alert in plan.alerts {
+            let content = UNMutableNotificationContent()
+            content.title = String(localized: "Budget alert")
+            content.body = budgetAlertBody(alert)
+            content.sound = .default
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+            try? await center.add(UNNotificationRequest(identifier: alert.id, content: content, trigger: trigger))
+        }
+    }
+
+    /// The category's name and the threshold, never an amount.
+    static func budgetAlertBody(_ alert: PlannedBudgetAlert) -> String {
+        let name = alert.categoryName
+        switch alert.threshold {
+        case .eighty:
+            let share = alert.threshold.rawValue.formatted(.percent)
+            return String(localized: "\(name) is at \(share) of its budget this month.")
+        case .hundred:
+            return String(localized: "\(name) has reached its budget this month.")
         }
     }
 
