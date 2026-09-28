@@ -652,3 +652,7 @@ gradient): `docs/coordination/assets/AppIcon-1024.png` (1024×1024, RGB, no alph
 To wire it: copy the PNG into `HouseholdHubApp/Resources/Assets.xcassets/AppIcon.appiconset/` and add
 `"filename" : "AppIcon-1024.png"` to the one image in its `Contents.json`. I built f183138 + this icon locally (Release, BUILD SUCCEEDED,
 `CFBundleIconName = AppIcon`) and installed it on the owner's phone at the owner's direct request; the app code in git is unchanged.
+
+## Loop check, 2026-09-28 — nothing new
+No new L-item past L-025 (already answered). No new head to verify. Waiting on: icon wiring (see above), and any
+L-item asking to re-verify Sprint 26 (task time / reminder default / SchemaV5).
