@@ -112,6 +112,84 @@ struct RecurringDetectorTests {
         #expect(suggestion.nextDate == calendar.startOfDay(for: Self.date(next[0], next[1])))
     }
 
+    // MARK: Other charges at the same merchant
+
+    struct NoiseCase: Sendable, CustomTestStringConvertible {
+        let label: String
+        let regularDays: [[Int]]
+        let regularAmount: Int64
+        let noiseDays: [[Int]]
+        let noiseAmounts: [Int64]
+        let expectedCadence: RecurringCadence?
+        let expectedCount: Int?
+        let expectedNext: [Int]?
+        var testDescription: String { label }
+    }
+
+    static let noiseCases = [
+        NoiseCase(
+            label: "a monthly subscription among one-off purchases, the latest charge a one-off",
+            regularDays: [[6, 15], [7, 15], [8, 15], [9, 15]], regularAmount: 1_799,
+            noiseDays: [[6, 20], [7, 2], [8, 1], [8, 28], [9, 20], [9, 27]],
+            noiseAmounts: [4_250, 899, 12_000, 2_599, 650, 3_100], expectedCadence: .monthly, expectedCount: 4,
+            expectedNext: [10, 15]),
+        NoiseCase(
+            label: "a one-off on the same day as a monthly charge",
+            regularDays: [[7, 15], [8, 15], [9, 15]], regularAmount: 1_799, noiseDays: [[8, 15], [9, 15]],
+            noiseAmounts: [5_000, 999], expectedCadence: .monthly, expectedCount: 3, expectedNext: [10, 15]),
+        NoiseCase(
+            label: "one-offs just outside ±10 % don't break the run",
+            regularDays: [[6, 15], [7, 15], [8, 15], [9, 15]], regularAmount: 1_799,
+            noiseDays: [[7, 1], [8, 30]], noiseAmounts: [1_619, 1_979], expectedCadence: .monthly,
+            expectedCount: 4, expectedNext: [10, 15]),
+        NoiseCase(
+            label: "a weekly charge among bigger shops",
+            regularDays: [[9, 5], [9, 12], [9, 19], [9, 26]], regularAmount: 1_000,
+            noiseDays: [[9, 8], [9, 22], [9, 27]], noiseAmounts: [5_000, 7_500, 6_200], expectedCadence: .weekly,
+            expectedCount: 4, expectedNext: [10, 3]),
+        NoiseCase(
+            label: "monthly dates but every amount different is nothing",
+            regularDays: [], regularAmount: 0, noiseDays: [[6, 15], [7, 15], [8, 15], [9, 15]],
+            noiseAmounts: [1_000, 2_000, 3_000, 4_000], expectedCadence: nil, expectedCount: nil,
+            expectedNext: nil),
+        NoiseCase(
+            label: "only two same-amount charges among the others is nothing",
+            regularDays: [[8, 15], [9, 15]], regularAmount: 1_799, noiseDays: [[7, 15], [9, 1]],
+            noiseAmounts: [4_000, 2_500], expectedCadence: nil, expectedCount: nil, expectedNext: nil),
+        NoiseCase(
+            label: "a subscription that stopped is nothing, however recent the other charges",
+            regularDays: [[5, 1], [6, 1], [7, 1]], regularAmount: 1_799, noiseDays: [[9, 20], [9, 27]],
+            noiseAmounts: [4_000, 2_500], expectedCadence: nil, expectedCount: nil, expectedNext: nil),
+    ]
+
+    @Test(arguments: noiseCases)
+    func aRegularSameAmountRunIsFoundDespiteOtherChargesAtTheMerchant(_ entry: NoiseCase) throws {
+        let merchant = UUID()
+        let regular = Self.history(
+            entry.regularDays.map { ($0[0], $0[1]) },
+            amounts: Array(repeating: entry.regularAmount, count: entry.regularDays.count), merchant: "Streaming Co",
+            merchantID: merchant)
+        let noise = Self.history(
+            entry.noiseDays.map { ($0[0], $0[1]) }, amounts: entry.noiseAmounts, merchant: "Streaming Co",
+            merchantID: merchant)
+        let found = RecurringDetector().suggestions(from: noise + regular, existing: [], now: now, calendar: calendar)
+        guard let cadence = entry.expectedCadence else {
+            #expect(found.isEmpty)
+            return
+        }
+        let suggestion = try #require(found.first)
+        #expect(found.count == 1, "One suggestion per merchant")
+        #expect(suggestion.id == "expense|id:\(merchant.uuidString)", "Dismissals still key on the merchant")
+        #expect(suggestion.cadence == cadence)
+        #expect(suggestion.amount == Self.cad(entry.regularAmount), "The template is the regular amount")
+        #expect(suggestion.occurrenceCount == entry.expectedCount)
+        #expect(suggestion.merchantID == merchant)
+        let next = try #require(entry.expectedNext)
+        #expect(suggestion.nextDate == calendar.startOfDay(for: Self.date(next[0], next[1])))
+        let last = try #require(entry.regularDays.last)
+        #expect(suggestion.lastDate == Self.date(last[0], last[1]))
+    }
+
     // MARK: Exclusions
 
     @Test func anExistingSeriesForTheMerchantAndTypeHidesIt() {

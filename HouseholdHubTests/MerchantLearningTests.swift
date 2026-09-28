@@ -147,6 +147,97 @@ struct MerchantLearningTests {
         #expect(try await stack.ledger.suggestedCategory(forMerchantText: "luna", type: .expense) == groceries)
     }
 
+    // MARK: Quick Add names the merchant
+
+    struct QuickAddCase: Sendable, CustomTestStringConvertible {
+        let description: String
+        let expectedMerchant: String?
+        var testDescription: String { "'\(description)'" }
+    }
+
+    static let quickAddCases = [
+        QuickAddCase(description: "pizza place", expectedMerchant: "pizza place"),
+        QuickAddCase(description: "  Pizza Place  ", expectedMerchant: "Pizza Place"),
+        QuickAddCase(description: "Café Luna", expectedMerchant: "Café Luna"),
+        QuickAddCase(description: "", expectedMerchant: nil),
+        QuickAddCase(description: "   ", expectedMerchant: nil),
+    ]
+
+    @Test(arguments: quickAddCases)
+    func quickAddsDescriptionIsTheMerchantNotTheNotes(_ entry: QuickAddCase) {
+        let draft = TransactionDraft.quickAdd(
+            amount: money(1_200), type: .expense, occurredAt: day(2026, 9, 1), categoryID: nil,
+            description: entry.description, isAIClassified: false, accountID: nil)
+        #expect(draft.merchantName == entry.expectedMerchant)
+        #expect(draft.notes == nil, "Quick Add writes no notes")
+        #expect(draft.source == .manual)
+    }
+
+    /// "12 pizza place" through Quick Add, then a bank file naming "PIZZA PLACE": one merchant, the description stored
+    /// the same way, and the category Quick Add filed it under offered to the import and to the next Quick Add.
+    @Test func quickAddAndAnImportShareTheMerchantAndItsLearnedCategory() async throws {
+        let stack = try await makeStack()
+        let dining = try stack.category("Dining")
+        let quick = TransactionDraft.quickAdd(
+            amount: money(1_200), type: .expense, occurredAt: day(2026, 9, 1), categoryID: dining,
+            description: "pizza place", isAIClassified: false, accountID: nil)
+        let id = try await stack.ledger.create(quick, now: now)
+        let records = try ModelContext(stack.container).fetch(FetchDescriptor<TransactionRecord>())
+        let saved = try #require(records.first { $0.id == id })
+        #expect(saved.merchantNameSnapshot == "pizza place")
+        #expect(saved.notes == nil)
+        #expect(try stack.learned("Pizza Place") == dining, "Quick Add's own choice teaches the merchant (F1)")
+
+        #expect(try await stack.ledger.importCategorySuggestions(for: ["PIZZA PLACE"]) == ["pizza place": dining])
+        #expect(try await stack.ledger.suggestedCategory(forMerchantText: "Pizza  Place", type: .expense) == dining)
+
+        let row = CSVImportRow(
+            occurredAt: day(2026, 9, 2), amount: money(1_500), type: .expense, description: "PIZZA PLACE",
+            categoryID: nil)
+        try await stack.ledger.importTransactions([row], into: stack.main, now: now)
+        let merchants = try ModelContext(stack.container).fetch(FetchDescriptor<Merchant>())
+        #expect(merchants.count == 1, "The import finds the merchant Quick Add made")
+        let all = try ModelContext(stack.container).fetch(FetchDescriptor<TransactionRecord>())
+        #expect(Set(all.map(\.merchantID)) == [merchants.first?.id])
+    }
+
+    @Test func aModelPickInQuickAddTeachesNothing() async throws {
+        let stack = try await makeStack()
+        let dining = try stack.category("Dining")
+        let quick = TransactionDraft.quickAdd(
+            amount: money(1_200), type: .expense, occurredAt: day(2026, 9, 1), categoryID: dining,
+            description: "pizza place", isAIClassified: true, accountID: nil)
+        try await stack.ledger.create(quick, now: now)
+        #expect(try stack.learned("pizza place") == nil)
+        #expect(try await stack.ledger.importCategorySuggestions(for: ["pizza place"]).isEmpty)
+    }
+
+    /// Two merchants with one name (made before names were matched, or restored): Quick Add and an import both follow
+    /// the oldest one that learned a usable category, and new entries land on the oldest.
+    @Test func sameNamedMerchantsGiveQuickAddAndImportOneAnswer() async throws {
+        let stack = try await makeStack()
+        let dining = try stack.category("Dining")
+        let groceries = try stack.category("Groceries")
+        let context = ModelContext(stack.container)
+        let older = Merchant(displayName: "Luna", now: now.addingTimeInterval(-200))
+        older.defaultCategoryID = groceries
+        let newer = Merchant(displayName: "LUNA", now: now.addingTimeInterval(-100))
+        newer.defaultCategoryID = dining
+        context.insert(newer)
+        context.insert(older)
+        try context.save()
+        let olderID = older.id
+        #expect(try await stack.ledger.suggestedCategory(forMerchantText: "luna", type: .expense) == groceries)
+        #expect(try await stack.ledger.importCategorySuggestions(for: ["luna"]) == ["luna": groceries])
+        let quick = TransactionDraft.quickAdd(
+            amount: money(300), type: .expense, occurredAt: day(2026, 9, 1), categoryID: nil, description: "luna",
+            isAIClassified: false, accountID: nil)
+        let id = try await stack.ledger.create(quick, now: now)
+        let records = try ModelContext(stack.container).fetch(FetchDescriptor<TransactionRecord>())
+        let saved = try #require(records.first { $0.id == id })
+        #expect(saved.merchantID == olderID)
+    }
+
     // MARK: Suggestions for an import
 
     @Test(arguments: ["Café Luna", "  cafe LUNA ", "CAFÉ   luna"])

@@ -351,6 +351,27 @@ struct SplitTransactionTests {
         #expect(try SplitPart.remaining(of: cad(total), after: parts.map { cad($0) }) == cad(left))
     }
 
+    /// The split editor's part 1 until typed in: the whole total at first, then what the other parts leave, and
+    /// empty (nil) once they take all of it or more, so "Left to assign" still shows the overshoot.
+    @Test(arguments: [
+        (10_000 as Int64, [] as [Int64], 10_000 as Int64?),
+        (10_000, [4_000], 6_000),
+        (10_000, [2_500, 2_500], 5_000),
+        (10_000, [9_999], 1),
+        (10_000, [10_000], nil),
+        (10_000, [7_000, 4_000], nil),
+        (1, [], 1),
+    ])
+    func partOneBalancesTheOtherParts(total: Int64, others: [Int64], expected: Int64?) {
+        let balancing = SplitPart.balancingAmount(of: cad(total), after: others.map { cad($0) })
+        #expect(balancing == expected.map { cad($0) })
+    }
+
+    @Test func partOneBalancingRefusesAnotherCurrency() {
+        let usd = Money(minorUnits: 4_000, currencyCode: "USD")
+        #expect(SplitPart.balancingAmount(of: cad(10_000), after: [usd]) == nil)
+    }
+
     // MARK: Editing parts
 
     @Test func editingOnePartsDateStatusOrAccountMovesEveryPart() async throws {

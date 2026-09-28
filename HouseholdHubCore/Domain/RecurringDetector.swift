@@ -122,10 +122,12 @@ public struct RecurringSuggestion: Hashable, Sendable, Identifiable {
 /// Finds recurring spending and income in posted history (Sprint 23 F2). Pure and deterministic: no clock, no store.
 ///
 /// Posted expenses and income that no series posted are grouped by merchant (its id, else its normalized name or the
-/// notes) and type. A group is suggested when its most recent transactions, walking back from the latest, repeat
-/// weekly (6–8 days apart), every two weeks (13–15) or monthly (27–33 days, on the same day of the month ±3) at
-/// least three times in a row, each amount within ±10 % of the latest; the latest is at most 1.5 periods before
-/// today; and no series (of the same type) already names that merchant.
+/// notes) and type. Within a group, charges are compared by amount: taking each charge as the template (the latest
+/// first), only the charges within ±10 % of it count, so other purchases at the same merchant are left aside. A group
+/// is suggested when such same-amount charges, walking back from the template, repeat weekly (6–8 days apart), every
+/// two weeks (13–15) or monthly (27–33 days, on the same day of the month ±3) at least three times in a row; the
+/// template is at most 1.5 periods before today; and no series (of the same type) already names that merchant. One
+/// suggestion per group at most: the run whose template is the most recent.
 public struct RecurringDetector: Sendable {
     public static let minimumOccurrences = 3
     /// Largest distance between two days of the month that still counts as "the same day".
@@ -145,7 +147,7 @@ public struct RecurringDetector: Sendable {
         for (id, items) in groups {
             let ordered = items.sorted { ($0.occurredAt, $0.id.uuidString) < ($1.occurredAt, $1.id.uuidString) }
             guard let latest = ordered.last, !Self.isCovered(latest, by: existing) else { continue }
-            if let suggestion = detect(id: id, ordered: ordered, now: now, calendar: calendar) {
+            if let suggestion = detect(id: id, merchantHistory: ordered, now: now, calendar: calendar) {
                 found.append(suggestion)
             }
         }
@@ -186,6 +188,25 @@ public struct RecurringDetector: Sendable {
     }
 
     // MARK: Detection
+
+    /// The most recent run in one merchant's history, looking at one amount at a time: each charge, latest first, is
+    /// tried as the template with only the charges within ±10 % of it up to that date, so one-off charges of other
+    /// amounts at the same merchant (a subscription's store selling other things) neither break the run nor hide it.
+    /// Stops once a template is too old for any cadence to still be going.
+    private func detect(
+        id: String, merchantHistory ordered: [RecurringHistoryItem], now: Date, calendar: HouseholdCalendar
+    ) -> RecurringSuggestion? {
+        let horizon = RecurringCadence.allCases.map { $0.periodDays * 3 / 2 }.max() ?? 0
+        for end in ordered.indices.reversed() {
+            let template = ordered[end]
+            guard calendar.dayDifference(from: template.occurredAt, to: now) <= horizon else { break }
+            let sameAmount = ordered[...end].filter { Self.isClose($0.amount, to: template.amount) }
+            if let found = detect(id: id, ordered: sameAmount, now: now, calendar: calendar) {
+                return found
+            }
+        }
+        return nil
+    }
 
     private func detect(
         id: String, ordered: [RecurringHistoryItem], now: Date, calendar: HouseholdCalendar

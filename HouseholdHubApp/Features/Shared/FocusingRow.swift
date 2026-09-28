@@ -2,7 +2,7 @@ import SwiftUI
 
 /// A labelled text-field row whose whole area focuses the field. At accessibility text sizes `LabeledContent` stacks
 /// the label above the field, and a tap on the label otherwise does nothing (local walks L-004 and L-005; CI run
-/// 36255971156). Its field gets a Done button above the keyboard while focused.
+/// 36255971156). While focused, its field gets a Done button in the row itself.
 struct FocusingRow<Field: View>: View {
     private let label: LocalizedStringKey
     private let field: Field
@@ -15,20 +15,22 @@ struct FocusingRow<Field: View>: View {
 
     var body: some View {
         LabeledContent(label) {
-            field.focused($isFocused)
-        }
-        .contentShape(Rectangle())
-        .onTapGesture { isFocused = true }
-        // A number pad has no Return key: Done above the keyboard puts it away (audit A-004). Only the focused row
-        // adds it, so there is one Done however many rows a form has.
-        .toolbar {
-            if isFocused {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { isFocused = false }
+            HStack(spacing: 8) {
+                field.focused($isFocused)
+                // A number pad has no Return key: Done puts it away (audit A-004). It sits in the focused row rather
+                // than above the keyboard, where iOS 26 floats it over the row just above and swallowed taps meant
+                // for that field (Split's part 2 amount). Only the focused row shows it, so a form has one Done.
+                if isFocused {
+                    Button("Done", systemImage: "keyboard.chevron.compact.down") { isFocused = false }
+                        .labelStyle(.iconOnly)
+                        // Borderless: only the button's own area acts, so a tap elsewhere in the row still focuses.
+                        .buttonStyle(.borderless)
+                        .accessibilityHint("Hides the keyboard")
                         .accessibilityIdentifier("keyboard.done")
                 }
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture { isFocused = true }
     }
 }

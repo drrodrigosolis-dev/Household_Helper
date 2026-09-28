@@ -5,8 +5,46 @@ import SwiftUI
 /// Transaction detail and edit (spec §7.2). Saves through `TransactionService.update`; provenance is kept. An expense
 /// offers Refund… (Sprint 20); a refund edits its amount, date, status and note through `updateRefund`. Sprint 23
 /// (F4): Duplicate records the same payment again today; Split… divides it into parts, and a part offers Unsplit.
+///
+/// After Duplicate the screen shows the new copy in place of the original, saying so, so it can be adjusted (a
+/// different amount, say) before going back to the list; back never returns to the original.
 struct TransactionEditorView: View {
+    @Environment(\.modelContext) private var modelContext
+    @State private var record: TransactionRecord
+    @State private var isCopy = false
+
+    init(record: TransactionRecord) {
+        _record = State(initialValue: record)
+    }
+
+    var body: some View {
+        // A new identity for the copy: its fields start from its own record.
+        TransactionEditorContent(record: record, isNewCopy: isCopy) { openCopy($0) }
+            .id(record.id)
+    }
+
+    /// Shows the copy `id` names; false when it can't be read, and the editor then closes as before.
+    private func openCopy(_ id: UUID) -> Bool {
+        let descriptor = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.id == id })
+        guard let copy = try? modelContext.fetch(descriptor).first else { return false }
+        record = copy
+        isCopy = true
+        AccessibilityNotification.Announcement(TransactionEditorContent.copyNotice).post()
+        return true
+    }
+}
+
+/// The editor's form for one record; `TransactionEditorView` swaps in a new one for a copy.
+private struct TransactionEditorContent: View {
     let record: TransactionRecord
+    /// This record was just made by Duplicate: the editor says so above its fields.
+    let isNewCopy: Bool
+    /// Shows the copy Duplicate made; false when it couldn't, and the editor closes instead.
+    let onDuplicated: (UUID) -> Bool
+
+    static var copyNotice: String {
+        String(localized: "Duplicated. This is the new copy, dated today: change anything, then Save.")
+    }
 
     @Environment(\.services) private var services
     @Environment(\.dismiss) private var dismiss
@@ -42,8 +80,10 @@ struct TransactionEditorView: View {
     @State private var isSaving = false
     @State private var accountID: UUID?
 
-    init(record: TransactionRecord) {
+    init(record: TransactionRecord, isNewCopy: Bool, onDuplicated: @escaping (UUID) -> Bool) {
         self.record = record
+        self.isNewCopy = isNewCopy
+        self.onDuplicated = onDuplicated
         _type = State(initialValue: record.type)
         _amountText = State(initialValue: LedgerFormat.editableAmount(record.amount))
         _occurredAt = State(initialValue: record.occurredAt)
@@ -112,6 +152,13 @@ struct TransactionEditorView: View {
 
     var body: some View {
         Form {
+            if isNewCopy {
+                Section {
+                    Label(Self.copyNotice, systemImage: "plus.square.on.square")
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("editor.duplicated")
+                }
+            }
             Section {
                 // A wishlist purchase stays one expense (spec §8.1), and a refund stays a refund of its purchase, so
                 // neither offers a type change; nor does an expense that has refunds.
@@ -356,15 +403,17 @@ struct TransactionEditorView: View {
         }
     }
 
-    /// A new entry dated today; the editor closes and the list shows it at the top.
+    /// A new entry dated today, shown here so it can be adjusted; the list has it at the top.
     private func duplicate() async {
         guard let services, !isSaving else { return }
         isSaving = true
         defer { isSaving = false }
         do {
-            try await services.transactions.duplicateTransaction(
+            let copy = try await services.transactions.duplicateTransaction(
                 record.id, now: .now, calendar: HouseholdCalendar(timeZone: .current))
-            dismiss()
+            if !onDuplicated(copy) {
+                dismiss()
+            }
         } catch LedgerError.archivedAccount {
             errorMessage = String(localized: "Its account is archived. Choose another account to record it again.")
         } catch {

@@ -154,4 +154,18 @@ public struct TransactionDraft: Equatable, Sendable {
         }
         guard type != .refund else { throw LedgerError.refundNeedsPurchase }
     }
+
+    /// Quick Add's expense or income (Sprint 23): the line's description ("12 pizza place" → "pizza place") names the
+    /// merchant, as an imported row's description does, so both find or make the same merchant and read or teach the
+    /// same learned category. Nothing goes to the notes; a blank description means no merchant.
+    public static func quickAdd(
+        amount: Money, type: TransactionType, occurredAt: Date, categoryID: UUID?, description: String,
+        isAIClassified: Bool, accountID: UUID?
+    ) -> TransactionDraft {
+        let name = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        return TransactionDraft(
+            amount: amount, type: type, occurredAt: occurredAt, categoryID: categoryID,
+            merchantName: Merchant.normalize(name).isEmpty ? nil : name, isAIClassified: isAIClassified,
+            accountID: accountID)
+    }
 }

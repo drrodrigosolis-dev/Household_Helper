@@ -77,11 +77,17 @@ struct AnalyticsView: View {
     private func content(_ report: AnalyticsReport, changes: [CategoryChange]) -> some View {
         Section {
             LabeledContent("Income") { AmountText(report.income.formatted()) }
-            LabeledContent("Expenses") { AmountText(report.expense.formatted()) }
-            // Sprint 20: money given back lowers spending; shown so the Expenses figure adds up.
+            // Sprint 20: money given back lowers spending. Expenses is already after refunds, so with refunds the
+            // label says so and Refunds reads as what was taken off, not as a second amount to subtract.
             if report.refunds.minorUnits > 0 {
-                LabeledContent("Refunds") { AmountText(report.refunds.formatted()) }
+                LabeledContent("Expenses (net of refunds)") { AmountText(report.expense.formatted()) }
+                    .accessibilityIdentifier("analytics.expenses")
+                LabeledContent("Refunds (already subtracted)") { AmountText(report.refunds.formatted()) }
+                    .foregroundStyle(.secondary)
                     .accessibilityIdentifier("analytics.refunds")
+            } else {
+                LabeledContent("Expenses") { AmountText(report.expense.formatted()) }
+                    .accessibilityIdentifier("analytics.expenses")
             }
             LabeledContent("Net") { AmountText(report.net.formatted()) }
                 .accessibilityIdentifier("analytics.net")
