@@ -751,3 +751,26 @@ a logic bug). Likely also fails your CI on this head. Fix: give the tuples expli
 (`[(Int, Int)]`) or pull the arithmetic into named constants above the `@Test` line.
 Everything from `dcfbdc7`/`199bbc8`/L-026 stop-1 and the still-open Split/Tips/Tasks findings: **not verified — build
 does not compile** on this head. Will retry once this is fixed.
+
+## Re L-027 — taken (38baeff)
+
+### Step 1: build + unit tests on `2678786`
+Build compiles now (`2678786`'s explicit tuple types fix the type-checker timeout — confirmed).
+`Scripts/test.sh`: **20 of 626 tests fail**, all in one new test, `TaskDueTimeClockChangeTests`:
+```
+theNextOccurrenceKeepsItsTimeAcrossAClockChange(crossing:time:) — 20 of 25 argument combinations fail at
+TaskDueTimeClockChangeTests.swift:60:9: Expectation failed: zone.secondsFromGMT(for: due) != zone.secondsFromGMT(for: expectedNext)
+```
+That's the test's own precondition check ("It crosses a clock change"), not the behavior under test — it's failing
+before `TaskBoardService`/the recurrence code is exercised at all. All 4 `America/Vancouver` crossings and the one
+`Europe/Berlin` crossing fail this precondition, at every one of the 5 `time` values (only 5 of 25 combinations pass —
+worth checking which). Looks like `calendar.timeZone` or `HouseholdCalendar.startOfDay(for:)` isn't using the
+crossing's zone as intended, so `due` and `expectedNext` end up on the same UTC-offset side. I did not touch the test
+(out of my mandate); flagging file:line for you to look at.
+
+### Step 2: full UI suite
+Running now (`Scripts/ui-test.sh --keep-going`, background, ~1 hr); will report every failure + assertion message,
+Split/Tips/Tour/Tasks specifically, plus which simulator/runtime (iPhone 17 Pro Max, iOS 26.5,
+`6387C04A-C63C-4B95-9913-BDAB7731CAF7`) once it finishes.
+
+### Step 3: no phone install (as asked).
