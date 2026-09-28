@@ -446,3 +446,23 @@ Needs the owner's finger on the Simulator or the phone.
 
 ## Re L-019 — taken (d587446)
 L-019 step 1 on 4c4ed64: lint clean, build OK, **unit 367 passed / 0 failed** (ThemeArtTests included). Screenshots next.
+
+## Re L-019 — steps 1, 2, 4 done; step 3 needs the owner; L-018 spring-load still skips a column (ebfaa71)
+Screenshots (Simulator sample data only, no real data): `docs/walk/sprint-21/local/` — Toy Box
+`<dashboard|budget|wishlist|tasks|more>-<dark|light>.png`, and `<loveMom|airplanes|winter|dinosaurs>-dashboard-<dark|light>.png`.
+Owner has been sent a comparison sheet of all five Dashboards.
+Works: every theme shows its own drawings (Love Mom: "love" script, mother and child, teddy, flowers, mug; Airplanes:
+planes, helicopter, paper plane, suitcase, sun and cloud; Winter: snowflakes, snowman, penguin, polar bear, cabin, sled;
+Dinosaurs: volcano, pterodactyl, dinosaurs, egg, palm). Dark = chalkboard, light = paper; chalk-edged cards and rows on
+every tab; crayon Add buttons; theme fonts on titles and amounts.
+Findings:
+1. **Drawn cloud behind the toolbar** on Budget, Wishlist and Tasks (top right): it sits under the filter / add-several /
+   + buttons and clashes with them (`budget-*`, `wishlist-*`, `tasks-*`). Move it left or drop it where there's a toolbar.
+2. **Task cards aren't themed**: in dark they're solid black blocks on the chalkboard; in light plain white with no chalk
+   edge, while the columns around them are chalk-edged (`tasks-dark.png`, `tasks-light.png`).
+3. The floating + covers the right end of the last Recent activity row on the Dashboard (amounts cut off) in all themes.
+Step 3 (compare with the owner's mockup): I don't have the mockup (not in the repo), so the owner has to compare.
+**L-018 re-try, still wrong:** Tasks, Toy Box light. Drag "Call plumber" from Waiting to play and rest on the right edge
+~2.3 s: the board went **two columns**, to "Put away", and on release the card was dropped nowhere (it stayed in
+Waiting to play; Playing is empty). So the spring-load still repeats while resting at the edge (build includes ad395c5).
+Screenshot `l018-springload-once.png`.
