@@ -571,6 +571,16 @@
         }
       }
     },
+    "A task with a time reminds at that time. Other tasks and bills remind at %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una tarea con hora te avisa a esa hora. Las demás tareas y los pagos te avisan a las %@."
+          }
+        }
+      }
+    },
     "A transfer needs two different accounts.": {
       "localizations": {
         "es": {
@@ -2437,6 +2447,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fecha de vencimiento"
+          }
+        }
+      }
+    },
+    "Due time": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hora de vencimiento"
           }
         }
       }
@@ -5661,6 +5681,16 @@
         }
       }
     },
+    "Reminder default time": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hora predeterminada de recordatorios"
+          }
+        }
+      }
+    },
     "Reminders": {
       "localizations": {
         "es": {
@@ -5677,6 +5707,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Los recordatorios llegan a las 9:00 en este dispositivo. Muestran solo nombres, nunca montos."
+          }
+        }
+      }
+    },
+    "Reminders arrive on this device. They show names only, never amounts.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los recordatorios llegan a este dispositivo. Muestran solo nombres, nunca montos."
           }
         }
       }
@@ -7707,6 +7747,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Este año"
+          }
+        }
+      }
+    },
+    "Time": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hora"
           }
         }
       }
