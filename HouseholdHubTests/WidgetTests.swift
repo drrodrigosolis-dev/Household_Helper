@@ -143,17 +143,17 @@ struct ShortcutEntryTests {
         let minorUnits: Int64
         let income: Bool
         let daysBack: Int
-        let notes: String?
+        let merchant: String?
         var testDescription: String { text }
     }
 
     static let cases = [
-        Case(text: "47.50 coffee", minorUnits: 4_750, income: false, daysBack: 0, notes: "coffee"),
-        Case(text: "+ 1200 paycheck", minorUnits: 120_000, income: true, daysBack: 0, notes: "paycheck"),
-        Case(text: "18 lunch yesterday", minorUnits: 1_800, income: false, daysBack: 1, notes: "lunch"),
+        Case(text: "47.50 coffee", minorUnits: 4_750, income: false, daysBack: 0, merchant: "coffee"),
+        Case(text: "+ 1200 paycheck", minorUnits: 120_000, income: true, daysBack: 0, merchant: "paycheck"),
+        Case(text: "18 lunch yesterday", minorUnits: 1_800, income: false, daysBack: 1, merchant: "lunch"),
         // A tag is dropped, not matched: the intent has no category list.
-        Case(text: "32.10 groceries #food", minorUnits: 3_210, income: false, daysBack: 0, notes: "groceries"),
-        Case(text: "12", minorUnits: 1_200, income: false, daysBack: 0, notes: nil),
+        Case(text: "32.10 groceries #food", minorUnits: 3_210, income: false, daysBack: 0, merchant: "groceries"),
+        Case(text: "12", minorUnits: 1_200, income: false, daysBack: 0, merchant: nil),
     ]
 
     @Test(arguments: cases)
@@ -163,7 +163,8 @@ struct ShortcutEntryTests {
         #expect(draft.type == (entry.income ? .income : .expense))
         #expect(draft.source == .shortcut)
         #expect(draft.categoryID == nil)
-        #expect(draft.notes == entry.notes)
+        #expect(draft.merchantName == entry.merchant)
+        #expect(draft.notes == nil)
         #expect(draft.occurredAt == calendar.calendar.date(byAdding: .day, value: -entry.daysBack, to: now))
     }
 

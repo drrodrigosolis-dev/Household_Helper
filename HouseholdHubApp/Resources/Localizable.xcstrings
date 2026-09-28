@@ -2281,6 +2281,16 @@
         }
       }
     },
+    "Duplicated. This is the new copy, dated today: change anything, then Save.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplicado. Esta es la copia nueva, con fecha de hoy: cambia lo que quieras y luego pulsa Guardar."
+          }
+        }
+      }
+    },
     "Each month starts again at the limit.": {
       "localizations": {
         "es": {
@@ -2591,6 +2601,16 @@
         }
       }
     },
+    "Expenses (net of refunds)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gastos (descontados los reembolsos)"
+          }
+        }
+      }
+    },
     "Export": {
       "localizations": {
         "es": {
@@ -2817,6 +2837,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Corazón"
+          }
+        }
+      }
+    },
+    "Hides the keyboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oculta el teclado"
           }
         }
       }
@@ -5227,6 +5257,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reembolsos"
+          }
+        }
+      }
+    },
+    "Refunds (already subtracted)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reembolsos (ya descontados)"
           }
         }
       }
