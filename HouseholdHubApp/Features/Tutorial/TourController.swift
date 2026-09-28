@@ -15,7 +15,16 @@ final class TourController {
     private(set) var isOfferVisible = false
     /// Each target's frame in global coordinates, per registered view: a target can be on screen more than once
     /// while tabs change (each tab's root has its own Quick Add button).
-    private var frames: [TourTarget: [UUID: CGRect]] = [:]
+    private var frames: [TourTarget: [UUID: Registration]] = [:]
+    /// True for a moment after a stop opens another tab, while that screen lays out: the spotlight waits instead of
+    /// pointing at where a target was the last time it was on screen.
+    private(set) var isSettling = false
+    @ObservationIgnored private var settle: Task<Void, Never>?
+
+    private struct Registration {
+        var frame: CGRect
+        var reportedAt: Date
+    }
     @ObservationIgnored private var pendingStart: Task<Void, Never>?
     private let router: AppRouter
     private let defaults: UserDefaults
@@ -33,8 +42,23 @@ final class TourController {
         TourLaunchPolicy.current(arguments: ProcessInfo.processInfo.arguments, defaults: defaults)
     }
 
+    /// The newest frame reported for `target`. A target can be registered more than once (each tab's root has its
+    /// own Quick Add button); the latest report is the one on screen, where an arbitrary pick could be a stale copy.
     func frame(of target: TourTarget) -> CGRect? {
-        frames[target]?.values.first
+        frames[target]?.values.max { $0.reportedAt < $1.reportedAt }?.frame
+    }
+
+    /// The window's bounds, reported by `TourOverlay`; a target outside them (a board column scrolled away, a copy on
+    /// a hidden tab) is not one the spotlight can point at.
+    var screenBounds: CGRect = .null
+
+    /// The first of `step`'s targets that is laid out on screen; nil while the stop's screen settles.
+    func frame(for step: TourStep) -> CGRect? {
+        guard !isSettling else { return nil }
+        return step.targets.lazy.compactMap { target -> CGRect? in
+            guard let frame = self.frame(of: target) else { return nil }
+            return self.screenBounds.isNull || frame.intersects(self.screenBounds) ? frame : nil
+        }.first
     }
 
     // MARK: Launch
@@ -88,11 +112,15 @@ final class TourController {
 
     /// Skip tour and Done both end it where the user is.
     func finish() {
+        settle?.cancel()
+        isSettling = false
         stepIndex = nil
     }
 
     private func show(_ index: Int) {
+        let previousTab = router.tab
         stepIndex = index
+        defer { settleIfTabChanged(from: previousTab) }
         switch TourStep.all[index].screen {
         case .dashboard:
             router.show(.dashboard)
@@ -112,8 +140,23 @@ final class TourController {
 
     // MARK: Targets
 
+    /// A new tab needs a moment to lay out (and to re-report its targets' frames) before the spotlight moves.
+    private func settleIfTabChanged(from previousTab: AppRouter.AppTab) {
+        settle?.cancel()
+        guard router.tab != previousTab else {
+            isSettling = false
+            return
+        }
+        isSettling = true
+        settle = Task {
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            isSettling = false
+        }
+    }
+
     func register(_ target: TourTarget, id: UUID, frame: CGRect) {
-        frames[target, default: [:]][id] = frame
+        frames[target, default: [:]][id] = Registration(frame: frame, reportedAt: .now)
     }
 
     func unregister(_ target: TourTarget, id: UUID) {

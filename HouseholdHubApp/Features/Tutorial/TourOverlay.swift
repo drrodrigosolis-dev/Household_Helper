@@ -7,6 +7,16 @@ extension View {
     func tourTarget(_ target: TourTarget) -> some View {
         modifier(TourTargetModifier(target: target))
     }
+
+    /// Marks the view only while `active`, such as the first row of a list.
+    @ViewBuilder
+    func tourTarget(_ target: TourTarget, if active: Bool) -> some View {
+        if active {
+            tourTarget(target)
+        } else {
+            self
+        }
+    }
 }
 
 private struct TourTargetModifier: ViewModifier {
@@ -43,7 +53,7 @@ struct TourOverlay: View {
     var body: some View {
         ZStack {
             if let step = tour.currentStep, let index = tour.stepIndex {
-                let target = tour.frame(of: step.target)
+                let target = tour.frame(for: step)
                 TourSpotlight(
                     step: step, index: index, count: TourStep.all.count, target: target, screen: screenName,
                     onNext: { tour.next() }, onSkip: { tour.finish() }
@@ -55,6 +65,11 @@ struct TourOverlay: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: tour.stepIndex)
+        .onGeometryChange(for: CGRect.self) { proxy in
+            proxy.frame(in: .global)
+        } action: { bounds in
+            tour.screenBounds = bounds
+        }
     }
 
     /// The tab showing under the callout, for UI tests.
@@ -97,6 +112,9 @@ private struct TourSpotlight: View {
     var body: some View {
         ZStack {
             dimming
+            if !testScreen.isEmpty {
+                spotlightMarker
+            }
             calloutLayer
         }
         .accessibilityElement(children: .contain)
@@ -138,6 +156,24 @@ private struct TourSpotlight: View {
         .onTapGesture {}
         .ignoresSafeArea()
         .accessibilityHidden(true)
+    }
+
+    /// Under UI tests only: an invisible element the size of the cut-out, so a test can check the spotlight surrounds
+    /// the control its stop talks about (owner's phone: bubbles that pointed at the wrong place).
+    private var spotlightMarker: some View {
+        GeometryReader { proxy in
+            let bounds = CGRect(origin: .zero, size: proxy.size)
+            if let hole = cutout(origin: proxy.frame(in: .global).origin, bounds: bounds) {
+                Color.clear
+                    .frame(width: hole.width, height: hole.height)
+                    .position(x: hole.midX, y: hole.midY)
+                    .accessibilityElement()
+                    .accessibilityLabel(Text(verbatim: "spotlight"))
+                    .accessibilityIdentifier("tour.spotlight")
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 
     /// The target in this layer's coordinates, with a margin, kept on screen; nil when it isn't on screen.

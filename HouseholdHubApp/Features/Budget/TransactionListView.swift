@@ -195,6 +195,7 @@ private struct FilteredTransactions: View {
                 Section {
                     ForEach(section.records) { record in
                         row(record, refundedName: names[record.id]).themedRow()
+                            .tourTarget(.budgetRow, if: record.id == shown.first?.id)
                     }
                 } header: {
                     Text(dayLabel(section.day))

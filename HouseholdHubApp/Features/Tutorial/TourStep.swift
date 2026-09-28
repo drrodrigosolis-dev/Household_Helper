@@ -6,8 +6,15 @@ enum TourTarget: Hashable, Sendable {
     case figures
     case quickAdd
     case budgetList
+    /// The first row of the transactions list: what "tap one to edit it" points at (owner's phone walk: a whole-screen
+    /// spotlight pointed at nothing).
+    case budgetRow
     case wishlist
+    /// The first wishlist item, where Mark Purchased is reached.
+    case wishlistRow
     case tasksBoard
+    /// The first board column, where cards are dragged from.
+    case tasksColumn
     case settings
 }
 
@@ -28,6 +35,17 @@ struct TourStep: Identifiable, Sendable {
     let message: LocalizedStringResource
 
     var id: TourTarget { target }
+
+    /// What the spotlight looks for, most specific first: a screen's first row or column when it has one, else the
+    /// whole list (an empty Budget, Wishlist or board).
+    var targets: [TourTarget] {
+        switch target {
+        case .budgetList: [.budgetRow, .budgetList]
+        case .wishlist: [.wishlistRow, .wishlist]
+        case .tasksBoard: [.tasksColumn, .tasksBoard]
+        default: [target]
+        }
+    }
 
     /// The six stops the owner chose (Sprint 24): about a minute over the essentials. The first keeps the §9
     /// distinction: current, pending, and projected are three different figures, never all "balance".

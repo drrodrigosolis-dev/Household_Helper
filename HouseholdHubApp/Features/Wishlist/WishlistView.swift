@@ -139,6 +139,7 @@ struct WishlistView: View {
                     ForEach(visible) { item in
                         NavigationLink(value: item.id) { WishlistCard(item: item) }
                             .buttonStyle(.plain)
+                            .tourTarget(.wishlistRow, if: item.id == visible.first?.id)
                     }
                 }
                 .padding()
@@ -147,6 +148,7 @@ struct WishlistView: View {
             List(visible) { item in
                 NavigationLink(value: item.id) { WishlistRow(item: item) }
                     .themedRow()
+                    .tourTarget(.wishlistRow, if: item.id == visible.first?.id)
             }
             .listStyle(.insetGrouped)
         }

@@ -99,6 +99,7 @@ struct TasksView: View {
                     ForEach(columns) { column in
                         columnView(column)
                             .frame(width: columnWidth)
+                            .tourTarget(.tasksColumn, if: column.id == columns.first?.id)
                     }
                 }
                 .scrollTargetLayout()

@@ -12,12 +12,26 @@ final class Sprint24TourUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// Started from the Dashboard's offer (an install already set up), all six stops in turn, then Done.
+    /// Started from the Dashboard's offer (an install already set up), all six stops in turn, then Done. With a
+    /// transaction and a wishlist item recorded first, each stop's spotlight must surround the control it talks about
+    /// (owner's phone walk, 2026-09-28: bubbles pointed at the wrong place).
     @MainActor
     func testTourWalksAllSixStops() {
         let app = launchApp(extraArguments: Self.tour)
+        addViaQuickAdd(app, "12 coffee")
+        addWishlistItem(app, name: "Headphones", estimate: "149")
+        app.tabBars.buttons["Dashboard"].tap()
         startFromOffer(app)
-        walkTour(app, variant: "light")
+        walkTour(app, variant: "light") { stop in
+            switch stop {
+            case 2: assertSpotlight(app, surrounds: app.buttons["quickadd.button"].firstMatch, stop: stop)
+            case 3: assertSpotlight(app, surrounds: transactionRow(app, containing: "coffee"), stop: stop)
+            case 4: assertSpotlight(app, surrounds: wishlistRow(app, containing: "Headphones"), stop: stop)
+            case 5: assertSpotlight(app, surrounds: columnHeader(app, "To Do"), stop: stop)
+            case 6: assertSpotlight(app, surrounds: app.buttons["Settings"].firstMatch, stop: stop)
+            default: assertSpotlightIsNotTheWholeScreen(app, stop: stop)
+            }
+        }
     }
 
     /// The same walk in dark mode at the largest text size: the callout docks at the bottom and never truncates.
@@ -83,6 +97,39 @@ final class Sprint24TourUITests: XCTestCase {
 
     // MARK: Helpers
 
+    /// The spotlight's cut-out (a UI-test-only element) covers at least 80 % of `element`: the stop points at it.
+    @MainActor
+    private func assertSpotlight(_ app: XCUIApplication, surrounds element: XCUIElement, stop: Int) {
+        XCTAssertTrue(element.waitForExistence(timeout: 10), "Stop \(stop): the control it talks about is missing")
+        let spotlight = app.descendants(matching: .any)["tour.spotlight"]
+        // The spotlight waits a moment after a tab change, then moves to its target.
+        let deadline = Date.now.addingTimeInterval(5)
+        var covered: CGFloat = 0
+        repeat {
+            if spotlight.exists {
+                let target = element.frame
+                let overlap = spotlight.frame.intersection(target)
+                covered = overlap.isNull ? 0 : (overlap.width * overlap.height) / max(target.width * target.height, 1)
+            }
+            if covered >= 0.8 { break }
+            Thread.sleep(forTimeInterval: 0.25)
+        } while Date.now < deadline
+        XCTAssertGreaterThanOrEqual(
+            covered, 0.8,
+            "Stop \(stop): the spotlight \(spotlight.exists ? String(describing: spotlight.frame) : "is missing") "
+                + "doesn't surround \(element.frame)"
+        )
+    }
+
+    /// The first stop's figures have no single identifier; the spotlight must at least be a part of the screen.
+    @MainActor
+    private func assertSpotlightIsNotTheWholeScreen(_ app: XCUIApplication, stop: Int) {
+        let spotlight = app.descendants(matching: .any)["tour.spotlight"]
+        XCTAssertTrue(spotlight.waitForExistence(timeout: 5), "Stop \(stop): no spotlight")
+        let screen = app.windows.firstMatch.frame
+        XCTAssertLessThan(spotlight.frame.height, screen.height * 0.7, "Stop \(stop): the spotlight covers the screen")
+    }
+
     @MainActor
     private func callout(_ app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any)["tour.callout"]
@@ -96,9 +143,10 @@ final class Sprint24TourUITests: XCTestCase {
     }
 
     @MainActor
-    private func walkTour(_ app: XCUIApplication, variant: String) {
+    private func walkTour(_ app: XCUIApplication, variant: String, check: (Int) -> Void = { _ in }) {
         for stop in 1...Self.screens.count {
             assertStop(app, stop)
+            check(stop)
             captureScreen(app, named: "sprint24-tour-\(stop)-\(Self.screens[stop - 1])-\(variant)")
             app.buttons["tour.next"].tap()
         }
