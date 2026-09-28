@@ -72,6 +72,79 @@ public enum OnDeviceModel {
     }
 }
 
+/// The on-device model behind the Siri intents' `SiriDraftModel` seam (Sprint 25). It only turns the dictated sentence
+/// into a guess; `SiriRefinement` validates it and falls back to the grammar when it throws, and the intent asks the
+/// person before anything is saved.
+public struct OnDeviceSiriModel: SiriDraftModel {
+    public enum Failure: Error, Equatable, Sendable {
+        case unavailable
+    }
+
+    public init() {}
+
+    public func transaction(_ text: String, categoryNames: [String]) async throws -> SiriTransactionGuess {
+        #if canImport(FoundationModels)
+            guard OnDeviceModel.isAvailable else { throw Failure.unavailable }
+            let instructions = """
+                You read one spoken sentence about a household expense or income and fill in fields. \
+                Use only information in the sentence. Leave a field empty when the sentence does not say it. \
+                Never guess an amount or a day the sentence does not state.
+                """
+            let prompt = """
+                Sentence: \(text)
+                Category names you may choose from: \(categoryNames.joined(separator: ", "))
+                """
+            let session = LanguageModelSession(instructions: instructions)
+            let guess = try await session.respond(to: prompt, generating: SiriTransactionGeneration.self).content
+            return SiriTransactionGuess(
+                amount: guess.amount, kind: guess.kind, merchant: guess.merchant, datePhrase: guess.datePhrase,
+                category: guess.category)
+        #else
+            throw Failure.unavailable
+        #endif
+    }
+
+    public func wishlist(_ text: String) async throws -> SiriWishlistGuess {
+        #if canImport(FoundationModels)
+            guard OnDeviceModel.isAvailable else { throw Failure.unavailable }
+            let instructions = """
+                You read one spoken sentence about something a household wants to buy and fill in fields. \
+                Use only information in the sentence. Leave the price empty when the sentence does not say one.
+                """
+            let prompt = "Sentence: \(text)"
+            let session = LanguageModelSession(instructions: instructions)
+            let guess = try await session.respond(to: prompt, generating: SiriWishlistGeneration.self).content
+            return SiriWishlistGuess(name: guess.name, price: guess.price)
+        #else
+            throw Failure.unavailable
+        #endif
+    }
+}
+
+#if canImport(FoundationModels)
+    @Generable
+    struct SiriTransactionGeneration {
+        @Guide(description: "The amount as a plain number copied from the sentence, such as 40 or 9.50, or empty")
+        var amount: String
+        @Guide(description: "expense or income, or empty")
+        var kind: String
+        @Guide(description: "The shop or payee in the sentence's own words, such as Safeway, or empty")
+        var merchant: String
+        @Guide(description: "The word in the sentence that names the day, such as yesterday or monday, or empty")
+        var datePhrase: String
+        @Guide(description: "Exactly one of the given category names, or empty")
+        var category: String
+    }
+
+    @Generable
+    struct SiriWishlistGeneration {
+        @Guide(description: "What the household wants, in the sentence's own words, without the price")
+        var name: String
+        @Guide(description: "The price as a plain number copied from the sentence, such as 149.99, or empty")
+        var price: String
+    }
+#endif
+
 #if canImport(FoundationModels)
     @Generable
     struct QuickAddGuess {
