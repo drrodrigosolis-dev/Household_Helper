@@ -154,6 +154,16 @@ struct SettingsView: View {
                     )
                 }
             }
+            Section {
+                Button("Show the Tour Again") { TourController.shared.start() }
+                    .accessibilityIdentifier("settings.showTour")
+                Button("Reset Tips") { TutorialTips.reset() }
+                    .accessibilityIdentifier("settings.resetTips")
+            } header: {
+                Text("Tutorial")
+            } footer: {
+                Text("Tips show again as you reach each feature.")
+            }
             Section("About") {
                 LabeledContent("Version", value: "\(AppInfo.version) (\(AppInfo.build))")
                 Text(
