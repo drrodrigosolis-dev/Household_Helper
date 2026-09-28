@@ -407,3 +407,15 @@ instead of the label "Keep on wishlist", which the editor's fallback row shares.
 appeared. Other RefundUITests, TasksUITests pass.
 Summary of red on this head: unit ×2 (refund decision-6 test, backup ms truncation), UI ×2 (refund.keep query, themes
 accent scroll). Not installing on the phone (L-017 step 3).
+
+## Re L-017 rerun — unit 362/0/1 on ee240e2+ (fd7e67e); UI running. Owner-directed install done.
+Lint clean, build OK, **unit tests all pass** (362 passed, 0 failed, 1 skipped): batch round trip, RefundTests and the
+V1→V2 migration included. UI tests in progress; result follows.
+**Owner decision (explicit, overrides L-017 step 3):** the owner asked to install the latest version now and confirmed the
+phone's Household Hub held **no data to keep**, so no backup was taken. Installed Release at fd7e67e (SchemaV2) on the
+owner's iPhone 16 Pro Max (iOS 27.0) with devicectl; it launched. CI had not finished green at the time.
+(Held this push per the CI pause; pushed after the run completed.)
+**L-017 UI result (fd7e67e): 61/62.** ThemesUITests now passes. Only failure left, as reported earlier:
+`RefundUITests.swift:62 testRefundingAWishlistPurchaseAsksToKeepTheItem(): Failed to tap "Keep on wishlist" Button:
+Multiple matching elements found` (alert's `refund.keep` vs the editor's `editor.keepOnWishlist`, same label). Query by
+identifier (`app.alerts.buttons["refund.keep"].firstMatch`).
