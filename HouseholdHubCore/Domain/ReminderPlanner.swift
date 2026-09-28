@@ -75,8 +75,8 @@ public struct ReminderWording: Sendable {
 /// Deterministic reminder plan (Sprint 14): a task reminds on its due day, at its due time when it has one and at the
 /// default time otherwise (Sprint 26); an upcoming recurring bill reminds at the default time the day before (Sprint
 /// 22: not a recurring purchase). Times go through `HouseholdCalendar`: a time a spring-forward day skips fires at the
-/// next valid time, a time a fall-back day repeats fires once, the first time. Past fire times are skipped. At most
-/// `limit` reminders, soonest first (iOS keeps at most 64 pending per app).
+/// next valid time on that same day, a time a fall-back day repeats fires once, the first time. Past fire times are
+/// skipped. At most `limit` reminders, soonest first (iOS keeps at most 64 pending per app).
 public struct ReminderPlanner: Sendable {
     public static let defaultLimit = 60
 

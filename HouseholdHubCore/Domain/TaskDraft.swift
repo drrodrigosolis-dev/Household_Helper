@@ -39,15 +39,46 @@ public enum TimeOfDay {
         return (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
     }
 
-    /// `minutes` after midnight on the day of `day` in `calendar`. On a day the time doesn't exist (spring forward)
-    /// it is the next valid time; on a day it happens twice (fall back), the first. Never nil for a valid day.
+    /// `minutes` after midnight on the day of `day` in `calendar`, always on that day. On a day the time doesn't exist
+    /// (spring forward) it is the first valid instant after the skipped hour, which is the day's first instant when
+    /// the zone skips midnight (America/Santiago); on a day it happens twice (fall back), the first. Never nil.
     public static func date(minutes: Int, onDayOf day: Date, calendar: HouseholdCalendar) -> Date {
         let clamped = min(max(minutes, 0), minutesPerDay - 1)
         let start = calendar.startOfDay(for: day)
+        let end = calendar.endOfDay(for: start)
         let found = calendar.calendar.date(
             bySettingHour: clamped / 60, minute: clamped % 60, second: 0, of: start,
             matchingPolicy: .nextTimePreservingSmallerComponents, repeatedTimePolicy: .first, direction: .forward)
-        return found ?? start.addingTimeInterval(TimeInterval(clamped * 60))
+        if let found, found >= start, found < end, TimeOfDay.minutes(of: found, calendar: calendar) == clamped {
+            return found
+        }
+        // The time is skipped that day (Sprint 26 review S2): a forward search can land on the next day's 00:xx when
+        // the skipped hour starts the day, so take the day's own clock change instead.
+        let jump = calendar.timeZone.nextDaylightSavingTimeTransition(after: start.addingTimeInterval(-1))
+        if let jump, jump >= start, jump < end {
+            return jump
+        }
+        if let found, found >= start, found < end {
+            return found
+        }
+        return start
+    }
+
+    /// The fixed day a time picker's `Date` is built on (Sprint 26 review S1): January 1, 2001, a day without a clock
+    /// change, so every time of day exists on it and reads back unchanged, whatever day the editor is opened.
+    public static func pickerDate(minutes: Int, calendar: HouseholdCalendar) -> Date {
+        let noon = calendar.calendar.date(from: DateComponents(year: 2001, month: 1, day: 1, hour: 12))
+        return date(minutes: minutes, onDayOf: noon ?? Date(timeIntervalSinceReferenceDate: 0), calendar: calendar)
+    }
+
+    /// The minutes an editor saves (Sprint 26 review S1): the stored ones while the picker still shows the `Date` it
+    /// was opened with, so opening and saving (say, after a title edit) never moves a stored time; otherwise the
+    /// picker's wall-clock time.
+    public static func editedMinutes(picked: Date, opened: Date, stored: Int?, calendar: HouseholdCalendar) -> Int {
+        if picked == opened, let stored, isValid(stored) {
+            return stored
+        }
+        return minutes(of: picked, calendar: calendar)
     }
 }
 

@@ -21,13 +21,13 @@ struct RemindersSection: View {
     }
 
     private var defaultTimeText: String {
-        TimeOfDay.date(minutes: defaultMinutes, onDayOf: .now, calendar: calendar)
-            .formatted(date: .omitted, time: .shortened)
+        TimeOfDay.pickerDate(minutes: defaultMinutes, calendar: calendar).formatted(date: .omitted, time: .shortened)
     }
 
+    /// Built on a fixed day without a clock change (Sprint 26 review S1), so 2:30 never reads as 3:00.
     private var defaultTimeBinding: Binding<Date> {
         Binding(
-            get: { TimeOfDay.date(minutes: defaultMinutes, onDayOf: .now, calendar: calendar) },
+            get: { TimeOfDay.pickerDate(minutes: defaultMinutes, calendar: calendar) },
             set: { date in defaultTime = TimeOfDay.minutes(of: date, calendar: calendar) })
     }
 
@@ -57,6 +57,7 @@ struct RemindersSection: View {
             }
         }
         .onChange(of: defaultTime) {
+            // Refreshes run one after another and a superseded one adds nothing (Sprint 26 review S3).
             Task { await ReminderSync.refresh(services) }
         }
     }
