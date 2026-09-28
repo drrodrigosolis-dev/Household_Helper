@@ -102,7 +102,8 @@ struct WishlistView: View {
                 .padding(.horizontal)
                 .accessibilityIdentifier("wishlist.segment")
             }
-            .quickAddAccess()
+            // Goals has its own + (audit A-013, as on Budget's Recurring and Budgets).
+            .quickAddAccess(showsButton: router.wishlistSegment == .items)
             .navigationTitle("Wishlist")
             .themedScreen(decorated: true, toolbarTrailing: true)
             .navigationDestination(for: UUID.self) { id in

@@ -70,12 +70,27 @@ struct SpanishTests {
             #expect(!strings.isEmpty, "\(path) is empty")
             for (key, entry) in strings {
                 let localizations = entry["localizations"] as? [String: [String: Any]]
-                let unit = localizations?["es"]?["stringUnit"] as? [String: String]
-                let value = try #require(unit?["value"], "\(path): no Spanish for “\(key)”")
-                #expect(!value.isEmpty)
-                #expect(placeholders(key) == placeholders(value), "\(path): placeholders differ in “\(key)”")
+                let values = spanishValues(localizations?["es"])
+                #expect(!values.isEmpty, "\(path): no Spanish for “\(key)”")
+                for value in values {
+                    #expect(!value.isEmpty, "\(path): empty Spanish for “\(key)”")
+                    #expect(placeholders(key) == placeholders(value), "\(path): placeholders differ in “\(key)”")
+                }
             }
         }
+    }
+
+    /// A plain Spanish value, or every plural form's value (Sprint 23 bulk edit uses plural variations). A plural
+    /// entry needs both `one` and `other`; a missing form yields no value for it, which fails the check.
+    private func spanishValues(_ localization: [String: Any]?) -> [String] {
+        if let unit = localization?["stringUnit"] as? [String: String] {
+            return unit["value"].map { [$0] } ?? []
+        }
+        guard let variations = localization?["variations"] as? [String: Any],
+            let plural = variations["plural"] as? [String: [String: Any]]
+        else { return [] }
+        let forms = ["one", "other"].compactMap { (plural[$0]?["stringUnit"] as? [String: String])?["value"] }
+        return forms.count == 2 ? forms : []
     }
 
     /// Placeholders by kind, ignoring order and positions ("%2$lld" counts as "%lld").

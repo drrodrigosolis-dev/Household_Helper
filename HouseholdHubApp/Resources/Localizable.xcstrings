@@ -156,7 +156,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudieron cambiar %1$lld de %2$lld. Siguen seleccionadas."
+            "value": "No se pudieron cambiar %1$lld de %2$lld. Siguen seleccionados."
           }
         }
       }
@@ -166,7 +166,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudieron eliminar %1$lld de %2$lld. Siguen seleccionadas."
+            "value": "No se pudieron eliminar %1$lld de %2$lld. Siguen seleccionados."
           }
         }
       }
@@ -257,13 +257,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld seleccionada"
+                  "value": "%lld seleccionado"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld seleccionadas"
+                  "value": "%lld seleccionados"
                 }
               }
             }
@@ -317,13 +317,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "No se pudo revertir %lld transacción."
+                  "value": "No se pudo revertir %lld movimiento."
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "No se pudieron revertir %lld transacciones."
+                  "value": "No se pudieron revertir %lld movimientos."
                 }
               }
             }
@@ -1457,13 +1457,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Se cambió la categoría de %lld transacción"
+                  "value": "Se cambió la categoría de %lld movimiento"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Se cambió la categoría de %lld transacciones"
+                  "value": "Se cambió la categoría de %lld movimientos"
                 }
               }
             }
@@ -1917,13 +1917,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Eliminar %lld transacción"
+                  "value": "Eliminar %lld movimiento"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Eliminar %lld transacciones"
+                  "value": "Eliminar %lld movimientos"
                 }
               }
             }
@@ -1957,13 +1957,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "¿Eliminar %lld transacción?"
+                  "value": "¿Eliminar %lld movimiento?"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "¿Eliminar %lld transacciones?"
+                  "value": "¿Eliminar %lld movimientos?"
                 }
               }
             }
@@ -2127,13 +2127,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld transacción eliminada"
+                  "value": "%lld movimiento eliminado"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld transacciones eliminadas"
+                  "value": "%lld movimientos eliminados"
                 }
               }
             }
@@ -3626,7 +3626,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "¿Unir las partes en una sola transacción?"
+            "value": "¿Unir las partes en un solo movimiento?"
           }
         }
       }
@@ -6786,7 +6786,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudo duplicar la transacción."
+            "value": "No se pudo duplicar el movimiento."
           }
         }
       }
@@ -7066,7 +7066,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta transacción ya está dividida."
+            "value": "Este movimiento ya está dividido."
           }
         }
       }
@@ -7277,13 +7277,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Las transferencias y los reembolsos conservan su categoría, así que se omitirá %lld seleccionada."
+                  "value": "Las transferencias y los reembolsos conservan su categoría, así que se omitirá %lld seleccionado."
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Las transferencias y los reembolsos conservan su categoría, así que se omitirán %lld seleccionadas."
+                  "value": "Las transferencias y los reembolsos conservan su categoría, así que se omitirán %lld seleccionados."
                 }
               }
             }
