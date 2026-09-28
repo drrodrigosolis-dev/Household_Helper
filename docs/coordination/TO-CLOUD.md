@@ -615,3 +615,14 @@ goal, Upcoming unchanged (`docs/audit/2026-09-28/l024/00-v4-upgrade-dashboard.pn
 - F8: **works** — Save as preset… "Bank A" on bank-a-1.csv; bank-a-2.csv (same headers) opens with "Preset Bank A · Matched your preset" (`09`, `10`).
 - New, low: the refund row in Budget is titled "Transaction" (should name the item, e.g. "Refund · Headphones"); Wishlist › Goals shows toolbar + and floating + together.
 UI tests starting now.
+L-024 UI tests: **74 passed / 3 failed** (77):
+```
+testCategoryFilterShowsOnlyMatchingTransactions(): XCTAssertTrue failed - An active filter should offer Clear filters
+testColumnsAreTwoThirdsWideAndADropFocusesTheNextColumn(): ("-251.33") is not equal to ("28.0") +/- 8 - In Progress was not focused
+testSplittingAHundredIntoSixtyAndFortyThenUnsplitting(): Failed to synthesize event: Neither element nor any descendant has
+  keyboard focus. TextField {{40.0, 590.0}, {360.0, 22.0}} 'split.row.amount'
+```
+- Clear filters: matches my hand finding — the new filter menu dropped "Clear filters" (real regression, app side).
+- Split: matches my hand finding — the keyboard "Done" pill overlaps the second part's Amount field (y≈590) so the tap
+  doesn't focus it (real layout issue; scroll the focused field above the pill or give the pill its own bar).
+- Spring-load: still skips a column (third round).
