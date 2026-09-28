@@ -54,18 +54,50 @@ enum ReminderSync {
         let settings = ReminderSettings(
             tasksDue: defaults.bool(forKey: tasksKey), billsDue: defaults.bool(forKey: billsKey),
             defaultTimeMinutes: defaultTimeMinutes)
-        let center = UNUserNotificationCenter.current()
-        let pending = await center.pendingNotificationRequests().map(\.identifier).filter(isOurs)
-        center.removePendingNotificationRequests(withIdentifiers: pending)
-        let budgetAlerts = budgetAlertsOn
-        guard settings.tasksDue || settings.billsDue || budgetAlerts else { return }
-        let status = await center.notificationSettings().authorizationStatus
-        guard status == .authorized || status == .provisional || status == .ephemeral else { return }
+        await refresh(
+            services, settings: settings, budgetAlerts: budgetAlertsOn, center: SystemReminderCenter(), now: .now,
+            calendar: HouseholdCalendar(timeZone: .current))
+    }
 
-        let now = Date.now
-        let calendar = HouseholdCalendar(timeZone: .current)
+    /// Bumped by every refresh; a refresh still waiting its turn when a newer one starts adds nothing.
+    @MainActor private(set) static var generation = 0
+    @MainActor private static var latest: Task<Void, Never>?
+
+    /// Sprint 26 review S3: refreshes run one after another, never interleaved, so a slower refresh for an older
+    /// setting (a quick second change of the default time) can't add its reminders after a newer one has scheduled
+    /// its own. Each waits for the one before it; a superseded one skips its work, and the newest one clears and
+    /// reschedules everything.
+    @MainActor
+    static func refresh(
+        _ services: AppServices, settings: ReminderSettings, budgetAlerts: Bool, center: any ReminderCenter, now: Date,
+        calendar: HouseholdCalendar
+    ) async {
+        generation += 1
+        let mine = generation
+        let previous = latest
+        let run = Task { @MainActor in
+            await previous?.value
+            guard mine == ReminderSync.generation else { return }
+            await ReminderSync.reschedule(
+                services, settings: settings, budgetAlerts: budgetAlerts, center: center, now: now,
+                calendar: calendar)
+        }
+        latest = run
+        await run.value
+    }
+
+    @MainActor
+    private static func reschedule(
+        _ services: AppServices, settings: ReminderSettings, budgetAlerts: Bool, center: any ReminderCenter, now: Date,
+        calendar: HouseholdCalendar
+    ) async {
+        let pending = await center.pendingIdentifiers().filter(isOurs)
+        center.removePending(withIdentifiers: pending)
+        guard settings.tasksDue || settings.billsDue || budgetAlerts else { return }
+        guard await center.isAuthorized() else { return }
+
         if budgetAlerts {
-            await sendBudgetAlerts(services, now: now, calendar: calendar)
+            await sendBudgetAlerts(services, center: center, now: now, calendar: calendar)
         }
         guard settings.tasksDue || settings.billsDue else { return }
         let tasks = (try? await services.board.reminderSources()) ?? []
@@ -82,7 +114,7 @@ enum ReminderSync {
             let fields: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute]
             let parts = calendar.calendar.dateComponents(fields, from: reminder.fireDate)
             let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
-            try? await center.add(UNNotificationRequest(identifier: reminder.id, content: content, trigger: trigger))
+            await center.add(UNNotificationRequest(identifier: reminder.id, content: content, trigger: trigger))
         }
     }
 
@@ -90,7 +122,9 @@ enum ReminderSync {
     /// background. `refresh` never removes them: each is sent once, and its key is remembered as soon as it is
     /// planned, so an alert never arrives twice.
     @MainActor
-    private static func sendBudgetAlerts(_ services: AppServices, now: Date, calendar: HouseholdCalendar) async {
+    private static func sendBudgetAlerts(
+        _ services: AppServices, center: any ReminderCenter, now: Date, calendar: HouseholdCalendar
+    ) async {
         let report = try? await services.transactions.budgetAlertSources(month: now, calendar: calendar)
         guard let sources = report, !sources.isEmpty else { return }
         let defaults = UserDefaults.standard
@@ -98,14 +132,13 @@ enum ReminderSync {
         let month = BudgetMonth(containing: now, calendar: calendar)
         let plan = BudgetAlertPlanner().plan(sources, month: month, alreadySent: sent)
         defaults.set(plan.sentKeys, forKey: budgetAlertsSentKey)
-        let center = UNUserNotificationCenter.current()
         for alert in plan.alerts {
             let content = UNMutableNotificationContent()
             content.title = String(localized: "Budget alert")
             content.body = budgetAlertBody(alert)
             content.sound = .default
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
-            try? await center.add(UNNotificationRequest(identifier: alert.id, content: content, trigger: trigger))
+            await center.add(UNNotificationRequest(identifier: alert.id, content: content, trigger: trigger))
         }
     }
 
@@ -131,5 +164,35 @@ enum ReminderSync {
                 guard let name, !name.isEmpty else { return String(localized: "A recurring bill is due tomorrow.") }
                 return String(localized: "\(name) is due tomorrow.")
             })
+    }
+}
+
+/// The notification-center calls a refresh makes (Sprint 26 review B2): the system center in the app, a fake in tests.
+@MainActor
+protocol ReminderCenter: Sendable {
+    func pendingIdentifiers() async -> [String]
+    func removePending(withIdentifiers identifiers: [String])
+    /// Whether notifications are allowed (authorized, provisional, or ephemeral).
+    func isAuthorized() async -> Bool
+    /// Adds or, for an identifier already pending, replaces a request; a failure is dropped like a declined one.
+    func add(_ request: UNNotificationRequest) async
+}
+
+struct SystemReminderCenter: ReminderCenter {
+    func pendingIdentifiers() async -> [String] {
+        await UNUserNotificationCenter.current().pendingNotificationRequests().map(\.identifier)
+    }
+
+    func removePending(withIdentifiers identifiers: [String]) {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
+    }
+
+    func isAuthorized() async -> Bool {
+        let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+        return status == .authorized || status == .provisional || status == .ephemeral
+    }
+
+    func add(_ request: UNNotificationRequest) async {
+        try? await UNUserNotificationCenter.current().add(request)
     }
 }
