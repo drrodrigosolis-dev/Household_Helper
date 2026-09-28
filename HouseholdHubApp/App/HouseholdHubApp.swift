@@ -16,6 +16,7 @@ struct HouseholdHubApp: App {
         let configuration = PersistenceConfiguration(useInMemoryStore: inMemory)
         if inMemory {
             ThemeSettings.resetForUITesting()
+            TutorialSettings.resetForUITesting()
         }
         // Before the first navigation bar is made, so it already has the theme's title font.
         ThemeAppearance.apply(ThemeSettings.storedTheme.spec)
