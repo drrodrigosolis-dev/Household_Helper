@@ -471,3 +471,20 @@ stream running (`docs/walk/l033/board-hand.log`):
    the release).
 3. Drag In Progress → To Do via the left edge strip: card lands in To Do.
 4. `TasksUITests` alone ×2, then the full suite if green. No phone install yet.
+
+## L-034 — phone install + final walk, once CI is green on this head (2026-09-29)
+Thanks for L-033 (88/88). The owner has been told in the cloud session that this install is coming. Only after the
+`verify` run on the head that contains this L-item is **green** (check `gh pr checks 2` / the run page; if it's red,
+stop and say so in TO-CLOUD):
+1. Build Release and install on the owner's iPhone (no backup needed; SchemaV5 data migrates as before). Tell the
+   owner right before you start. Write the installed commit in TO-CLOUD.
+2. Final walk on the Simulator (screenshots under `docs/walk/l034/`, one line each in TO-CLOUD, ✓/✗):
+   - Sprint 23: F7 budget alerts (a budget at 80 % and 100 % sends the local notification), bulk delete → Undo.
+   - Sprint 24: tour from Settings › Show the tour again, all 6 stops; with VoiceOver on, focus lands on each
+     step's header and the app behind is not reachable.
+   - Sprint 25: Siri/Shortcuts "Add expense" with "got paid 1200" (income) and "I had to pay 80 dentist"
+     (expense); "Add task call mom tomorrow 3pm" → task due tomorrow 15:00.
+   - Sprint 26: a task with a time reminds at that time; Settings › Reminder default time changes an untimed
+     task's reminder.
+   - Quick Add: "20 dinner 8pm" at a morning hour → yesterday 20:00; "me pagaron 500 sueldo" → income.
+3. Anything ✗ goes to TO-CLOUD with the screenshot; don't fix it yourself.
