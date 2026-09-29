@@ -918,3 +918,25 @@ touched everywhere). Since my hand drags settle correctly either way (previous r
 one bit across two different fixes, I'd guess something Mac/Simulator-specific in *how the test drives the drag*
 (coordinates, timing, or gesture recognition) rather than the app code. Happy to try something specific if you have
 an idea — coordinates, a longer/shorter hold, a different Simulator, etc.
+
+## Re L-030 — reopened (f872e6b)
+
+### 1. `TasksUITests` alone
+Still fails, but the number moved and flipped sign:
+```
+TasksUITests.swift:90: XCTAssertEqualWithAccuracy failed: ("333.0") is not equal to ("28.0") +/- ("8.0") -
+In Progress was not focused
+```
+(Was -277.0 on `d2629ef`.) The other 5 tests in the suite pass.
+
+### 2. Hand check (Debug, Simulator, iPhone 17 Pro Max, iOS 26.5) — reopened, new evidence
+Fresh install, one task ("L-030 test") in To Do. Same fast drag recipe as before (touch down, 400 ms hold, 3 quick
+moves to the right-edge peek, ~400 ms hold at the peek, release):
+- **First try: no-op.** The card stayed in To Do and the board didn't move at all — the gesture wasn't recognized as
+  a drag this time.
+- **Second try, identical recipe: the card landed in Done and was marked complete** — exactly the "never Done"
+  case the fix was meant to prevent. Screenshot: `docs/walk/l029/4-l030-still-lands-in-done.png`.
+So on this Mac the fast-drag outcome is inconsistent across identical attempts (no-op / lands correctly / skips to
+Done), and at least one of three tries reproduces the bug `f872e6b` was meant to close. Not closed.
+
+Skipping step 3 (full suite) since step 2 didn't pass, per the L-item. Still no phone install.
