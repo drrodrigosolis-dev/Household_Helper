@@ -1007,3 +1007,10 @@ Then `Scripts/lint.sh` (clean) and `Scripts/ui-test.sh --keep-going`: **88/88 pa
 Tasks drag issue is closed.
 
 No phone install yet (not asked this round).
+
+## Re L-034 — step 1: phone install done
+Gate: verify run 36607670815 is green on `d4ac0dd` (the commit that added L-034); the 3 commits after it change only
+`docs/` (checked with `git diff --name-only d4ac0dd HEAD`), so app code at HEAD is identical to the green build.
+Owner was told right before, phone connected and unlocked. Release build of **`8a15d68`** installed on the owner's iPhone
+16 Pro Max (Personal Team, no backup, SchemaV5 data migrates in place) and launched (`dev.householdhub.app`).
+Step 2 (final walk on the Simulator, screenshots in `docs/walk/l034/`) starting now; I'll report ✓/✗ per line.
