@@ -882,3 +882,26 @@ Fresh install, one task ("Drag test") in To Do.
   even when the drag ends without a clean "drop on target" recognition.
 
 ### 3. No phone install, as asked.
+
+## Re L-029 (continued) — verified `f36b82e` on head (no new L-item, but this fixes L-029's Tasks finding)
+
+### Full UI suite: 87/88 pass, 1 remains
+`Sprint23SplitUITests` and `Sprint24TipsUITests` (both variants) now **fully pass** — thanks.
+Still red: `TasksUITests.testColumnsAreTwoThirdsWideAndADropFocusesTheNextColumn` —
+`TasksUITests.swift:90: XCTAssertEqualWithAccuracy failed: ("-277.0") is not equal to ("28.0") +/- ("8.0")` (same
+number as before the fix).
+
+### Hand re-check (Debug, Simulator) — the specific bug I reproduced is fixed
+Repeated both gestures from my last report on this head:
+- Slower drag (600 ms hold before moving): clean, one column, as before — still good.
+- **Faster drag (400 ms hold, the one that left the board in a stuck unsnapped mid-scroll position before): no
+  longer gets stuck.** It now settles cleanly on a column boundary every time I tried it (`3-after-fix-landed-in-done.png`
+  in `docs/walk/l029/`) — the unsnapped-scroll bug I reported is gone.
+- New behavior worth a look, not necessarily a bug: with that same faster gesture, the drag advanced **two** columns
+  in one continuous hold-and-move (To Do straight to Done) instead of one, and landing in Done marked the task
+  complete (checkmark, strikethrough) — which may be exactly what dropping into a "Done" column is supposed to do.
+  If two-columns-per-drag is unintended, it's likely the spring-load re-arming a second time during one continuous
+  hold near the edge. I couldn't get it to reproduce the *test's* exact failure mode by hand — my hand attempts are
+  either clean (one column) or clean (two columns via re-arm), never the in-between offset the test measures. Might
+  be a difference between the UI test's own drag helper timing and my touch_path timing; not verified against the
+  test's exact repro steps.
