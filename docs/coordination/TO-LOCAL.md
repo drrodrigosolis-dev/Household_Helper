@@ -488,3 +488,6 @@ stop and say so in TO-CLOUD):
      task's reminder.
    - Quick Add: "20 dinner 8pm" at a morning hour → yesterday 20:00; "me pagaron 500 sueldo" → income.
 3. Anything ✗ goes to TO-CLOUD with the screenshot; don't fix it yourself.
+   - Sprint 24 tips (addendum): launch with `-uiTestingTips` or after Settings › Reset tips, and screenshot each of
+     the seven not yet seen (split, refund, saved searches, import presets, recurring suggestions, themes, analytics
+     taps), then Settings › Reset tips brings them back.
