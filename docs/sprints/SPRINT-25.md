@@ -1,4 +1,4 @@
-# Sprint 25 — v1.1: Siri (planned, after Sprint 24)
+# Sprint 25 — v1.1: Siri (CI green; phone walk pending)
 
 Owner request 2026-09-28: tell Siri to add an expense, add something to the wishlist, and similar; explore what
 Apple Intelligence ("Siri AI") allows for a third-party app.
@@ -86,3 +86,25 @@ iOS 26 — Sprint 25 research").
    The deterministic grammar is the fallback everywhere else and is what CI tests. The model's output is a draft
    shown in `requestConfirmation`, and it never writes (§6).
 4. Question 4 (one-breath dictation) is checked on the phone as the sprint's first walk item.
+
+## Close-out (2026-09-29)
+☑ CI green: run 36599247241 on `dba6f9e` (lint, build, unit, UI 88/88), which holds every Sprint 25 change.
+☑ research recorded (`docs/research/apple-api-decisions.md`). ☑ data-safety review (lane-s25-safety, 4e78880).
+☑ PROGRESS row · ☑ PR #2 body.
+
+- **Shipped:** Add to Wishlist and Add Task intents (background, app lock honoured, confirmation before every write,
+  tasks to the first column), English and Spanish phrases (05167ea, 9a83bc2); the wishlist and task grammars and the
+  on-device refinement with a validated grammar fallback (132145e); Log Transaction reads free sentences on device.
+  After the data-safety review: the transaction type always comes from the §25.2 grammar, a wishlist price only from
+  "for/por <amount>", model words must be spoken words, the model timeout holds (88e7158); Siri writes are refused
+  while a restore runs (e9c6719); the write order is one tested Core flow, `SiriIntentFlow` (9425a20). Post-sprint,
+  Siri tasks read a time of day ("call mom tomorrow 3pm"), from the shared time parser (e8b00b0, see Sprint 26).
+- **Walked:** the grammars, refinement rules and write order are domain-only, walked by their tests (`SiriEntryTests`,
+  `SiriIntentFlowTests`, `EntryTimeAndPhraseTests`). The intents themselves can't run in CI or the Simulator's Siri.
+- **The walk fixed:** nothing yet; no phone walk has happened.
+- **Still needs the owner (L-034 walk pending, and WALK-QUEUE "Sprint 25 — Siri"):** one-breath dictation (owner
+  question 4, the load-bearing assumption), each phrase in English and Spanish, the Foundation Models path on a phone
+  with Apple Intelligence, the lock on, and L-034's "got paid 1200" / "I had to pay 80 dentist" / "Add task call mom
+  tomorrow 3pm".
+- **Open decisions:** if one-breath dictation fails on the phone, record it here and decide whether the one-sentence
+  phrasing stays; a column picker for Siri tasks and Siri's on-screen awareness (View Annotations) remain later items.
