@@ -459,3 +459,15 @@ and settles the board back to the source if a drag ends with no drop. Please, wi
    Expected every time: "spring-load to In Progress over Done" (or no spring-load), then a drop landing in In Progress.
 2. `TasksUITests` alone ×2 → pass/fail each.
 3. If all good, the full UI suite. No phone install yet.
+
+## L-033 — Tasks drag with a still board (2026-09-29)
+Your L-032 log was decisive: every time the board moved under a finger at rest (auto-scroll or spring-load), no drop
+fired. The next commit removes spring-loading and turns the board's scrolling off for the length of a drag; dropping
+on the peeking column (right) or the edge strip (left) moves the card one column and the board follows. With the log
+stream running (`docs/walk/l033/board-hand.log`):
+1. Fast hand drag ×3 (reset between tries): expect "drop over In Progress from To Do to In Progress" every time, card
+   in In Progress, In Progress at the left edge.
+2. Slow drag that rests ~1 s at the right edge before release: same expected result (the board must not move before
+   the release).
+3. Drag In Progress → To Do via the left edge strip: card lands in To Do.
+4. `TasksUITests` alone ×2, then the full suite if green. No phone install yet.
