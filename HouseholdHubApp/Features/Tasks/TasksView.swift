@@ -1,6 +1,11 @@
 import HouseholdHubCore
+import OSLog
 import SwiftData
 import SwiftUI
+
+/// Debug-level, on-device only (never collected): what a drag did on the board, so a walk can read it with
+/// `log stream --level debug --predicate 'category == "board"'` (L-030: the same gesture gave three outcomes).
+private let boardLog = Logger(subsystem: "HouseholdHub", category: "board")
 
 /// Tasks tab (spec §24.2): a Kanban board of horizontally scrolling columns. Cards drag to reorder or move between
 /// columns, and every drag has a non-drag alternative in the card's context menu and VoiceOver actions (§24.5).
@@ -120,6 +125,8 @@ struct TasksView: View {
             .overlay(alignment: .leading) { previousColumnStrip }
         }
         .onChange(of: hoveredColumn) { _, column in
+            let entry = "hover \(name(column)) focused \(name(focusedColumn))"
+            boardLog.debug("\(entry, privacy: .public)")
             springLoad(column)
             if column == nil, springColumn == nil { settle(on: nil) }
         }
@@ -201,6 +208,8 @@ struct TasksView: View {
             let fired = Date.now
             springFiredAt = fired
             springColumn = column
+            let entry = "spring-load to \(name(column))"
+            boardLog.debug("\(entry, privacy: .public)")
             springRelease?.cancel()
             springRelease = Task {
                 try? await Task.sleep(for: .seconds(Self.springWindow))
@@ -230,6 +239,8 @@ struct TasksView: View {
                 let target = settleColumn ?? focusedColumn ?? columns.first?.id
             else { return }
             settleColumn = nil
+            let entry = "settle on \(name(target)) from \(name(focusedColumn))"
+            boardLog.debug("\(entry, privacy: .public)")
             focus(target)
         }
     }
@@ -357,9 +368,16 @@ struct TasksView: View {
         guard let id = items.first.flatMap(UUID.init(uuidString:)), let task = tasks.first(where: { $0.id == id })
         else { return false }
         let target = oneColumnAway(from: task.columnID, toward: aimed)
+        let entry = "drop over \(name(columnID)) aimed \(name(aimed)) from \(name(task.columnID)) to \(name(target))"
+        boardLog.debug("\(entry, privacy: .public)")
         move(task, to: target, at: target == columnID ? index : Int.max)
         settle(on: target)
         return true
+    }
+
+    /// A column's name for the board log.
+    private func name(_ column: UUID?) -> String {
+        column.flatMap { id in columns.first { $0.id == id }?.name } ?? "none"
     }
 
     /// One column per drag (owner decision, L-018 to L-020): the system's drag auto-scroll can carry the board past
