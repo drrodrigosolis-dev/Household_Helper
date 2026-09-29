@@ -349,16 +349,27 @@ struct TasksView: View {
     /// Right after a spring-load the finger is over a column that slid in under it; the drop goes to the column that
     /// sprang into focus, as the outline showed (L-018: a rest-then-drop on the right edge landed a column too far).
     private func drop(_ items: [String], into columnID: UUID, at index: Int) -> Bool {
-        let target = springColumn ?? (springSpent ? (focusedColumn ?? columnID) : columnID)
+        let aimed = springColumn ?? (springSpent ? (focusedColumn ?? columnID) : columnID)
         springColumn = nil
         springRelease?.cancel()
         dropTargets = [:]
         springFiredAt = nil
         guard let id = items.first.flatMap(UUID.init(uuidString:)), let task = tasks.first(where: { $0.id == id })
         else { return false }
+        let target = oneColumnAway(from: task.columnID, toward: aimed)
         move(task, to: target, at: target == columnID ? index : Int.max)
         settle(on: target)
         return true
+    }
+
+    /// One column per drag (owner decision, L-018 to L-020): the system's drag auto-scroll can carry the board past
+    /// the next column before the drop (CI run 36511458730 and the L-029 hand walk: To Do straight to Done), so a
+    /// drop further away lands in the next column that way, and the board settles there.
+    private func oneColumnAway(from source: UUID, toward aimed: UUID) -> UUID {
+        guard let from = columns.firstIndex(where: { $0.id == source }),
+            let to = columns.firstIndex(where: { $0.id == aimed }), abs(to - from) > 1
+        else { return aimed }
+        return columns[from + (to > from ? 1 : -1)].id
     }
 
     /// A move into another column brings that column into focus; a move within a column leaves the board where it is.
