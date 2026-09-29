@@ -46,6 +46,8 @@ struct TasksView: View {
     @State private var settleTask: Task<Void, Never>?
     /// The column a drop asked the board to settle on; a later "drag over" signal keeps it rather than replacing it.
     @State private var settleColumn: UUID?
+    /// The column the card being dragged started in; set when the drag begins, cleared by the drop.
+    @State private var dragSource: UUID?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.funTheme) private var theme
 
@@ -202,23 +204,31 @@ struct TasksView: View {
         springTask?.cancel()
         springTask = nil
         guard let column, column != focusedColumn, !springSpent else { return }
+        // The drag auto-scroll can bring the column after next under the finger while the board still reports the
+        // source in focus (L-031 log: "hover Done focused To Do", then a spring-load to Done, and the drop fell in
+        // the empty space after the last column). The spring-load goes one column from where the card started.
+        let target = oneColumnAway(from: dragSource ?? focusedColumn ?? column, toward: column)
+        guard target != focusedColumn else { return }
         springTask = Task {
             try? await Task.sleep(for: .milliseconds(600))
             guard !Task.isCancelled, hoveredColumn == column, !springSpent else { return }
             let fired = Date.now
             springFiredAt = fired
-            springColumn = column
-            let entry = "spring-load to \(name(column))"
+            springColumn = target
+            let entry = "spring-load to \(name(target)) over \(name(column))"
             boardLog.debug("\(entry, privacy: .public)")
             springRelease?.cancel()
             springRelease = Task {
                 try? await Task.sleep(for: .seconds(Self.springWindow))
                 guard !Task.isCancelled, springFiredAt == fired else { return }
                 springColumn = nil
+                // No drop came (the drag ended off every drop target): back to where the card still is.
+                settle(on: dragSource)
+                dragSource = nil
             }
             // The targets are stale once the board slides; the ones still under the drag report in again as it moves.
             dropTargets = [:]
-            focus(column)
+            focus(target)
         }
     }
 
@@ -298,7 +308,7 @@ struct TasksView: View {
             TaskCard(task: task, subtasks: subtasks.filter { $0.taskID == task.id })
         }
         .buttonStyle(.plain)
-        .draggable(task.id.uuidString)
+        .draggable(dragPayload(for: task))
         .dropDestination(for: String.self) { items, _ in
             drop(items, into: column.id, at: index)
         } isTargeted: {
@@ -367,12 +377,20 @@ struct TasksView: View {
         springFiredAt = nil
         guard let id = items.first.flatMap(UUID.init(uuidString:)), let task = tasks.first(where: { $0.id == id })
         else { return false }
+        dragSource = nil
         let target = oneColumnAway(from: task.columnID, toward: aimed)
         let entry = "drop over \(name(columnID)) aimed \(name(aimed)) from \(name(task.columnID)) to \(name(target))"
         boardLog.debug("\(entry, privacy: .public)")
         move(task, to: target, at: target == columnID ? index : Int.max)
         settle(on: target)
         return true
+    }
+
+    /// The drag's payload, evaluated as the drag begins; notes the column the card starts from.
+    private func dragPayload(for task: TaskItem) -> String {
+        let source = task.columnID
+        Task { @MainActor in dragSource = source }
+        return task.id.uuidString
     }
 
     /// A column's name for the board log.
