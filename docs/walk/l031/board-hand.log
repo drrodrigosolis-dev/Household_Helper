@@ -1,0 +1,24 @@
+getpwuid_r did not find a match for uid 501
+Filtering the log data using "category == "board""
+Timestamp                       Thread     Type        Activity             PID    TTL  
+2026-09-28 22:10:05.880238-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover To Do focused none
+2026-09-28 22:10:05.905512-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover In Progress focused none
+2026-09-28 22:10:06.206141-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover none focused none
+2026-09-28 22:10:06.425886-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover Done focused none
+2026-09-28 22:10:06.434378-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover none focused none
+2026-09-28 22:10:06.437192-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] drop over Done aimed Done from To Do to In Progress
+2026-09-28 22:10:06.801489-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] settle on In Progress from In Progress
+2026-09-28 22:11:01.497719-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover To Do focused To Do
+2026-09-28 22:11:01.537378-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover In Progress focused To Do
+2026-09-28 22:11:01.837829-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover Done focused To Do
+2026-09-28 22:11:02.446496-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] spring-load to Done
+2026-09-28 22:11:02.454633-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover none focused Done
+2026-09-28 22:11:28.258375-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover To Do focused To Do
+2026-09-28 22:11:28.304713-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover In Progress focused To Do
+2026-09-28 22:11:28.604437-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover Done focused To Do
+2026-09-28 22:11:29.216373-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] spring-load to Done
+2026-09-28 22:11:29.224786-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover none focused Done
+Child process terminated with signal 15: Terminated
+ouseholdHub:board] spring-load to Done
+2026-09-28 22:11:29.224786-0700 0x79d7f0   Debug       0x0                  13819  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover none focused Done
+Child process terminated with signal 15: Terminated

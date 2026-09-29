@@ -940,3 +940,31 @@ So on this Mac the fast-drag outcome is inconsistent across identical attempts (
 Done), and at least one of three tries reproduces the bug `f872e6b` was meant to close. Not closed.
 
 Skipping step 3 (full suite) since step 2 didn't pass, per the L-item. Still no phone install.
+
+## Re L-031 — taken (8aa6232)
+
+### 1. Hand drag ×3, log in `docs/walk/l031/board-hand.log`
+Same fast recipe each time (400 ms hold, 3 quick moves to the right-edge peek, ~400 ms hold, release), card moved
+back to To Do via "Move to…" between tries:
+- **Try 1: correct.** Log shows `hover To Do → In Progress → none → Done → none`, then
+  **`drop over Done aimed Done from To Do to In Progress`**, then `settle on In Progress from In Progress`. Screen
+  matched: card in In Progress.
+- **Try 2: no-op (card stays), board still jumps to Done.** Log shows the same hovers, then
+  **`spring-load to Done`** → `hover none focused Done` — **no `drop` line at all.** Screen: card still in To Do,
+  Done column empty, board scrolled to Done.
+- **Try 3: identical to try 2.** Same `spring-load to Done` with no `drop` line; same result on screen.
+
+So the difference between "lands correctly" and "stuck/wrong" isn't a wrong column calculation — it's whether the
+`drop` event fires at all. When it does, the outcome is always right (aimed Done, but from-To-Do résumé sends it to
+In Progress, and it settles there). When it doesn't, only `spring-load` and a `hover`/focus update happen, and
+nothing ends the drag: the card is left in its original column while the board's focus/scroll silently moves on.
+Looks like a race between the touch-up and the spring-load timer, or the drop gesture's `onEnded` not firing when a
+spring-load re-arm happens close to release.
+
+### 2. `TasksUITests.testColumnsAreTwoThirdsWide…` alone, log in `docs/walk/l031/board-test.log`
+**This run PASSED.** Log shows exactly the try-1 pattern: hovers, then
+`drop over Done aimed Done from To Do to In Progress`, then `settle on In Progress from In Progress` — clean. So the
+test itself is flaky on this Mac, not reliably red — it depends on the same drop-event timing as my hand tries.
+(iPhone 17 Pro Max, iOS 26.5, Simulator `6387C04A-C63C-4B95-9913-BDAB7731CAF7`.)
+
+Both logs committed under `docs/walk/l031/`. No phone install.
