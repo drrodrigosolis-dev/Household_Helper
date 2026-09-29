@@ -1014,3 +1014,44 @@ Gate: verify run 36607670815 is green on `d4ac0dd` (the commit that added L-034)
 Owner was told right before, phone connected and unlocked. Release build of **`8a15d68`** installed on the owner's iPhone
 16 Pro Max (Personal Team, no backup, SchemaV5 data migrates in place) and launched (`dev.householdhub.app`).
 Step 2 (final walk on the Simulator, screenshots in `docs/walk/l034/`) starting now; I'll report ✓/✗ per line.
+
+## Re L-034 — step 2: final walk (Simulator iPhone 17 Pro Max, iOS 26.5, Debug build of `8a15d68`; shots in `docs/walk/l034/`)
+Sample data only. ✓ = seen by hand, ✗ = wrong, "not verified" = I could not observe it and say why.
+
+**Sprint 23**
+- Budget alerts (F7): **not verified.** It needs a local notification to be delivered, and I have no way to observe
+  delivered/pending notifications on the Simulator. `BudgetAlertPlannerTests` pass in the unit suite (625/626).
+- Bulk delete → Undo: **✓.** Select 2 rows → "Delete 2 transactions?" → "Deleted 2 transactions · Undo" → Undo brought
+  both back with the same amounts (`s23-bulk-delete-undo-banner.png`).
+
+**Sprint 24**
+- Tour, 6 stops: **✓** by hand on `b4f50dc` (L-026) and every stop plus dark/large-text variants pass in
+  `Sprint24TourUITests` (88/88 on `dba6f9e`; `ui-run-sprint24-tour-1…6-*.png` are from that run, not a fresh hand walk of this head).
+- VoiceOver focus on each step's header / app behind unreachable: **not verified** — I can't drive VoiceOver here.
+- Unseen tips: **split, bulk select, budget history ✓** (captured by `Sprint24TipsUITests`, `ui-run-sprint24-tip-*.png`).
+  **Refund, saved searches, import presets, recurring suggestions, themes, analytics taps: not verified** — they need
+  seeded data (a purchase, an import, 3 months of history…), and a `-uiTestingTips` relaunch starts an empty store
+  (Analytics showed no tip with no data). "Reset tips brings them back": row exists in Settings, effect **not verified**.
+
+**Sprint 25** (typed into Quick Add — I can't invoke Siri/Shortcuts on the Simulator, so the intent path itself is **not verified**)
+- "got paid 1200": **✓** Income, 1200.00 (`s25-got-paid-1200-income.png`).
+- "I had to pay 80 dentist": Expense 80.00 ✓, but **✗ the merchant is stored as "dentis"** — the last letter is dropped
+  (Quick Add field, and the saved row on Dashboard/Budget both say "dentis"). Only this phrase path does it: plain
+  "80 dentist" gives "dentist" and "12 coffee" gives "coffee". Looks like the "I had to pay" phrase stripping eats one
+  character too many from the tail (`s25-i-had-to-pay-80-dentist-merchant-dentis.png`).
+- "Add task call mom tomorrow 3pm": typed on the Expense line it stays an expense (yesterday 3:00 PM, merchant "Add task
+  call mom tomorrow") — probably fine, since "Add task" is the Siri invocation phrase, but note a user typing it in
+  Quick Add gets an expense. On the Task segment, "call mom tomorrow 3pm" → **✓** task "call mom", due Sep 30 3:00 PM
+  (`s25-task-call-mom-tomorrow-3pm.png`; today was Sep 29).
+
+**Sprint 26**
+- A task with a time reminds at that time: **not verified** (notification delivery, as above).
+- Settings › Reminder default time: **✓ present** (9:00 AM, footer "A task with a time reminds at that time. Other tasks and
+  bills remind at 9:00 AM."). That changing it moves an untimed task's reminder: **not verified** (same reason).
+
+**Quick Add**
+- "20 dinner 8pm": **✓** Sep 28 (yesterday) 8:00 PM, 20.00, merchant "dinner". I ran it at 1:40 PM, so 8 pm was still ahead — the
+  same "time ahead of now → yesterday" case as a morning hour, not literally a morning run (`qa-20-dinner-8pm-yesterday.png`).
+- "me pagaron 500 sueldo": **✓** Income, 500.00, merchant "sueldo" (`qa-me-pagaron-500-sueldo-income.png`).
+
+**✗ list for you:** one — the "dentis" merchant truncation above.
