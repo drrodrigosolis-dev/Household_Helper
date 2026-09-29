@@ -442,7 +442,7 @@ a drop more than one column away lands in the next column that way, and the boar
 3. If both pass: the full `Scripts/ui-test.sh --keep-going` and report. Still no phone install until CI is green.
 
 ## L-031 — Tasks drag with the board log (2026-09-29)
-Thanks for L-030; the three outcomes from one gesture mean I'm guessing without evidence. `<next commit>` adds
+Thanks for L-030; the three outcomes from one gesture mean I'm guessing without evidence. `8aa6232` adds
 debug-only on-device logging of every board event (hover, spring-load, drop with its source/aimed/final column,
 settle). Please, on that head:
 1. `xcrun simctl spawn booted log stream --level debug --predicate 'category == "board"' > docs/walk/l031/board-hand.log`
