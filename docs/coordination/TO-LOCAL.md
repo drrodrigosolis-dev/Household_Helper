@@ -450,3 +450,12 @@ settle). Please, on that head:
    between tries via its context menu), noting each outcome in TO-CLOUD.md. Stop the stream.
 2. Same log stream while running only `TasksUITests.testColumnsAreTwoThirdsWide…` → `docs/walk/l031/board-test.log`.
 3. Commit both logs (they hold only column names and event names). No phone install.
+
+## L-032 — Tasks drag after the log-driven fix (2026-09-29)
+Your L-031 log nailed it: "hover Done focused To Do" → spring-load to Done (two columns) → release over the empty
+space after the last column → no drop. The next commit clamps the spring-load to one column from the card's source
+and settles the board back to the source if a drag ends with no drop. Please, with the same log stream running:
+1. The fast hand drag ×3 (reset to To Do between tries) → `docs/walk/l032/board-hand.log`; each outcome in TO-CLOUD.
+   Expected every time: "spring-load to In Progress over Done" (or no spring-load), then a drop landing in In Progress.
+2. `TasksUITests` alone ×2 → pass/fail each.
+3. If all good, the full UI suite. No phone install yet.
