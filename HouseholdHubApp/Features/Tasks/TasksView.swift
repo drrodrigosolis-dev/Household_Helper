@@ -33,20 +33,12 @@ struct TasksView: View {
     /// Drop targets under a drag right now (a column, or a card), each mapped to its column. Kept as a set rather
     /// than one value because entering a card and leaving its column arrive in no fixed order.
     @State private var dropTargets: [UUID: UUID] = [:]
-    /// When the last spring-load fired; one per drag (see `springLoad`). A drop clears it.
-    @State private var springFiredAt: Date?
-    @State private var springTask: Task<Void, Never>?
-    /// The column the last spring-load brought into focus, held until the drop (or `springWindow`). While set, the
-    /// board keeps that column in place: L-025 frames showed the system's drag auto-scroll carrying the board to its
-    /// end ~0.3 s after a spring-load (the finger now rests in the edge band), so the drop landed past the columns.
-    @State private var springColumn: UUID?
-    /// Lets the board go `springWindow` after a spring-load if the drag ended off the board (no drop to clear it).
-    @State private var springRelease: Task<Void, Never>?
     /// Brings the board back onto a column's edge once a drag is over (see `settle`).
     @State private var settleTask: Task<Void, Never>?
     /// The column a drop asked the board to settle on; a later "drag over" signal keeps it rather than replacing it.
     @State private var settleColumn: UUID?
-    /// The column the card being dragged started in; set when the drag begins, cleared by the drop.
+    /// The column the card being dragged started in; set when the drag begins, cleared by the drop (or by
+    /// `settle` once nothing has been under the drag for a while: a drag released off every drop target).
     @State private var dragSource: UUID?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.funTheme) private var theme
@@ -124,18 +116,17 @@ struct TasksView: View {
             .contentMargins(.trailing, proxy.size.width - columnWidth - Self.edge, for: .scrollContent)
             .scrollTargetBehavior(.viewAligned)
             .scrollPosition($position, anchor: .leading)
+            // L-031/L-032 logs: whenever the board moved under a finger at rest (the system's drag auto-scroll, or a
+            // spring-load), no drop came on release. So the board holds still for the whole drag: the next column
+            // peeks in on the right and the previous one has the strip on the left, each a drop target, and a
+            // drop moves the board to the card's new column. One column per drag (owner decision, L-018 to L-020).
+            .scrollDisabled(dragSource != nil)
             .overlay(alignment: .leading) { previousColumnStrip }
         }
         .onChange(of: hoveredColumn) { _, column in
             let entry = "hover \(name(column)) focused \(name(focusedColumn))"
             boardLog.debug("\(entry, privacy: .public)")
-            springLoad(column)
-            if column == nil, springColumn == nil { settle(on: nil) }
-        }
-        // Anything else that moves the board while a spring-load holds it (the drag auto-scroll) is undone. Scrolling
-        // isn't disabled instead: that also stopped the spring-load's own scroll (CI run 36453971771).
-        .onChange(of: focusedColumn) { _, column in
-            if let springColumn, column != springColumn { focus(springColumn) }
+            if column == nil { settle(on: nil) }
         }
         .safeAreaInset(edge: .bottom) {
             if let errorMessage {
@@ -156,8 +147,8 @@ struct TasksView: View {
         return columns[index - 1].id
     }
 
-    /// With columns at the left edge the previous one is out of sight, so a drag resting on the left edge slides
-    /// back to it (spring-loading, like the peeking column on the right), and a drop there moves the task into it.
+    /// With columns at the left edge the previous one is out of sight, so a drop on the left edge moves the task into
+    /// it, as a drop on the peeking column on the right moves it into the next one.
     @ViewBuilder
     private var previousColumnStrip: some View {
         if let previous = previousColumn {
@@ -181,55 +172,7 @@ struct TasksView: View {
     /// The column a drop would land in now (see `drop`): outlined while dragging.
     private var dropColumn: UUID? {
         guard let hoveredColumn else { return nil }
-        return springColumn ?? (springSpent ? (focusedColumn ?? hoveredColumn) : hoveredColumn)
-    }
-
-    /// This drag has used its spring-load. A drag dropped off the board never reaches `drop`, so a spring-load more
-    /// than `springWindow` ago counts as a previous drag's.
-    private var springSpent: Bool {
-        springFiredAt.map { Date.now.timeIntervalSince($0) < Self.springWindow } ?? false
-    }
-
-    private static let springWindow: TimeInterval = 8
-
-    /// Spring-loading (Sprint 18): a drag that rests on a peeking column (or the left edge, for the previous one) for
-    /// 0.6 s brings it into focus. SwiftUI has no edge auto-scroll while dragging. The slide moves the next column
-    /// under a finger that stays still, so the column a drop would land in is outlined (`columnView`).
-    ///
-    /// One per drag (L-018, L-019, L-020 walks: a finger resting at the edge went two columns). Re-arming on what the
-    /// drag was over failed twice: while a finger rests, the columns sliding under it report hover changes in no
-    /// reliable order, both "over the focused column" and "over nothing". So nothing about hovering re-arms it; a drop
-    /// does, and a drag that ended off the board is forgotten after `springWindow`. To go further, drop and drag again.
-    private func springLoad(_ column: UUID?) {
-        springTask?.cancel()
-        springTask = nil
-        guard let column, column != focusedColumn, !springSpent else { return }
-        // The drag auto-scroll can bring the column after next under the finger while the board still reports the
-        // source in focus (L-031 log: "hover Done focused To Do", then a spring-load to Done, and the drop fell in
-        // the empty space after the last column). The spring-load goes one column from where the card started.
-        let target = oneColumnAway(from: dragSource ?? focusedColumn ?? column, toward: column)
-        guard target != focusedColumn else { return }
-        springTask = Task {
-            try? await Task.sleep(for: .milliseconds(600))
-            guard !Task.isCancelled, hoveredColumn == column, !springSpent else { return }
-            let fired = Date.now
-            springFiredAt = fired
-            springColumn = target
-            let entry = "spring-load to \(name(target)) over \(name(column))"
-            boardLog.debug("\(entry, privacy: .public)")
-            springRelease?.cancel()
-            springRelease = Task {
-                try? await Task.sleep(for: .seconds(Self.springWindow))
-                guard !Task.isCancelled, springFiredAt == fired else { return }
-                springColumn = nil
-                // No drop came (the drag ended off every drop target): back to where the card still is.
-                settle(on: dragSource)
-                dragSource = nil
-            }
-            // The targets are stale once the board slides; the ones still under the drag report in again as it moves.
-            dropTargets = [:]
-            focus(target)
-        }
+        return oneColumnAway(from: dragSource ?? hoveredColumn, toward: hoveredColumn)
     }
 
     private func focus(_ column: UUID) {
@@ -245,13 +188,17 @@ struct TasksView: View {
         settleTask?.cancel()
         settleTask = Task {
             try? await Task.sleep(for: .milliseconds(350))
-            guard !Task.isCancelled, hoveredColumn == nil, springColumn == nil,
-                let target = settleColumn ?? focusedColumn ?? columns.first?.id
+            guard !Task.isCancelled, hoveredColumn == nil,
+                let target = settleColumn ?? dragSource ?? focusedColumn ?? columns.first?.id
             else { return }
             settleColumn = nil
             let entry = "settle on \(name(target)) from \(name(focusedColumn))"
             boardLog.debug("\(entry, privacy: .public)")
             focus(target)
+            // Still over nothing a while later: the drag ended off every drop target, so the board scrolls again.
+            try? await Task.sleep(for: .milliseconds(1_200))
+            guard !Task.isCancelled, hoveredColumn == nil else { return }
+            dragSource = nil
         }
     }
 
@@ -366,20 +313,13 @@ struct TasksView: View {
 
     /// Returns whether the drop was handled. Uses the `isTargeted:` drop API (deprecated only from iOS 27.2) because
     /// the iOS 26 session API reports hovering only from iOS 27.
-    ///
-    /// Right after a spring-load the finger is over a column that slid in under it; the drop goes to the column that
-    /// sprang into focus, as the outline showed (L-018: a rest-then-drop on the right edge landed a column too far).
     private func drop(_ items: [String], into columnID: UUID, at index: Int) -> Bool {
-        let aimed = springColumn ?? (springSpent ? (focusedColumn ?? columnID) : columnID)
-        springColumn = nil
-        springRelease?.cancel()
         dropTargets = [:]
-        springFiredAt = nil
         guard let id = items.first.flatMap(UUID.init(uuidString:)), let task = tasks.first(where: { $0.id == id })
         else { return false }
         dragSource = nil
-        let target = oneColumnAway(from: task.columnID, toward: aimed)
-        let entry = "drop over \(name(columnID)) aimed \(name(aimed)) from \(name(task.columnID)) to \(name(target))"
+        let target = oneColumnAway(from: task.columnID, toward: columnID)
+        let entry = "drop over \(name(columnID)) from \(name(task.columnID)) to \(name(target))"
         boardLog.debug("\(entry, privacy: .public)")
         move(task, to: target, at: target == columnID ? index : Int.max)
         settle(on: target)
