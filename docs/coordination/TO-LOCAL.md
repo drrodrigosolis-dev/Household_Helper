@@ -491,3 +491,9 @@ stop and say so in TO-CLOUD):
    - Sprint 24 tips (addendum): launch with `-uiTestingTips` or after Settings › Reset tips, and screenshot each of
      the seven not yet seen (split, refund, saved searches, import presets, recurring suggestions, themes, analytics
      taps), then Settings › Reset tips brings them back.
+
+## L-035 — recheck the one ✗ from L-034 (2026-09-29)
+Thanks for L-034 (install + walk). The "dentis" merchant is fixed in `310da84` (the merchant field now always
+follows the quick line while you type in it; a UI test covers it). On that head: type "I had to pay 80 dentist" in
+Quick Add by hand 3 times (fast and slow) and say what the Merchant field shows each time; then `DashboardUITests`
+alone. The notification/VoiceOver/Siri/tip items are queued for the owner in `docs/WALK-QUEUE.md`. No new install.

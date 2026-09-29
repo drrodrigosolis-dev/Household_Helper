@@ -64,6 +64,23 @@ result, and why it could not be walked automatically. Emptied at the next walk o
      dialogs read naturally once the Localizable strings are translated.
   Why queued: Siri, dictation, Face ID and the on-device model exist only on the phone.
 
+- **Sprints 23–26 on the phone (owner, after the L-034 install of `8a15d68`; the Simulator could not show these).**
+  1. **Budget alert (F7):** give a category a small budget (e.g. $10), then Quick Add expenses in it to pass 80 %
+     and then 100 % of it. Expected: one notification at 80 % and one at 100 %, naming the category only (no
+     amounts), each once.
+  2. **Task reminders (Sprint 26):** add a task due today with a time 5 minutes ahead ("call mom 3:35pm" style
+     on the Task line). Expected: a notification at that minute. Add one due tomorrow without a time, set
+     Settings › Reminder default time to a minute you'll be around, and check it moves there.
+  3. **VoiceOver tour (Sprint 24):** turn VoiceOver on, Settings › Show the tour again. Expected: each stop reads
+     "Step N of 6, title", swiping never reaches the app behind the tour, a two-finger scrub skips it.
+  4. **Tips (Sprint 24), with your own data:** refund (on an expense's editor), saved searches (Budget › Filter ›
+     More filters), import presets (CSV import), recurring suggestions (Budget › Recurring, after a few repeats),
+     themes (Settings), analytics taps (More › Analytics). Each shows once; Settings › Reset tips shows them again.
+  5. **Siri phrases (Sprint 25 + owner request 2026-09-28):** "Log a transaction in Household Hub" → "got paid
+     1200" (income), "I had to pay 80 dentist" (expense, merchant "dentist"); "Add a task in Household Hub" →
+     "call mom tomorrow 3pm" (due tomorrow 15:00).
+  Why queued: notifications, VoiceOver and Siri only on the device; the tips need real data.
+
 ## Done
 - **Sprint 6 (Phase 7) — backup and restore through the Files app** (local Simulator, L-012, 2026-09-27). The first
   try found "Back up now" did nothing: two `fileExporter`s on one view, only the last presented; fixed in `9b100f5`.
