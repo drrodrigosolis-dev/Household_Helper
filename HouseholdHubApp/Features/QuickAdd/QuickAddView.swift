@@ -120,6 +120,9 @@ struct QuickAddView: View {
     /// What the quick text (or a suggestion) last put in the description field (Merchant, Name or Title); it follows
     /// the text only while it still holds exactly that, so what the user typed in Details is never overwritten.
     @State private var notesFromText = ""
+    /// The description field was edited by hand (while the quick line wasn't being typed in), so the line no
+    /// longer overwrites it.
+    @State private var notesEdited = false
     /// Fields filled by a suggestion (merchant history or the on-device model), shown as such until edited.
     @State private var suggestedFields: Set<String> = []
     @State private var suggestionTask: Task<Void, Never>?
@@ -195,6 +198,18 @@ struct QuickAddView: View {
                 }
             }
             .onChange(of: text) { applyParse() }
+            // L-034: typing "I had to pay 80 dentist" left the merchant as "dentis": a change to the description
+            // field arrived while the quick line was being typed, so the field no longer matched what the line said
+            // and every later keystroke treated it as edited by hand. Now only a change made outside the quick line
+            // counts as an edit; anything else is put back to what the line says.
+            .onChange(of: notes) { _, new in
+                guard new != notesFromText else { return }
+                if quickFieldFocused, !notesEdited {
+                    notes = notesFromText
+                } else {
+                    notesEdited = true
+                }
+            }
             // A suggestion computed for one segment is never applied to another.
             .onChange(of: entry) { old, new in
                 if new != suggestionEntry {
@@ -204,10 +219,10 @@ struct QuickAddView: View {
                 // text the line produced, and only if it wasn't edited; dates and amounts are left alone.
                 if old == .task || new == .task {
                     let description = lineDescription(for: new)
-                    if notes == notesFromText {
+                    notesFromText = description
+                    if !notesEdited {
                         notes = description
                     }
-                    notesFromText = description
                 }
             }
             .onAppear {
@@ -348,10 +363,10 @@ struct QuickAddView: View {
             dueHasTime = false
         }
         let description = entry == .task ? taskLine.title : parsed.description
-        if notes == notesFromText {
+        notesFromText = description
+        if !notesEdited {
             notes = description
         }
-        notesFromText = description
         suggestedFields = []
         modelCategoryID = nil
         scheduleSuggestions(for: text, parsed: parsed, currency: currency, options: options, now: now)

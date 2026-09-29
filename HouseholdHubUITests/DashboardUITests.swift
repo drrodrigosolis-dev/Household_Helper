@@ -17,6 +17,20 @@ final class DashboardUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Budget"].waitForExistence(timeout: 5), "Pending card should open Budget")
     }
 
+    /// L-034 walk: "I had to pay 80 dentist" left the merchant as "dentis". The merchant follows the whole line.
+    @MainActor
+    func testATypePhraseLineKeepsTheWholeMerchant() {
+        let app = launchApp()
+        let field = openQuickAdd(app)
+        typeIntoQuickAdd(field, "I had to pay 80 dentist")
+        let merchant = app.textFields["quickadd.notes"]
+        XCTAssertTrue(merchant.waitForExistence(timeout: 10), "The merchant field should show")
+        let whole = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == 'dentist'"), object: merchant)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [whole], timeout: 5), .completed,
+            "The merchant reads '\(merchant.value ?? "nil")', not 'dentist'")
+    }
+
     @MainActor
     func testProjectedCardOpensRecurring() {
         let app = launchApp()
