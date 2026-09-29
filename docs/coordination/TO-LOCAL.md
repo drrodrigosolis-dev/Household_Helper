@@ -431,3 +431,12 @@ the scroll helper treats a visible label as on screen, for the split info; 16 sw
    (`xcrun simctl io booted recordVideo`) or 2–3 screenshots under `docs/walk/l029/` would settle it. If the test
    fails again, export its failure screenshot from the .xcresult into the same folder.
 3. Still no phone install.
+
+## L-030 — Tasks test on `f872e6b` (2026-09-29)
+CI failed the same way as your Mac on `d2629ef` (-277), so it's not Mac-specific. My read: -277 is In Progress one
+column past the edge, i.e. Done at the edge — the same two-column jump you saw by hand (the system's drag auto-scroll
+carries the board past In Progress, the drop lands in Done). `39cd304` enforces the owner's one-column-per-drag rule:
+a drop more than one column away lands in the next column that way, and the board settles there.
+1. Run only `TasksUITests` (e.g. `-only-testing:HouseholdHubUITests/TasksUITests`) on `f872e6b`; report pass/fail.
+2. By hand, the fast To Do → far-right drag again: the card should land in **In Progress**, never Done.
+3. If both pass: the full `Scripts/ui-test.sh --keep-going` and report. Still no phone install until CI is green.
