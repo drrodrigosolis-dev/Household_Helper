@@ -261,6 +261,8 @@ private struct TransactionEditorContent: View {
             if isSplitPart {
                 Label("Part of a split (\(max(splitParts.count, 1)) parts)", systemImage: "square.split.2x1")
                     .foregroundStyle(.secondary)
+                    // One element: VoiceOver reads one line, and UI tests find one match (L-029).
+                    .accessibilityElement(children: .combine)
                     .accessibilityIdentifier("editor.splitInfo")
                 Button("Unsplit", systemImage: "arrow.triangle.merge") { isConfirmingUnsplit = true }
                     .disabled(hasChanges || isSaving)

@@ -50,7 +50,15 @@ final class Sprint24TipsUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 10), .completed, "Editor should close")
         let segment = app.segmentedControls.buttons["Budgets"]
         XCTAssertTrue(segment.waitForExistence(timeout: 10), "Budget's Budgets segment missing")
-        segment.tap()
+        // Tips are forced on here, so Bulk select's popover comes back over Select, and the first tap outside it
+        // only dismisses it (L-029: the segment tap never switched, so no Add budget). Tap until it's selected.
+        for _ in 0..<3 where !segment.isSelected {
+            segment.tap()
+            _ = XCTWaiter().wait(
+                for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: segment)],
+                timeout: 3)
+        }
+        XCTAssertTrue(segment.isSelected, "Budgets did not open")
         // With no budget the screen is its empty state, which has no month arrows (CI run 36465178943).
         addDiningBudget(app, limit: "200")
         let monthArrows = app.buttons["budgets.nextMonth"]

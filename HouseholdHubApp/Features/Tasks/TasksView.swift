@@ -34,6 +34,10 @@ struct TasksView: View {
     @State private var springColumn: UUID?
     /// Lets the board go `springWindow` after a spring-load if the drag ended off the board (no drop to clear it).
     @State private var springRelease: Task<Void, Never>?
+    /// Brings the board back onto a column's edge once a drag is over (see `settle`).
+    @State private var settleTask: Task<Void, Never>?
+    /// The column a drop asked the board to settle on; a later "drag over" signal keeps it rather than replacing it.
+    @State private var settleColumn: UUID?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.funTheme) private var theme
 
@@ -112,7 +116,10 @@ struct TasksView: View {
             .scrollPosition(id: $focusedColumn, anchor: .leading)
             .overlay(alignment: .leading) { previousColumnStrip }
         }
-        .onChange(of: hoveredColumn) { _, column in springLoad(column) }
+        .onChange(of: hoveredColumn) { _, column in
+            springLoad(column)
+            if column == nil, springColumn == nil { settle(on: nil) }
+        }
         // Anything else that moves the board while a spring-load holds it (the drag auto-scroll) is undone. Scrolling
         // isn't disabled instead: that also stopped the spring-load's own scroll (CI run 36453971771).
         .onChange(of: focusedColumn) { _, column in
@@ -205,6 +212,27 @@ struct TasksView: View {
 
     private func focus(_ column: UUID) {
         withAnimation(reduceMotion ? nil : .snappy) { focusedColumn = column }
+    }
+
+    /// The system's drag auto-scroll moves the board without view-aligned snapping, so a drag can leave it resting
+    /// between columns (L-029: a sliver of To Do at the left, Done never in view), and a drop into the column already
+    /// in focus doesn't move it back, since the focused column's id is unchanged. Once the drag is over, the board
+    /// goes back onto `column` (a drop's target) or the column in focus. Clearing the id first makes setting it again
+    /// a change, so the scroll position is applied even when it names the same column.
+    private func settle(on column: UUID?) {
+        if let column { settleColumn = column }
+        settleTask?.cancel()
+        settleTask = Task {
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled, hoveredColumn == nil, springColumn == nil,
+                let target = settleColumn ?? focusedColumn ?? columns.first?.id
+            else { return }
+            settleColumn = nil
+            focusedColumn = nil
+            try? await Task.sleep(for: .milliseconds(20))
+            guard !Task.isCancelled else { return }
+            focus(target)
+        }
     }
 
     private func dropTargeted(_ targeted: Bool, key: UUID, column: UUID) {
@@ -330,6 +358,7 @@ struct TasksView: View {
         guard let id = items.first.flatMap(UUID.init(uuidString:)), let task = tasks.first(where: { $0.id == id })
         else { return false }
         move(task, to: target, at: target == columnID ? index : Int.max)
+        settle(on: target)
         return true
     }
 
