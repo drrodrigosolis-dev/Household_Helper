@@ -615,3 +615,13 @@ app) on their free-Personal-Team device build.
   still works; only the hint is missing.
 - **Decision:** ship with the mitigations above rather than waiting on an Apple fix; re-check this section against
   the release-note history the next time Xcode or the iOS SDK version changes.
+
+## Tasks board: `ScrollPosition` instead of `scrollPosition(id:)` (2026-09-29, L-029)
+- **API:** SwiftUI `ScrollPosition` (iOS 18+) with `.scrollPosition(_:anchor:)`, `scrollTo(id:anchor:)` and
+  `viewID(type:)`; min OS is iOS 26, so no availability gate. No entitlement.
+- **Why:** the system's drag auto-scroll moves the board without `.viewAligned` snapping. With a bare id binding, a
+  drop into the column already in focus assigned an unchanged id, so nothing scrolled and the board stayed between
+  columns (Mac hand walk, `docs/walk/l029/`). `scrollTo(id:)` is a command, so it scrolls even to the same id.
+- **Fallback / risk:** the column in focus is read from `viewID(type:)`, which follows the user's swipes through
+  `.scrollTargetLayout()`. `TasksUITests.testColumnsAreTwoThirdsWide…` checks the left-edge alignment with the
+  content margins.

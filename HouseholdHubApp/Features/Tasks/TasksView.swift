@@ -21,7 +21,10 @@ struct TasksView: View {
     @State private var searchText = ""
     /// Sprint 18: the column in focus, at the left edge of the board. Follows swipes, and moves to a column a task
     /// is moved or dragged into.
-    @State private var focusedColumn: UUID?
+    /// Held as a `ScrollPosition` rather than a bare id so a column can be brought back to the edge even when its id
+    /// is already the position's (L-029: the drag auto-scroll leaves the board between columns without changing it).
+    @State private var position = ScrollPosition(idType: UUID.self)
+    private var focusedColumn: UUID? { position.viewID(type: UUID.self) }
     /// Drop targets under a drag right now (a column, or a card), each mapped to its column. Kept as a set rather
     /// than one value because entering a card and leaving its column arrive in no fixed order.
     @State private var dropTargets: [UUID: UUID] = [:]
@@ -113,7 +116,7 @@ struct TasksView: View {
             .contentMargins(.leading, Self.edge, for: .scrollContent)
             .contentMargins(.trailing, proxy.size.width - columnWidth - Self.edge, for: .scrollContent)
             .scrollTargetBehavior(.viewAligned)
-            .scrollPosition(id: $focusedColumn, anchor: .leading)
+            .scrollPosition($position, anchor: .leading)
             .overlay(alignment: .leading) { previousColumnStrip }
         }
         .onChange(of: hoveredColumn) { _, column in
@@ -211,14 +214,13 @@ struct TasksView: View {
     }
 
     private func focus(_ column: UUID) {
-        withAnimation(reduceMotion ? nil : .snappy) { focusedColumn = column }
+        withAnimation(reduceMotion ? nil : .snappy) { position.scrollTo(id: column, anchor: .leading) }
     }
 
     /// The system's drag auto-scroll moves the board without view-aligned snapping, so a drag can leave it resting
     /// between columns (L-029: a sliver of To Do at the left, Done never in view), and a drop into the column already
-    /// in focus doesn't move it back, since the focused column's id is unchanged. Once the drag is over, the board
-    /// goes back onto `column` (a drop's target) or the column in focus. Clearing the id first makes setting it again
-    /// a change, so the scroll position is applied even when it names the same column.
+    /// in focus didn't move it back, since the focused column's id was unchanged. Once the drag is over, the board
+    /// goes back onto `column` (a drop's target) or the column in focus; `scrollTo` scrolls even to the same id.
     private func settle(on column: UUID?) {
         if let column { settleColumn = column }
         settleTask?.cancel()
@@ -228,9 +230,6 @@ struct TasksView: View {
                 let target = settleColumn ?? focusedColumn ?? columns.first?.id
             else { return }
             settleColumn = nil
-            focusedColumn = nil
-            try? await Task.sleep(for: .milliseconds(20))
-            guard !Task.isCancelled else { return }
             focus(target)
         }
     }
