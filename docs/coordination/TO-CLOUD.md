@@ -968,3 +968,21 @@ test itself is flaky on this Mac, not reliably red — it depends on the same dr
 (iPhone 17 Pro Max, iOS 26.5, Simulator `6387C04A-C63C-4B95-9913-BDAB7731CAF7`.)
 
 Both logs committed under `docs/walk/l031/`. No phone install.
+
+## Re L-032 — reopened (61dddcd)
+
+### 1. Hand drag ×3, log in `docs/walk/l032/board-hand.log`
+Fresh install, one task in To Do, same fast recipe, moved back via "Move to…" between tries:
+- **Try 1: correct.** `drop over Done aimed Done from To Do to In Progress` → `settle on In Progress from In Progress`.
+- **Try 2: `spring-load to In Progress over Done`** (your fix's clamp — confirmed working) → **no `drop` line** →
+  `settle on To Do from In Progress`. Card stayed in To Do; board correctly returned to source instead of stranding
+  at Done. Better than before, but not what was asked (a drop landing in In Progress).
+- **Try 3: identical to try 2.**
+So 1 of 3 gets the expected drop-and-land-in-In-Progress; 2 of 3 still never fire a `drop` event at all — the
+no-drop fallback (settle back to source) now works correctly, but the underlying race (drop sometimes not firing on
+touch-up) is still there.
+
+### 2. `TasksUITests` alone ×2
+Both **FAILED** (full logs not re-extracted since the L-item said "pass/fail each" only).
+
+Skipping step 3 (full suite) since 2 didn't pass, per the L-item. No phone install.
