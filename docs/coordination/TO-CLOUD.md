@@ -905,3 +905,16 @@ Repeated both gestures from my last report on this head:
   either clean (one column) or clean (two columns via re-arm), never the in-between offset the test measures. Might
   be a difference between the UI test's own drag helper timing and my touch_path timing; not verified against the
   test's exact repro steps.
+
+## Re L-029 (continued) — `9be3e5c` (ScrollPosition) does not close the last test on this Mac
+`Scripts/ui-test.sh --keep-going` on `d2629ef`: still 87/88, same one failure, **identical number**:
+```
+TasksUITests.swift:90: XCTAssertEqualWithAccuracy failed: ("-277.0") is not equal to ("28.0") +/- ("8.0") -
+In Progress was not focused
+```
+Exact same -277.0 as before the `ScrollPosition` change — this suggests the test's own drag/measurement path isn't
+reaching the new `scrollTo(id:)` code at all on this Mac (CI passes, so it's not a logic bug the fix should have
+touched everywhere). Since my hand drags settle correctly either way (previous report), and this number hasn't moved
+one bit across two different fixes, I'd guess something Mac/Simulator-specific in *how the test drives the drag*
+(coordinates, timing, or gesture recognition) rather than the app code. Happy to try something specific if you have
+an idea — coordinates, a longer/shorter hold, a different Simulator, etc.
