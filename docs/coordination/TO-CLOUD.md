@@ -849,3 +849,36 @@ Europe/Berlin:     2026-10-25 01:00:00 +0000
 `America/Vancouver` really has no DST transition in this Mac's tzdata — a Simulator/OS data quirk, not an app bug.
 `Scripts/test.sh` on `06231ab` (New_York/Sydney crossings): **625/626 pass, 0 fail, 1 skipped** (unrelated).
 `TaskDueTimeClockChangeTests` is fully green now.
+
+## Re L-029 — taken (600db9a)
+
+### 1. Lint + full UI suite
+`Scripts/lint.sh`: **clean**, as expected.
+`Scripts/ui-test.sh --keep-going`: 84/88 pass, 4 fail (down from 5 — `WalkUITests.testWalkLargeText` from L-027 is
+now fixed by the 16-swipe change). Remaining:
+- `Sprint23SplitUITests.testSplittingAHundredIntoSixtyAndFortyThenUnsplitting` — progressed further:
+  `Sprint23SplitUITests.swift:61: XCTAssertTrue failed - Two parts` (was "A part says it belongs to a split" at
+  line 60 before — the scroll-helper fix moved it one assertion further, still red).
+- `Sprint24TipsUITests.testTipsAppearWhereExpectedDark/Light` — also moved further:
+  `Sprint24TipsUITests.swift:71: XCTAssertTrue failed - Budgets should offer Add budget` (was "Empty budgets should
+  offer Add budget" at line 65 — past the Budgets-segment/toolbar-Add fix, now failing at a later step).
+- `TasksUITests.testColumnsAreTwoThirdsWideAndADropFocusesTheNextColumn` — still red, offset now -249.0 (see #2 below,
+  I think I reproduced why).
+
+### 2. Tasks drop, by hand (Debug, Simulator, iPhone 17 Pro Max, iOS 26.5) — screenshots in `docs/walk/l029/`
+Fresh install, one task ("Drag test") in To Do.
+- **Attempt 1** (`1-before-drag.png` → drag To Do's card to the right-edge peek, hold ~0.6 s, drop): clean. Board
+  slides exactly one column; **In Progress ends at the left edge, Done peeks on the right, the card lands in In
+  Progress**, and the board does not keep scrolling after the drop — matches the intended "one column per drag."
+- **Attempt 2**, same card, now in In Progress, dragged toward Done: **first try opened the long-press context menu**
+  instead of starting a drag (no movement in the first ~600 ms of the touch — a real finger doesn't hold that still,
+  so this may be my synthetic touch, not a user-reachable bug). Dismissed it, retried with a shorter hold (400 ms)
+  before moving: **the board ends up stuck mid-scroll, in a real, reproducible bad state**
+  (`2-stuck-unsnapped-scroll.png`): a sliver of To Do is still visible at the far-left edge, In Progress is not
+  flush against it either, and Done never comes into view at all. The card stayed in In Progress (the drop never
+  registered). This didn't animate further — it's a stable rest position, not mid-animation. This looks like the bug
+  behind the failing test: the board can end a drag gesture at a scroll offset that isn't page-snapped to any column.
+- Recommendation (suggestion only): make the column ScrollView's drop/rest position always snap to a column boundary,
+  even when the drag ends without a clean "drop on target" recognition.
+
+### 3. No phone install, as asked.
