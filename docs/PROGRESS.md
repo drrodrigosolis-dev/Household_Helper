@@ -110,13 +110,28 @@ where money sits. Each is one sprint (`docs/sprints/SPRINT-10…`), closed only 
 | 14 | Search (deterministic) + local reminders (task due dates, upcoming bills) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`); real reminder on device pending (L-009) |
 | 15 | CSV import (user-picked file, column mapping, preview, duplicate check, one atomic save) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
 | 16 | Spanish translation (String Catalog; walked in Spanish) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`); Xcode export gaps fixed (L-010); default task columns now seeded in Spanish (run 36274947830 on `54387a4`, green) |
-| 17 | Batch add (paste a list of tasks or wishlist items, preview, one save) | building |
-| 18 | Task columns at 2/3 width; the moved-to column comes into focus; auto-scroll while dragging | planned |
-| 19 | Fun themes: five themes or off; colors, fonts, icons, pictures, animations | planned |
-| 20 | Refunds: a linked refund on the refund date, partial amounts, wishlist keep/remove (first schema change: SchemaV2) | planned |
+| 17 | Batch add (paste a list of tasks or wishlist items, preview, one save) | CI green as part of run 36599247241 on `dba6f9e` (no sprint-own green run recorded; see `docs/sprints/SPRINT-17.md`); Mac UI 53/53 and Simulator walk (L-015, L-016) |
+| 18 | Task columns at 2/3 width; the moved-to column comes into focus; auto-scroll while dragging | CI green as part of run 36599247241 on `dba6f9e` (no sprint-own green run recorded; see `docs/sprints/SPRINT-18.md`); spring-loading later removed and one column per drag (Sprint 26 post-sprint, `1f51430`) |
+| 19 | Fun themes: five themes or off; colors, fonts, icons, pictures, animations | CI green as part of run 36599247241 on `dba6f9e` (no sprint-own green run recorded; see `docs/sprints/SPRINT-19.md`); superseded by Sprint 21's redo |
+| 20 | Refunds: a linked refund on the refund date, partial amounts, wishlist keep/remove (first schema change: SchemaV2) | CI green as part of run 36599247241 on `dba6f9e` (no sprint-own green run recorded; see `docs/sprints/SPRINT-20.md`); SchemaV2 installed on the owner's iPhone (`fd7e67e`) and frozen |
+| 21 | Themes redone after the owner's mockup (chalk art per theme) | CI green as part of run 36599247241 on `dba6f9e` (no sprint-own green run recorded; see `docs/sprints/SPRINT-21.md`); Simulator art walk (`ebfaa71`, L-019) |
+| 22 | Recurring purchases (Bill / Purchase, store, SchemaV3) | CI green as part of run 36599247241 on `dba6f9e` (no sprint-own green run recorded; see `docs/sprints/SPRINT-22.md`); SchemaV3 installed (`8a9ec36`) and frozen |
+| 23 | Fixes from the local full audit (A-001–A-023) + owner features F1–F8 (SchemaV4) | CI green (run 36599247241 on `dba6f9e`, UI 88/88); Mac hand checks L-023/L-024; F7 notification and bulk Undo in the L-034 walk |
+| 24 | First-time tutorial: six-stop spotlight tour, one-time offer, ten TipKit tips, Settings replay | CI green (run 36599247241 on `dba6f9e`); tour walked on the Mac (L-026, L-027); VoiceOver tour in the L-034 walk; seven tips and Reset Tips not yet seen |
+| 25 | Siri: Add to Wishlist, Add Task, Log Transaction free sentences; on-device refinement with grammar fallback | CI green (run 36599247241 on `dba6f9e`); Siri on the phone pending (WALK-QUEUE, L-034) |
+| 26 | Task time and reminder default time (SchemaV5) | CI green (run 36599247241 on `dba6f9e`, UI 88/88; Mac 88/88, L-033); real reminders in the L-034 walk |
 
 Local walks after the Mac restart (2026-09-27, `docs/coordination/`): Spanish on a fresh store, label taps, goals, a
 real reminder, and backup/restore through Files all pass. Fixed on the way: "Back up now" did nothing (two
 `fileExporter`s on one view, `9b100f5`); goal subtitle wrap and red Delete icons (`9431b07`); Quick Add UI tests now
 wait for the typed text and an enabled Save (`bc5ceaa`). CI green on `bc5ceaa` (run 36334223494). Remaining before
 the merge go-ahead: the owner's device checks in `docs/WALK-QUEUE.md` (Face ID, on-device AI, launch time).
+
+**State on 2026-09-29.** CI run 36599247241 on `dba6f9e` is green (lint, build, unit, UI 88/88) and holds all of
+Sprints 17–26 plus the post-sprint work (tour accessibility fixes, Sprint 26 data-safety fixes, time-of-day and
+income/expense phrases in entry text with spec §25.2, and the Tasks board holding still during a drag with
+spring-loading removed; `docs/sprints/SPRINT-26.md`). The Mac's full UI suite on the same code is 88/88 (L-033);
+later commits are coordination docs only. SchemaV4 and SchemaV5 are installed (`f183138`) and pinned. Pending: L-034,
+the Release install of this code on the owner's iPhone and the final walk (F7 budget alerts, bulk Undo, the tour with
+VoiceOver, Siri phrases, task-time reminders, Quick Add times and phrases), then the owner's go-ahead before any merge
+to `main`.

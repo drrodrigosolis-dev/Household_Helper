@@ -31,7 +31,7 @@ everything the app can do. Siri moved to Sprint 25.
 | 1 | Tour engine: spotlight + callout, Next/Skip, step count, VoiceOver, Reduce Motion, Dynamic Type | ☑ | ☑ L-026 hand walk, `Sprint24TourUITests` screenshots (light; dark at large text, L-027); VoiceOver focus and hidden app behind (c7734ea): L-034 walk pending |
 | 2 | The 6 stops, and the tour starting after onboarding | ☑ | ☑ L-026 (all 6 stops by hand, `docs/walk/l026-tour/`), L-027 (every tour test passes on the Mac) |
 | 3 | Existing-install offer, shown once | ☑ | ☑ `Sprint24TourUITests.testNotNowDismissesTheOffer` screenshot |
-| 4 | Contextual tips (split, undo, bulk select, saved searches, import presets, recurring suggestions, refunds, themes, budget history, analytics taps) | ☑ | ☐ 3 of 10 seen in `Sprint24TipsUITests` screenshots, light and dark (bulk select, split, budget history); the rest need the owner's walk (L-034 walk pending); catalog by `TutorialTipsTests` |
+| 4 | Contextual tips (split, undo, bulk select, saved searches, import presets, recurring suggestions, refunds, themes, budget history, analytics taps) | ☑ | ☐ 3 of 10 seen in `Sprint24TipsUITests` screenshots, light and dark (bulk select, split, budget history); the rest not yet seen (not in L-034); catalog by `TutorialTipsTests` |
 | 5 | Settings: Show the tour again · Reset tips | ☑ | ☑ `Sprint24TourUITests.testSettingsShowsTheTourAgain` screenshots (Show the Tour Again); Reset Tips not seen |
 | 6 | State in UserDefaults / TipKit store; UI-test launch arguments reset it; unit tests for the state logic | ☑ | ☑ walked by its tests (`TourLaunchPolicyTests`, `TutorialTipsTests`; domain only) |
 | 7 | UI test per stop with screenshots (light, dark, large type) | ☑ | ☑ the tests themselves: green in 36599247241 and on the Mac (L-027, L-033 88/88) |
@@ -52,6 +52,6 @@ Research first: `household-research-apple-api` on TipKit (iOS 26) and a pure-Swi
   empty-state message, in-form tips inline (d891007); stop 3's spotlight check (719fe0d); stop 1 at accessibility sizes
   spotlights the Current card (dcfbdc7); the tips test reaching Budgets (199bbc8, 600db9a, f36b82e); the accessibility
   audit's VoiceOver focus, full-size buttons, side docking at large sizes and the Tasks stop naming Move to… (c7734ea).
-- **Still needs the owner (L-034 walk pending):** the tour from Settings with VoiceOver on (focus on each header, the
-  app behind unreachable); the remaining seven tips in place; Reset Tips.
+- **Still needs the owner:** the tour from Settings with VoiceOver on (focus on each header, the app behind
+  unreachable), L-034 walk pending; the remaining seven tips in place and Reset Tips, not yet in any L-item (next walk).
 - **Open decisions:** none.
