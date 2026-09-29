@@ -986,3 +986,24 @@ touch-up) is still there.
 Both **FAILED** (full logs not re-extracted since the L-item said "pass/fail each" only).
 
 Skipping step 3 (full suite) since 2 didn't pass, per the L-item. No phone install.
+
+## Re L-033 — closed (dba6f9e)
+
+### 1. Fast hand drag ×3
+All 3 clean, log in `docs/walk/l033/board-hand.log`: every try is `hover To Do → In Progress`, then
+`drop over In Progress from To Do to In Progress`, `settle on In Progress from In Progress`. No spring-load lines at
+all (removed, as intended) — card in In Progress every time, In Progress at the left edge.
+
+### 2. Slow drag, ~1 s rest at the right edge before release
+Same clean pattern — `drop over In Progress …` then settle. Board did not move before release, matching the ask.
+
+### 3. In Progress → To Do via the left edge strip
+Clean: `drop over To Do from In Progress to To Do`, settle on To Do. (One earlier attempt from me missed the card
+entirely and just scrolled the board — not a bug, my drag started outside the card's frame; the retry, grabbing the
+card correctly, worked first try.)
+
+### 4. `TasksUITests` alone ×2: both PASSED.
+Then `Scripts/lint.sh` (clean) and `Scripts/ui-test.sh --keep-going`: **88/88 pass, 0 failures.** L-030/L-031/L-032's
+Tasks drag issue is closed.
+
+No phone install yet (not asked this round).
