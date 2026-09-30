@@ -135,3 +135,11 @@ later commits are coordination docs only. SchemaV4 and SchemaV5 are installed (`
 the Release install of this code on the owner's iPhone and the final walk (F7 budget alerts, bulk Undo, the tour with
 VoiceOver, Siri phrases, task-time reminders, Quick Add times and phrases), then the owner's go-ahead before any merge
 to `main`.
+
+**L-034 (2026-09-29).** Release `8a15d68` installed on the owner's iPhone. Simulator walk (`docs/walk/l034/`):
+bulk delete → Undo ✓; "got paid 1200" income ✓; task "call mom tomorrow 3pm" due tomorrow 15:00 ✓; "20 dinner 8pm"
+→ yesterday 20:00 ✓; "me pagaron 500 sueldo" income ✓; Reminder default time row ✓; tour stops and three tips ✓
+(UI run). One defect: "I had to pay 80 dentist" saved the merchant "dentis"; fixed in `310da84` with a UI test
+(CI and the Mac's L-035 recheck pending). Not observable on the Simulator and queued for the owner in
+`docs/WALK-QUEUE.md`: budget alert and task reminder delivery, the tour with VoiceOver, six tips needing real
+data, Reset tips, Siri.
