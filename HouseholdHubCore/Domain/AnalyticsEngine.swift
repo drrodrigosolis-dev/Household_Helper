@@ -24,6 +24,15 @@ public enum AnalyticsPeriod: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    /// The month the period's category changes compare against (Sprint 23, A-018): the calendar month before a
+    /// single-month period. Longer periods have no comparison.
+    public func comparisonInterval(now: Date, calendar: HouseholdCalendar) -> DateInterval? {
+        guard bucket == .week else { return nil }
+        let start = interval(now: now, calendar: calendar).start
+        guard let earlier = calendar.calendar.date(byAdding: .month, value: -1, to: start) else { return nil }
+        return DateInterval(start: calendar.startOfMonth(for: earlier), end: start)
+    }
+
     /// Trend bars group by week for single-month periods, by month otherwise.
     public var bucket: AnalyticsBucket {
         switch self {
@@ -62,6 +71,16 @@ public struct AnalyticsEntry: Sendable, Hashable {
     }
 }
 
+extension AnalyticsEntry {
+    /// A refund as spending: the same category and merchant, a negative amount.
+    func asNegativeSpending() throws -> AnalyticsEntry {
+        var entry = self
+        entry.amount = try amount.negated()
+        entry.type = .expense
+        return entry
+    }
+}
+
 public struct CategorySpend: Sendable, Hashable, Identifiable {
     /// Nil is the "Uncategorized" bucket.
     public let categoryID: UUID?
@@ -70,6 +89,34 @@ public struct CategorySpend: Sendable, Hashable, Identifiable {
     public let share: Double
 
     public var id: String { categoryID?.uuidString ?? "uncategorized" }
+}
+
+/// One category's spending against the month before (Sprint 23, A-018). `difference` is the size of the change,
+/// never negative; `direction` says which way it went.
+public struct CategoryChange: Sendable, Hashable, Identifiable {
+    public enum Direction: Sendable, Hashable {
+        case up
+        case down
+        case same
+    }
+
+    /// Nil is the "Uncategorized" bucket.
+    public let categoryID: UUID?
+    public let current: Money
+    public let previous: Money
+    public let difference: Money
+    public let direction: Direction
+
+    public var id: String { categoryID?.uuidString ?? "uncategorized" }
+
+    public init(categoryID: UUID?, current: Money, previous: Money) throws {
+        let change = try current.subtracting(previous)
+        self.categoryID = categoryID
+        self.current = current
+        self.previous = previous
+        self.difference = try change.isNegative ? change.negated() : change
+        self.direction = change.isZero ? .same : change.isNegative ? .down : .up
+    }
 }
 
 public struct TrendPoint: Sendable, Hashable, Identifiable {
@@ -93,8 +140,12 @@ public struct MerchantSpend: Sendable, Hashable, Identifiable {
 public struct AnalyticsReport: Sendable, Hashable {
     public let interval: DateInterval
     public let income: Money
+    /// Spending after refunds (Sprint 20), category by category: a category whose refunds in the period exceed what
+    /// it spent counts as zero, so this is what the category chart adds up to.
     public let expense: Money
-    /// Income minus expense; negative when the household spent more than it earned.
+    /// Money given back for purchases in the period. Not income: it lowers spending instead.
+    public let refunds: Money
+    /// Income minus spending after refunds; negative when the household spent more than it earned.
     public let net: Money
     public let byCategory: [CategorySpend]
     public let trend: [TrendPoint]
@@ -113,7 +164,16 @@ public struct AnalyticsEngine: Sendable {
         _ entries: [AnalyticsEntry], period: AnalyticsPeriod, now: Date, calendar: HouseholdCalendar,
         currencyCode: String, includePending: Bool = false
     ) throws -> AnalyticsReport {
-        let interval = period.interval(now: now, calendar: calendar)
+        try report(
+            entries, interval: period.interval(now: now, calendar: calendar), bucket: period.bucket, now: now,
+            calendar: calendar, currencyCode: currencyCode, includePending: includePending)
+    }
+
+    /// The same report for any interval, such as the month before a period (Sprint 23: change vs last month).
+    public func report(
+        _ entries: [AnalyticsEntry], interval: DateInterval, bucket: AnalyticsBucket, now: Date,
+        calendar: HouseholdCalendar, currencyCode: String, includePending: Bool = false
+    ) throws -> AnalyticsReport {
         let counted = entries.filter { entry in
             let countedStatus = entry.status == .posted || (includePending && entry.status == .pending)
             return countedStatus && entry.type != .transfer && entry.occurredAt >= interval.start
@@ -123,26 +183,46 @@ public struct AnalyticsEngine: Sendable {
             throw LedgerError.currencyMismatch(expected: currencyCode, actual: entry.amount.currencyCode)
         }
         let incomes = counted.filter { $0.type == .income }
-        let expenses = counted.filter { $0.type == .expense }
+        let refundEntries = counted.filter { $0.type == .refund }
+        // Spending as signed amounts: an expense counts up, a refund counts down in its category and merchant.
+        let spending = try counted.filter { $0.type == .expense } + refundEntries.map { try $0.asNegativeSpending() }
         let income = try Money.sum(incomes.map(\.amount), currencyCode: currencyCode)
-        let expense = try Money.sum(expenses.map(\.amount), currencyCode: currencyCode)
-        let spent = try expense.negated()
-        let net = try income.adding(spent)
-        let byCategory = try categories(expenses, total: expense, currencyCode: currencyCode)
+        let refunds = try Money.sum(refundEntries.map(\.amount), currencyCode: currencyCode)
+        let netSpending = try Money.sum(spending.map(\.amount), currencyCode: currencyCode)
+        let net = try income.subtracting(netSpending)
+        let byCategory = try categories(spending, currencyCode: currencyCode)
+        // What the category chart adds up to: each category's spending after its own refunds, never below zero.
+        let expense = try Money.sum(byCategory.map(\.total), currencyCode: currencyCode)
         let points = try trend(
-            counted, interval: interval, bucket: period.bucket, calendar: calendar, currencyCode: currencyCode)
-        let top = try merchants(expenses, currencyCode: currencyCode)
+            incomes + spending, interval: interval, bucket: bucket, calendar: calendar, currencyCode: currencyCode)
+        let top = try merchants(spending, currencyCode: currencyCode)
         return AnalyticsReport(
-            interval: interval, income: income, expense: expense, net: net, byCategory: byCategory, trend: points,
-            topMerchants: top)
+            interval: interval, income: income, expense: expense, refunds: refunds, net: net, byCategory: byCategory,
+            trend: points, topMerchants: top)
     }
 
-    private func categories(
-        _ expenses: [AnalyticsEntry], total: Money, currencyCode: String
-    ) throws -> [CategorySpend] {
-        let groups = Dictionary(grouping: expenses, by: \.categoryID)
-        return try groups.map { categoryID, entries in
-            let sum = try Money.sum(entries.map(\.amount), currencyCode: currencyCode)
+    /// Each category of `current` against what it spent in `previous` (Sprint 23, A-018), in `current`'s order. A
+    /// category missing from `previous` spent nothing there.
+    public func changes(from previous: [CategorySpend], to current: [CategorySpend]) throws -> [CategoryChange] {
+        let before = Dictionary(previous.map { ($0.id, $0.total) }, uniquingKeysWith: { first, _ in first })
+        return try current.map { spend in
+            let earlier = before[spend.id] ?? .zero(spend.total.currencyCode)
+            return try CategoryChange(categoryID: spend.categoryID, current: spend.total, previous: earlier)
+        }
+    }
+
+    /// Spending shown for a group whose refunds exceed its purchases in the period (a return in a later month).
+    static func atLeastZero(_ money: Money) -> Money {
+        money.minorUnits < 0 ? .zero(money.currencyCode) : money
+    }
+
+    private func categories(_ expenses: [AnalyticsEntry], currencyCode: String) throws -> [CategorySpend] {
+        let groups = try Dictionary(grouping: expenses, by: \.categoryID).mapValues { entries in
+            Self.atLeastZero(try Money.sum(entries.map(\.amount), currencyCode: currencyCode))
+        }
+        .filter { $0.value.minorUnits > 0 }
+        let total = try Money.sum(Array(groups.values), currencyCode: currencyCode)
+        return try groups.map { categoryID, sum in
             // Computed exactly by the Money module; converted to Double only for display.
             let percent = try Money.percentage(sum, of: total) ?? 0
             let share = NSDecimalNumber(decimal: percent / 100).doubleValue
@@ -184,7 +264,7 @@ public struct AnalyticsEngine: Sendable {
             let incomes = entries.filter { $0.type == .income }.map(\.amount)
             let expenses = entries.filter { $0.type == .expense }.map(\.amount)
             let income = try Money.sum(incomes, currencyCode: currencyCode)
-            let expense = try Money.sum(expenses, currencyCode: currencyCode)
+            let expense = Self.atLeastZero(try Money.sum(expenses, currencyCode: currencyCode))
             return TrendPoint(start: start, income: income, expense: expense)
         }
     }
@@ -204,9 +284,11 @@ public struct AnalyticsEngine: Sendable {
             }
             let sum = try Money.sum(entries.map(\.amount), currencyCode: currencyCode)
             let name = latest?.merchantName ?? String(localized: "Unnamed merchant")
-            return MerchantSpend(key: key, name: name, total: sum, count: entries.count)
+            // Visits are purchases; a refund lowers the total but is not a visit.
+            let visits = entries.filter { $0.amount.minorUnits > 0 }.count
+            return MerchantSpend(key: key, name: name, total: sum, count: visits)
         }
-        let sorted = totals.sorted { lhs, rhs in
+        let sorted = totals.filter { $0.total.minorUnits > 0 }.sorted { lhs, rhs in
             if lhs.total.minorUnits != rhs.total.minorUnits { return lhs.total.minorUnits > rhs.total.minorUnits }
             return lhs.key < rhs.key
         }

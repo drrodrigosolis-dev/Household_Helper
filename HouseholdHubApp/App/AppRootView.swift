@@ -16,6 +16,12 @@ struct AppRootView: View {
     @State private var pendingQuickAdd = false
     /// Set when the lock is on but the device has no passcode, so nothing can authenticate.
     @State private var passcodeOff = false
+    /// Sprint 19: Settings › Appearance › Style. A device setting, so `@AppStorage` rather than `AppSettings`.
+    @AppStorage(ThemeSettings.themeKey) private var storedTheme = FunTheme.off.rawValue
+    @AppStorage(ThemeSettings.animationsKey) private var themeAnimations = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
 
     private var lockEnabled: Bool { settings.first?.faceIDEnabled == true }
 
@@ -31,7 +37,14 @@ struct AppRootView: View {
         }
     }
 
-    private var accent: Color? { settings.first?.accentColor.map { Color($0) } }
+    private var funTheme: ThemeSpec? { FunTheme(storedValue: storedTheme).spec }
+    /// A theme sets the accent; the custom accent applies with themes off.
+    private var accent: Color? { funTheme?.accent ?? settings.first?.accentColor.map { Color($0) } }
+    /// A theme's icon for a tab, or the standard one.
+    private func tabSymbol(_ tab: ThemedTab, _ standard: String) -> String {
+        funTheme?.tabSymbols[tab] ?? standard
+    }
+
     private var isLocked: Bool { lockEnabled && !isUnlocked }
 
     var body: some View {
@@ -68,8 +81,16 @@ struct AppRootView: View {
                 """
             )
         }
+        // Dragging a form down puts the keyboard away, on every screen (audit A-004).
+        .scrollDismissesKeyboard(.interactively)
         .preferredColorScheme(colorScheme)
         .tint(accent)
+        .fontDesign(funTheme == nil ? nil : .rounded)
+        .scrollContentBackground(funTheme == nil ? .automatic : .hidden)
+        .environment(\.funTheme, funTheme)
+        .environment(\.themeAnimates, funTheme != nil && themeAnimations && !reduceMotion)
+        .onChange(of: storedTheme, initial: true) { ThemeAppearance.apply(funTheme) }
+        .onChange(of: dynamicTypeSize) { ThemeAppearance.apply(funTheme) }
         // App switcher: cover the screen whenever the gated app isn't frontmost.
         .overlay {
             if lockEnabled, scenePhase != .active, !isAuthenticating {
@@ -81,7 +102,11 @@ struct AppRootView: View {
                 isUnlocked = false
                 unlockFailed = false
                 // Leaving the app is when the Home Screen becomes visible; refresh the widget's figures then.
-                Task { await WidgetSync.refresh(services) }
+                Task {
+                    await WidgetSync.refresh(services)
+                    // Reminders follow the latest tasks and bills (Sprint 14).
+                    await ReminderSync.refresh(services)
+                }
             }
         }
     }
@@ -109,17 +134,17 @@ struct AppRootView: View {
     }
 
     private var tabs: some View {
-        TabView(selection: $router.tab) {
-            Tab("Dashboard", systemImage: "house", value: AppRouter.AppTab.dashboard) {
+        TabView(selection: tabSelection) {
+            Tab("Dashboard", systemImage: tabSymbol(.dashboard, "house"), value: AppRouter.AppTab.dashboard) {
                 DashboardView()
             }
             Tab("Budget", systemImage: "dollarsign.circle", value: AppRouter.AppTab.budget) {
                 BudgetView()
             }
-            Tab("Wishlist", systemImage: "heart", value: AppRouter.AppTab.wishlist) {
+            Tab("Wishlist", systemImage: tabSymbol(.wishlist, "heart"), value: AppRouter.AppTab.wishlist) {
                 WishlistView()
             }
-            Tab("Tasks", systemImage: "checklist", value: AppRouter.AppTab.tasks) {
+            Tab("Tasks", systemImage: tabSymbol(.tasks, "checklist"), value: AppRouter.AppTab.tasks) {
                 TasksView()
             }
             Tab("More", systemImage: "ellipsis", value: AppRouter.AppTab.more) {
@@ -127,27 +152,56 @@ struct AppRootView: View {
             }
         }
         .environment(router)
+        .overlay { CelebrationOverlay() }
+        // VoiceOver reaches only the tour while it runs: `.isModal` on an overlay alone may not hide the tab bar. Only
+        // for VoiceOver: other pointers (Voice Control, Switch Control) tap by position, and the dimming takes those.
+        .accessibilityHidden(TourController.shared.isRunning && voiceOverEnabled)
+        // Sprint 24: the first-run tour's spotlight, over the tab bar too.
+        .overlay { TourOverlay() }
         .task { await bootstrap() }
         .sheet(isPresented: $router.isQuickAddPresented) { QuickAddView() }
         .onChange(of: needsOnboarding, initial: true) { router.isOnboarding = needsOnboarding }
         .sheet(isPresented: $needsOnboarding) {
-            OnboardingView { needsOnboarding = false }
-                .interactiveDismissDisabled()
+            OnboardingView {
+                needsOnboarding = false
+                // A fresh install: the tour starts once setup is done (Sprint 24).
+                TourController.shared.onboardingFinished()
+            }
+            .interactiveDismissDisabled()
         }
+    }
+
+    /// The tab binding; a tap on the selected tab is a reselect (audit A-012).
+    private var tabSelection: Binding<AppRouter.AppTab> {
+        Binding(
+            get: { router.tab },
+            set: { tab in
+                if tab == router.tab {
+                    router.reselect(tab)
+                }
+                router.tab = tab
+            })
     }
 
     /// First launch: seed system categories, then ask for currency and starting balance until onboarding is done.
     private func bootstrap() async {
         guard let services else { return }
         let now = Date.now
-        try? await services.categories.seedSystemCategoriesIfNeeded(now: now)
-        try? await services.board.seedDefaultColumnsIfNeeded(now: now)
+        // New data is named in the device's language (Sprint 16); UI tests keep English names.
+        let language =
+            ProcessInfo.processInfo.arguments.contains(LaunchArguments.uiTesting)
+            ? SeedLanguage.english : SeedLanguage.preferred(Locale.preferredLanguages)
+        await services.transactions.setSeedLanguage(language)
+        try? await services.categories.seedSystemCategoriesIfNeeded(now: now, language: language)
+        try? await services.board.seedDefaultColumnsIfNeeded(now: now, language: language)
         if ProcessInfo.processInfo.arguments.contains(LaunchArguments.skipOnboarding) {
             try? await services.transactions.completeOnboarding(
                 currencyCode: "CAD", startingBalance: .zero("CAD"), asOf: now, now: now)
         }
         let settings = try? await services.transactions.settingsSnapshot()
         needsOnboarding = settings?.onboardingCompleted != true
+        // An install set up before the tour existed is offered it once on the Dashboard (Sprint 24).
+        TourController.shared.appLaunched(onboardingCompleted: !needsOnboarding)
         await WidgetSync.refresh(services)
     }
 }

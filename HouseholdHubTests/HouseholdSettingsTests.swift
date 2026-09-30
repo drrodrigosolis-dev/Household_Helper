@@ -28,7 +28,8 @@ struct HouseholdSettingsTests {
         try await ledger.updateHousehold(currencyCode: "USD", startingBalance: balance, asOf: now, now: now)
         let settings = try stored(container)
         #expect(settings.currencyCode == "USD")
-        #expect(settings.startingBalanceMinorUnits == 50_000)
+        let snapshot = try #require(try await ledger.settingsSnapshot())
+        #expect(snapshot.startingBalance == balance, "The default account holds the baseline in the new currency")
     }
 
     @Test func recordsLockTheCurrencyAndARefusedChangeSavesNothing() async throws {
@@ -44,7 +45,8 @@ struct HouseholdSettingsTests {
         }
         let settings = try stored(container)
         #expect(settings.currencyCode == "CAD")
-        #expect(settings.startingBalanceMinorUnits == 0, "A refused change leaves the baseline as it was")
+        let snapshot = try #require(try await ledger.settingsSnapshot())
+        #expect(snapshot.startingBalance.minorUnits == 0, "A refused change leaves the baseline as it was")
     }
 
     @Test func theBaselineCanBeCorrectedWithRecordsAndMovesTheCurrentBalance() async throws {

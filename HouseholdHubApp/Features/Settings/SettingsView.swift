@@ -1,6 +1,7 @@
 import HouseholdHubCore
 import SwiftData
 import SwiftUI
+import TipKit
 
 /// Settings (spec §24.2). Pushed inside the More tab's NavigationStack, so it must not create its own.
 /// Later phases add Face ID, AI toggles, backup/restore, export, and appearance here.
@@ -10,10 +11,22 @@ struct SettingsView: View {
     /// The pending custom-accent save: dragging in the color picker sends many values, and only the last is kept.
     @State private var accentWrite: Task<Void, Never>?
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
+    @Query(sort: \Account.sortOrder) private var accounts: [Account]
+    /// Sprint 19: device settings, read by `AppRootView`.
+    @AppStorage(ThemeSettings.themeKey) private var storedTheme = FunTheme.off.rawValue
+    @AppStorage(ThemeSettings.animationsKey) private var themeAnimations = true
+
+    private var themeIsOn: Bool { FunTheme(storedValue: storedTheme) != .off }
 
     var body: some View {
         List {
             Section {
+                NavigationLink {
+                    AccountsView()
+                } label: {
+                    Label("Accounts", systemImage: "building.columns")
+                }
+                .accessibilityIdentifier("settings.accounts")
                 NavigationLink {
                     CategoriesView()
                 } label: {
@@ -23,7 +36,7 @@ struct SettingsView: View {
                 NavigationLink {
                     DataView()
                 } label: {
-                    Label("Backup and export", systemImage: "externaldrive")
+                    Label("Data", systemImage: "externaldrive")
                 }
                 .accessibilityIdentifier("settings.data")
                 NavigationLink {
@@ -34,18 +47,27 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings.intelligence")
             }
             if let current = settings.first {
-                Section("Household") {
+                let main = accounts.first { $0.id == current.defaultAccountID }
+                Section {
                     LabeledContent("Currency", value: current.currencyCode)
-                    LabeledContent("Starting balance") {
-                        Text(startingBalance(current).formatted())
-                    }
-                    LabeledContent("As of") {
-                        Text(current.startingBalanceDate.formatted(date: .abbreviated, time: .omitted))
+                    if let main {
+                        LabeledContent("Starting balance") {
+                            Text(main.startingBalance.formatted())
+                        }
+                        LabeledContent("As of") {
+                            Text(main.startingBalanceDate.formatted(date: .abbreviated, time: .omitted))
+                        }
                     }
                     NavigationLink("Edit Household") {
-                        HouseholdEditorView(settings: current)
+                        HouseholdEditorView(settings: current, account: main)
                     }
                     .accessibilityIdentifier("settings.household")
+                } header: {
+                    Text("Household")
+                } footer: {
+                    if let main {
+                        Text("The starting balance of \(main.name), the default account. Each account has its own.")
+                    }
                 }
                 Section {
                     Toggle("Require \(BiometricGate.methodName)", isOn: faceIDBinding)
@@ -67,6 +89,24 @@ struct SettingsView: View {
                         Text("Dark").tag(ThemePreference.dark)
                     }
                     .accessibilityIdentifier("settings.theme")
+                    Picker("Style", selection: $storedTheme) {
+                        ForEach(FunTheme.allCases) { theme in
+                            Label {
+                                Text(theme.displayName)
+                            } icon: {
+                                ThemeSwatch(theme: theme)
+                            }
+                            .tag(theme.rawValue)
+                        }
+                    }
+                    .pickerStyle(.navigationLink)
+                    .accessibilityIdentifier("settings.style")
+                    // Inline below the picker: a popover in a form row is unreliable on iOS 26 (Sprint 24 CI).
+                    TipView(ThemeTip())
+                    if themeIsOn {
+                        Toggle("Theme animations", isOn: $themeAnimations)
+                            .accessibilityIdentifier("settings.themeAnimations")
+                    }
                     Picker("Accent color", selection: accentBinding) {
                         Text("Default").tag(ColorToken?.none)
                         if let custom = settings.first?.accentColor, !CategoryEditorView.palette.contains(custom) {
@@ -82,9 +122,14 @@ struct SettingsView: View {
                         }
                     }
                     .accessibilityIdentifier("settings.accent")
+                    .disabled(themeIsOn)
                     ColorPicker("Custom accent", selection: customAccentBinding, supportsOpacity: false)
                         .accessibilityIdentifier("settings.customAccent")
-                    if let warning = accentWarning {
+                        .disabled(themeIsOn)
+                    if themeIsOn {
+                        Text("The style sets the accent color. Turn the style off to choose your own.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    } else if let warning = accentWarning {
                         Text(warning).font(.footnote).foregroundStyle(.secondary)
                     }
                 }
@@ -97,6 +142,7 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("settings.quickAddType")
                 }
+                RemindersSection()
                 Section {
                     Toggle("Show amounts in widget", isOn: widgetShowsBalanceBinding)
                         .accessibilityIdentifier("settings.widgetShowsBalance")
@@ -111,6 +157,16 @@ struct SettingsView: View {
                     )
                 }
             }
+            Section {
+                Button("Show the Tour Again") { TourController.shared.start() }
+                    .accessibilityIdentifier("settings.showTour")
+                Button("Reset Tips") { TutorialTips.reset() }
+                    .accessibilityIdentifier("settings.resetTips")
+            } header: {
+                Text("Tutorial")
+            } footer: {
+                Text("Tips show again as you reach each feature.")
+            }
             Section("About") {
                 LabeledContent("Version", value: "\(AppInfo.version) (\(AppInfo.build))")
                 Text(
@@ -124,6 +180,7 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
+        .themedScreen()
     }
 
     /// Turning the gate on asks for authentication first, so it can't be enabled on a device the owner can't unlock.
@@ -202,9 +259,23 @@ struct SettingsView: View {
                 }
             })
     }
+}
 
-    private func startingBalance(_ settings: AppSettings) -> Money {
-        Money(minorUnits: settings.startingBalanceMinorUnits, currencyCode: settings.currencyCode)
+/// A style's preview in the picker: its accent color with one of its pictures; a palette for Off.
+private struct ThemeSwatch: View {
+    let theme: FunTheme
+
+    var body: some View {
+        if let spec = theme.spec {
+            Text(spec.emptyStateGlyph)
+                .font(.footnote)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(spec.accent))
+                .accessibilityHidden(true)
+        } else {
+            Image(systemName: "paintpalette")
+                .accessibilityHidden(true)
+        }
     }
 }
 

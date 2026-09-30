@@ -52,6 +52,8 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         HHAppGroup: $(HH_APP_GROUP)
+        # English and Spanish (Sprint 16); the String Catalogs hold the Spanish.
+        CFBundleLocalizations: [en, es]
         CFBundleURLTypes:
           - CFBundleURLName: $(PRODUCT_BUNDLE_IDENTIFIER)
             CFBundleURLSchemes: [householdhub]

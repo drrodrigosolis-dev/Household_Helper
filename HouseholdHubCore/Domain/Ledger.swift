@@ -9,10 +9,15 @@ public struct LedgerLine: Hashable, Sendable {
     public var occurredAt: Date
     public var recurringSeriesID: UUID?
     public var scheduledOccurrence: Date?
+    /// The account the money is in (or leaves, for a transfer); nil only in single-balance calculations.
+    public var accountID: UUID?
+    /// A transfer's destination account.
+    public var transferAccountID: UUID?
 
     public init(
         amount: Money, type: TransactionType, status: TransactionStatus, occurredAt: Date,
-        recurringSeriesID: UUID? = nil, scheduledOccurrence: Date? = nil
+        recurringSeriesID: UUID? = nil, scheduledOccurrence: Date? = nil, accountID: UUID? = nil,
+        transferAccountID: UUID? = nil
     ) {
         self.amount = amount
         self.type = type
@@ -20,12 +25,21 @@ public struct LedgerLine: Hashable, Sendable {
         self.occurredAt = occurredAt
         self.recurringSeriesID = recurringSeriesID
         self.scheduledOccurrence = scheduledOccurrence
+        self.accountID = accountID
+        self.transferAccountID = transferAccountID
     }
 
-    /// Signed effect on the single household balance: income adds, expense subtracts, transfer is neutral.
+    /// Signed effect on one account: income adds and expense subtracts in its own account; a transfer subtracts
+    /// from its source and adds to its destination; anything else leaves the account unchanged.
+    public func effect(onAccount id: UUID) throws -> Money {
+        try AccountEffect.signed(
+            amount: amount, type: type, accountID: accountID, transferAccountID: transferAccountID, on: id)
+    }
+
+    /// Signed effect on the single household balance: income and refunds add, expense subtracts, transfer is neutral.
     public func balanceEffect() throws -> Money {
         switch type {
-        case .income: return amount
+        case .income, .refund: return amount
         case .expense: return try amount.negated()
         case .transfer: return .zero(amount.currencyCode)
         }
@@ -42,10 +56,17 @@ public struct RecurringSeries: Hashable, Sendable {
     public var startDate: Date
     public var endDate: Date?
     public var isEnabled: Bool
+    public var accountID: UUID?
+    public var transferAccountID: UUID?
+    /// Sprint 22: a bill or a purchase. Projections treat both the same; only reminders and display differ.
+    public var kind: RecurringKind
+    /// The store a purchase is made at (or a bill's payee), carried onto each posted occurrence.
+    public var merchantID: UUID?
 
     public init(
         id: UUID = UUID(), templateAmount: Money, type: TransactionType, rule: RecurrenceRule, timeZone: TimeZone,
-        startDate: Date, endDate: Date? = nil, isEnabled: Bool = true
+        startDate: Date, endDate: Date? = nil, isEnabled: Bool = true, accountID: UUID? = nil,
+        transferAccountID: UUID? = nil, kind: RecurringKind = .bill, merchantID: UUID? = nil
     ) {
         self.id = id
         self.templateAmount = templateAmount
@@ -55,5 +76,49 @@ public struct RecurringSeries: Hashable, Sendable {
         self.startDate = startDate
         self.endDate = endDate
         self.isEnabled = isEnabled
+        self.accountID = accountID
+        self.transferAccountID = transferAccountID
+        self.kind = kind
+        self.merchantID = merchantID
+    }
+
+    /// Signed effect of one occurrence on an account (see `LedgerLine.effect(onAccount:)`).
+    public func effect(onAccount id: UUID) throws -> Money {
+        try AccountEffect.signed(
+            amount: templateAmount, type: type, accountID: accountID, transferAccountID: transferAccountID, on: id)
+    }
+}
+
+/// An account's baseline for balance math (spec §9.1: a baseline, not a transaction).
+public struct AccountBaseline: Hashable, Sendable {
+    public var id: UUID
+    public var kind: AccountKind
+    public var startingBalance: Money
+    public var startingBalanceDate: Date
+
+    public init(id: UUID, kind: AccountKind, startingBalance: Money, startingBalanceDate: Date) {
+        self.id = id
+        self.kind = kind
+        self.startingBalance = startingBalance
+        self.startingBalanceDate = startingBalanceDate
+    }
+}
+
+enum AccountEffect {
+    static func signed(
+        amount: Money, type: TransactionType, accountID: UUID?, transferAccountID: UUID?, on id: UUID
+    ) throws -> Money {
+        switch type {
+        case .income, .refund: return accountID == id ? amount : .zero(amount.currencyCode)
+        case .expense: return accountID == id ? try amount.negated() : .zero(amount.currencyCode)
+        case .transfer:
+            if accountID == id, transferAccountID != id {
+                return try amount.negated()
+            }
+            if transferAccountID == id, accountID != id {
+                return amount
+            }
+            return .zero(amount.currencyCode)
+        }
     }
 }

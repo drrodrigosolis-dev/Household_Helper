@@ -49,10 +49,9 @@ final class WishlistUITests: XCTestCase {
     func testQuickAddWishlistSegmentCreatesAnItem() {
         let app = launchApp()
         let field = openQuickAdd(app)
-        field.tap()
-        field.typeText("250 new bike")
+        typeIntoQuickAdd(field, "250 new bike")
         app.segmentedControls["quickadd.type"].buttons["Wishlist"].tap()
-        app.buttons["quickadd.save"].tap()
+        tapQuickAddSave(app)
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: field)
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 10), .completed, "Quick Add did not save")
 

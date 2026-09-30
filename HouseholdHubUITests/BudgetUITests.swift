@@ -42,8 +42,9 @@ final class BudgetUITests: XCTestCase {
         app.tabBars.buttons["Budget"].tap()
         let row = transactionRow(app, containing: "parking")
         XCTAssertTrue(row.waitForExistence(timeout: 10))
-        row.swipeLeft()
-        app.buttons["Delete"].firstMatch.tap()
+        let delete = app.buttons["Delete"].firstMatch
+        revealSwipeAction(row, delete)
+        delete.tap()
         let confirm = app.buttons["Delete transaction"]
         XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Delete must be confirmed (spec §8.3)")
         confirm.tap()
@@ -69,7 +70,7 @@ final class BudgetUITests: XCTestCase {
     }
 
     /// Spec §24.2: the filter menu narrows the list in the store. A category filter keeps only that category's rows;
-    /// Clear filters brings the rest back.
+    /// Clear All Filters brings the rest back.
     @MainActor
     func testCategoryFilterShowsOnlyMatchingTransactions() {
         let app = launchApp()
@@ -99,8 +100,8 @@ final class BudgetUITests: XCTestCase {
         XCTAssertTrue(paycheck.waitForNonExistence(timeout: 10), "The Salary income should be filtered out")
 
         filter.tap()
-        let clear = app.buttons["Clear filters"].firstMatch
-        XCTAssertTrue(clear.waitForExistence(timeout: 5), "An active filter should offer Clear filters")
+        let clear = app.buttons["Clear All Filters"].firstMatch
+        XCTAssertTrue(clear.waitForExistence(timeout: 5), "An active filter should offer Clear All Filters")
         clear.tap()
         XCTAssertTrue(paycheck.waitForExistence(timeout: 10), "Clearing the filter should list the income again")
         XCTAssertTrue(coffee.exists)

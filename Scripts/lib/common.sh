@@ -46,7 +46,7 @@ summary() {
 
 require_macos() {
     [ "$(uname -s)" = "Darwin" ] || fail "$1" "requires macOS with Xcode; this host is $(uname -s)." \
-        "This host has no Xcode (e.g. a cloud session). Push to build/v1 and read .github/workflows/verify.yml results instead."
+        "This host has no Xcode (e.g. a cloud session). Push to build/v1.1 and read .github/workflows/verify.yml results instead."
 }
 
 # Picks the newest installed Xcode whose iOS Simulator SDK >= MIN_IOS_SDK and exports DEVELOPER_DIR.

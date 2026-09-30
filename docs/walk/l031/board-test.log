@@ -1,0 +1,10 @@
+getpwuid_r did not find a match for uid 501
+Filtering the log data using "category == "board""
+Timestamp                       Thread     Type        Activity             PID    TTL  
+2026-09-28 22:12:44.480763-0700 0x7a2fc9   Debug       0x0                  22554  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover In Progress focused none
+2026-09-28 22:12:44.687621-0700 0x7a2fc9   Debug       0x0                  22554  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover none focused none
+2026-09-28 22:12:44.704753-0700 0x7a2fc9   Debug       0x0                  22554  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover Done focused none
+2026-09-28 22:12:44.927311-0700 0x7a2fc9   Debug       0x0                  22554  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] hover none focused none
+2026-09-28 22:12:44.930311-0700 0x7a2fc9   Debug       0x0                  22554  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] drop over Done aimed Done from To Do to In Progress
+2026-09-28 22:12:45.313646-0700 0x7a2fc9   Debug       0x0                  22554  0    HouseholdHub: (HouseholdHub.debug.dylib) [HouseholdHub:board] settle on In Progress from In Progress
+Child process terminated with signal 15: Terminated

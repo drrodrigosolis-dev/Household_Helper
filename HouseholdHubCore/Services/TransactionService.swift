@@ -11,6 +11,13 @@ public actor TransactionService {
     // Holds each container for the process lifetime, so ObjectIdentifier keys are never reused.
     private static let instances = Mutex<[ObjectIdentifier: TransactionService]>([:])
 
+    /// The language the first account is named in when the data is first set up (Sprint 16).
+    var seedLanguage = SeedLanguage.english
+
+    public func setSeedLanguage(_ language: SeedLanguage) {
+        seedLanguage = language
+    }
+
     public static func make(container: ModelContainer) -> TransactionService {
         instances.withLock { cache in
             if let existing = cache[ObjectIdentifier(container)] {
@@ -31,21 +38,25 @@ public actor TransactionService {
         try commit()
     }
 
-    /// Inserts the settings row if there is none, without saving; returns whether it inserted one.
+    /// Inserts the settings row if there is none, with the first account ("Main account", Sprint 10 decision 2) as
+    /// the default, without saving; returns whether it inserted one.
     private func insertSettingsIfMissing(currencyCode: String, now: Date) throws -> Bool {
         guard try settings() == nil else { return false }
         let currency = try Currency(code: currencyCode)
-        modelContext.insert(AppSettings(currencyCode: currency.code, now: now))
+        let settings = AppSettings(currencyCode: currency.code, now: now)
+        modelContext.insert(settings)
+        settings.defaultAccountID = try insertMainAccount(currencyCode: currency.code, now: now).id
         return true
     }
 
     public func settingsSnapshot() throws -> SettingsSnapshot? {
         guard let settings = try settings() else { return nil }
-        let balance = Money(minorUnits: settings.startingBalanceMinorUnits, currencyCode: settings.currencyCode)
+        let main = try defaultAccount(settings)
         return SettingsSnapshot(
             currencyCode: settings.currencyCode, onboardingCompleted: settings.onboardingCompleted,
-            startingBalance: balance, startingBalanceDate: settings.startingBalanceDate,
-            includePendingInProjection: settings.includePendingInProjection)
+            startingBalance: main?.startingBalance ?? .zero(settings.currencyCode),
+            startingBalanceDate: main?.startingBalanceDate ?? settings.createdAt,
+            includePendingInProjection: settings.includePendingInProjection, defaultAccountID: main?.id)
     }
 
     /// Whether the optional Face ID lock is on; entry points outside the app (Shortcuts) must honor it too.
@@ -69,7 +80,8 @@ public actor TransactionService {
         try commit()
     }
 
-    /// Settings › Household: corrects the starting balance and date (§9.1, a baseline, so no transaction changes),
+    /// Settings › Household: corrects the default account's starting balance and date (§9.1, a baseline, so no
+    /// transaction changes),
     /// and the currency only while nothing has been recorded (§6.3: never reinterpret historic values; v1 has one
     /// currency, so with records the answer is a new data set, not a conversion).
     public func updateHousehold(currencyCode: String, startingBalance: Money, asOf date: Date, now: Date) throws {
@@ -84,13 +96,17 @@ public actor TransactionService {
         try commit()
     }
 
-    /// True once any transaction, recurring series, or wishlist item exists: amounts are then stored in the
-    /// household currency, so it can no longer change (§6.3).
+    /// True once any transaction, recurring series, or wishlist item exists, or a second account: amounts are then
+    /// stored in the household currency, so it can no longer change (§6.3). Settings › Household re-enters only the
+    /// default account's baseline, so another account's baseline would be relabelled, not converted.
     public func isCurrencyLocked() throws -> Bool {
         let records = try modelContext.fetchCount(FetchDescriptor<TransactionRecord>())
         let series = try modelContext.fetchCount(FetchDescriptor<RecurringTransaction>())
         let wishes = try modelContext.fetchCount(FetchDescriptor<WishlistItem>())
-        return records + series + wishes > 0
+        let accounts = try modelContext.fetchCount(FetchDescriptor<Account>())
+        let budgets = try modelContext.fetchCount(FetchDescriptor<CategoryBudget>())
+        let goals = try modelContext.fetchCount(FetchDescriptor<SavingsGoal>())
+        return records + series + wishes + budgets + goals > 0 || accounts > 1
     }
 
     private func applyHousehold(
@@ -99,9 +115,17 @@ public actor TransactionService {
         if settings.currencyCode != currency.code {
             guard try !isCurrencyLocked() else { throw LedgerError.currencyLockedByExistingRecords }
             settings.currencyCode = currency.code
+            // Every account uses the household currency (Sprint 10 decision 3); with nothing recorded, their
+            // baselines are the only amounts, and they follow.
+            for account in try modelContext.fetch(FetchDescriptor<Account>()) {
+                account.currencyCode = currency.code
+                account.updatedAt = now
+            }
         }
-        settings.startingBalanceMinorUnits = startingBalance.minorUnits
-        settings.startingBalanceDate = date
+        let main = try requireDefaultAccount(settings, now: now)
+        main.startingBalanceMinorUnits = startingBalance.minorUnits
+        main.startingBalanceDate = date
+        main.updatedAt = now
         settings.updatedAt = now
     }
 
@@ -182,21 +206,27 @@ public actor TransactionService {
         try commit()
     }
 
-    /// Deterministic category suggestion (Sprint 7 default 2): the category most often used with the merchant that
-    /// `text` names, ties broken by the most recent use; only an active category of the right kind is returned.
+    /// Deterministic category suggestion (Sprint 7 default 2): the category the user last filed the merchant that
+    /// `text` names under (its learned default, Sprint 23), else the one most often used with it, ties broken by the
+    /// most recent use; only an active category of the right kind is returned. The learned default is read exactly as
+    /// the import preview reads it (`learnedCategories`), so Quick Add and an import offer the same category.
     public func suggestedCategory(forMerchantText text: String, type: TransactionType) throws -> UUID? {
         let key = Merchant.normalize(text)
         guard !key.isEmpty else { return nil }
-        let merchants = FetchDescriptor<Merchant>(predicate: #Predicate { $0.normalizedName == key })
+        let merchants = FetchDescriptor<Merchant>(
+            predicate: #Predicate { $0.normalizedName == key }, sortBy: [SortDescriptor(\.createdAt)])
         guard let merchant = try modelContext.fetch(merchants).first else { return nil }
+        let usable = Set(
+            try modelContext.fetch(FetchDescriptor<CategoryRecord>()).filter { !$0.isArchived && $0.kind.allows(type) }
+                .map(\.id))
+        if let learned = try learnedCategories(for: [key], usable: usable)[key] {
+            return learned
+        }
         let merchantID: UUID? = merchant.id
         let typeRaw = type.rawValue
         let history = try modelContext.fetch(
             FetchDescriptor<TransactionRecord>(
                 predicate: #Predicate { $0.merchantID == merchantID && $0.typeRawValue == typeRaw }))
-        let usable = Set(
-            try modelContext.fetch(FetchDescriptor<CategoryRecord>()).filter { !$0.isArchived && $0.kind.allows(type) }
-                .map(\.id))
         var uses: [UUID: (count: Int, latest: Date)] = [:]
         for record in history {
             guard let categoryID = record.categoryID, usable.contains(categoryID) else { continue }
@@ -215,16 +245,22 @@ public actor TransactionService {
         let settings = try requireSettings()
         try requireCurrency(balance, settings)
         guard date <= now else { throw LedgerError.startingBalanceInFuture }
-        settings.startingBalanceMinorUnits = balance.minorUnits
-        settings.startingBalanceDate = date
-        settings.updatedAt = now
+        let main = try requireDefaultAccount(settings, now: now)
+        main.startingBalanceMinorUnits = balance.minorUnits
+        main.startingBalanceDate = date
+        main.updatedAt = now
         try commit()
     }
 
     // MARK: Transactions
 
+    /// Refused with `StoreWriteError.restoreInProgress` while a restore runs (`RestoreGate`).
     @discardableResult
     public func create(_ draft: TransactionDraft, now: Date) throws -> UUID {
+        try RestoreGate.shared(for: modelContainer).write { try insertTransaction(draft, now: now) }
+    }
+
+    private func insertTransaction(_ draft: TransactionDraft, now: Date) throws -> UUID {
         begin()
         try draft.validate()
         let settings = try requireSettings()
@@ -232,9 +268,13 @@ public actor TransactionService {
         if let categoryID = draft.categoryID {
             try requireUsableCategory(categoryID, for: draft.type)
         }
+        let learned = try learnableCategory(draft.categoryID, type: draft.type, isAIClassified: draft.isAIClassified)
+        let accounts = try resolveAccounts(draft, settings: settings, current: nil, now: now)
         let record = TransactionRecord(
             amount: draft.amount, type: draft.type, status: draft.status, source: draft.source,
             occurredAt: draft.occurredAt, now: now)
+        record.accountID = accounts.source
+        record.transferAccountID = accounts.destination
         record.categoryID = draft.categoryID
         record.isAIClassified = draft.categoryID != nil && draft.isAIClassified
         record.notes = draft.notes
@@ -242,6 +282,7 @@ public actor TransactionService {
             let merchant = try findOrCreateMerchant(named: name, now: now)
             record.merchantID = merchant.id
             record.merchantNameSnapshot = name
+            learn(learned, for: merchant, now: now)
         }
         modelContext.insert(record)
         try commit()
@@ -252,6 +293,8 @@ public actor TransactionService {
     public func update(_ id: UUID, with draft: TransactionDraft, now: Date) throws {
         begin()
         let record = try requireTransaction(id)
+        // A refund is edited with `updateRefund`, which keeps it tied to its purchase (Sprint 20).
+        guard record.type != .refund else { throw LedgerError.refundNeedsPurchase }
         try requirePurchaseInvariant(record, type: draft.type, status: draft.status)
         var checked = draft
         checked.source = .manual
@@ -262,18 +305,51 @@ public actor TransactionService {
             // A category archived after this record was filed stays valid for the record; new use is refused.
             try requireUsableCategory(categoryID, for: draft.type, allowArchived: categoryID == record.categoryID)
         }
+        let accounts = try resolveAccounts(
+            draft, settings: settings, current: (record.accountID, record.transferAccountID), now: now)
+        try requireRefundsStillFit(
+            record, type: draft.type, status: draft.status, amount: draft.amount, accountID: accounts.source,
+            occurredAt: draft.occurredAt)
+        // The parts of a split are one payment (Sprint 23): they take this part's status, date, account and merchant.
+        let otherParts = try splitSiblings(of: record)
+        try requireSplitEdit(
+            record, siblings: otherParts, type: draft.type, status: draft.status, accountID: accounts.source,
+            occurredAt: draft.occurredAt)
         // Fetched before the first edit (the merchant insert below), so a failed fetch leaves nothing pending.
         let linkedItem = try record.wishlistItemID.flatMap { try wishlistItem($0) }
-        var merchantID: UUID?
+        let refundRecords = try allRefunds(of: record)
+        // Each other part's refunds follow that part's merchant, which this edit may change (Sprint 23 review B1).
+        let otherPartRefunds = try otherParts.map { ($0, try allRefunds(of: $0)) }
+        let keepsCategory = draft.categoryID == record.categoryID
+        let isAIClassified = keepsCategory ? record.isAIClassified : draft.isAIClassified
+        let learned = try learnableCategory(draft.categoryID, type: draft.type, isAIClassified: isAIClassified)
+        var merchant: Merchant?
         let name = draft.merchantName.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
         if !Merchant.normalize(name).isEmpty {
-            merchantID = try findOrCreateMerchant(named: name, now: now).id
+            // The same name keeps the record's own merchant: names aren't unique, so looking it up again could pick
+            // another one with the same name (Sprint 23 review S1; bulk Set category re-saves many rows).
+            let current = try record.merchantID.flatMap { id in
+                try modelContext.fetch(FetchDescriptor<Merchant>(predicate: #Predicate { $0.id == id })).first
+            }
+            if let current, current.normalizedName == Merchant.normalize(name) {
+                merchant = current
+            } else {
+                merchant = try findOrCreateMerchant(named: name, now: now)
+            }
+        }
+        let merchantID = merchant?.id
+        // Only a new pairing teaches the merchant: an edit to the amount or date alone doesn't bring an older
+        // category back over one learned since.
+        if let merchant, !keepsCategory || merchantID != record.merchantID {
+            learn(learned, for: merchant, now: now)
         }
         record.amountMinorUnits = draft.amount.minorUnits
         record.currencyCode = draft.amount.currencyCode
         record.type = draft.type
         record.status = draft.status
         record.occurredAt = draft.occurredAt
+        record.accountID = accounts.source
+        record.transferAccountID = accounts.destination
         if draft.categoryID == nil {
             record.isAIClassified = false
         } else if draft.categoryID != record.categoryID {
@@ -284,6 +360,11 @@ public actor TransactionService {
         record.merchantID = merchantID
         record.merchantNameSnapshot = merchantID == nil ? nil : name
         record.updatedAt = now
+        carryClassification(of: record, to: refundRecords, now: now)
+        shareSplit(from: record, to: otherParts, now: now)
+        for (part, refunds) in otherPartRefunds {
+            carryClassification(of: part, to: refunds, now: now)
+        }
         // A purchase's item records the price actually paid; keep it in step with the edited transaction.
         if let item = linkedItem, item.purchasedTransactionID == id {
             item.actualPriceMinorUnits = draft.amount.minorUnits
@@ -296,8 +377,25 @@ public actor TransactionService {
         begin()
         let record = try requireTransaction(id)
         try requirePurchaseInvariant(record, type: record.type, status: status)
+        try requireRefundsStillFit(
+            record, type: record.type, status: status, amount: record.amount, accountID: record.accountID,
+            occurredAt: record.occurredAt)
+        if record.type == .refund, status != .cancelled {
+            try requireRefundFits(record, status: status)
+        }
+        // Every part of a split takes the new status (Sprint 23).
+        let otherParts = try splitSiblings(of: record)
+        try requireSplitEdit(
+            record, siblings: otherParts, type: record.type, status: status, accountID: record.accountID,
+            occurredAt: record.occurredAt)
+        // Parts stored out of step would take this part's merchant too; their refunds follow it (review B1).
+        let otherPartRefunds = try otherParts.map { ($0, try allRefunds(of: $0)) }
         record.status = status
         record.updatedAt = now
+        shareSplit(from: record, to: otherParts, now: now)
+        for (part, refunds) in otherPartRefunds {
+            carryClassification(of: part, to: refunds, now: now)
+        }
         try commit()
     }
 
@@ -307,12 +405,15 @@ public actor TransactionService {
     public func deleteTransaction(_ id: UUID, alsoDisableSeries: Bool, now: Date) throws {
         begin()
         let record = try requireTransaction(id)
+        // Its refunds depend on it (Sprint 20); they are deleted first, one by one, each confirmed.
+        guard try !hasAnyRefund(record) else { throw LedgerError.purchaseHasRefunds }
         let series = try record.recurringSeriesID.flatMap { try recurringSeries($0) }
         // Fetched before the first edit. A deleted transaction must not leave a task pointing at it: a dangling id
         // would make every later backup fail validation.
         let target: UUID? = id
         let linkedTasks = try modelContext.fetch(
             FetchDescriptor<TaskItem>(predicate: #Predicate { $0.linkedTransactionID == target }))
+        let otherParts = try splitSiblings(of: record)
         if alsoDisableSeries, let series {
             series.isEnabled = false
             series.updatedAt = now
@@ -326,6 +427,8 @@ public actor TransactionService {
                 task.linkedTransactionID = nil
                 task.updatedAt = now
             }
+            // The last part left of a split is no longer split (Sprint 23).
+            leaveSplit(siblings: otherParts, now: now)
             modelContext.delete(record)
         }
         try commit()
@@ -334,25 +437,39 @@ public actor TransactionService {
     // MARK: Recurring
 
     /// Creates a validated recurring series (positive template, household currency, usable category of the right
-    /// kind). Series are definitions only; no transactions are generated (spec §9.4).
+    /// kind, usable accounts; a recurring transfer names two accounts and no store). Series are definitions only; no
+    /// transactions are generated (spec §9.4). A purchase (Sprint 22) is an expense, usually at a store
+    /// (`merchantName`), which each posted occurrence records as its merchant.
     @discardableResult
     public func createSeries(
         templateAmount: Money, type: TransactionType, rule: RecurrenceRule, timeZone: TimeZone, startDate: Date,
-        endDate: Date? = nil, categoryID: UUID? = nil, notes: String? = nil, now: Date
+        endDate: Date? = nil, categoryID: UUID? = nil, notes: String? = nil, accountID: UUID? = nil,
+        transferAccountID: UUID? = nil, kind: RecurringKind = .bill, merchantName: String? = nil, now: Date
     ) throws -> UUID {
         begin()
-        guard templateAmount.minorUnits > 0 else { throw LedgerError.nonPositiveAmount }
-        guard type != .transfer else { throw LedgerError.transfersUnavailable }
+        guard kind == .bill || type == .expense else { throw LedgerError.purchaseMustBeExpense }
+        let store = Self.storeName(merchantName)
+        let template = TransactionDraft(
+            amount: templateAmount, type: type, occurredAt: startDate, categoryID: categoryID, merchantName: store,
+            accountID: accountID, transferAccountID: transferAccountID)
+        try template.validate()
         let settings = try requireSettings()
         try requireCurrency(templateAmount, settings)
         if let categoryID {
             try requireUsableCategory(categoryID, for: type)
         }
+        let accounts = try resolveAccounts(template, settings: settings, current: nil, now: now)
         let series = try RecurringTransaction(
             templateAmount: templateAmount, type: type, rule: rule, timeZone: timeZone, startDate: startDate,
             endDate: endDate, now: now)
+        series.accountID = accounts.source
+        series.transferAccountID = accounts.destination
         series.categoryID = categoryID
         series.notes = notes
+        series.kind = kind
+        if let store {
+            series.merchantID = try findOrCreateMerchant(named: store, now: now).id
+        }
         let snapshot = try series.series()
         // `nextOccurrence(after:)` is strict, so step back one second to include the start itself.
         series.nextOccurrence = RecurrenceEngine().nextOccurrence(of: snapshot, after: startDate.addingTimeInterval(-1))
@@ -389,8 +506,21 @@ public actor TransactionService {
             occurredAt: occurrence, now: now)
         record.recurringSeriesID = seriesID
         record.scheduledOccurrence = occurrence
+        // A series stored before accounts existed posts to the default account. An occurrence is a new entry, so
+        // an account archived since is refused (Sprint 10 decision 4): the series is edited to another first.
+        let source = try series.accountID ?? requireDefaultAccount(settings, now: now).id
+        try requireUsableAccount(source)
+        if let destination = series.transferAccountID {
+            try requireUsableAccount(destination)
+        }
+        record.accountID = source
+        record.transferAccountID = series.transferAccountID
         record.categoryID = series.categoryID
         record.merchantID = series.merchantID
+        // The store's name as it is now, kept on the record like a typed-in merchant (spec §7.4).
+        if let merchantID = series.merchantID {
+            record.merchantNameSnapshot = try merchant(merchantID)?.displayName
+        }
         record.notes = series.notes
         modelContext.insert(record)
         series.nextOccurrence = RecurrenceEngine().nextOccurrence(of: snapshot, after: occurrence)
@@ -401,19 +531,41 @@ public actor TransactionService {
 
     // MARK: Balances
 
+    /// The household's figures: the sums over every account (Sprint 10), archived ones included since their money
+    /// still exists.
     public func balanceSnapshot(
         now: Date, calendar: HouseholdCalendar, includePendingInProjection: Bool, projectionDays: Int = 30
     ) throws -> BalanceSnapshot {
+        try balances(
+            now: now, calendar: calendar, includePendingInProjection: includePendingInProjection,
+            projectionDays: projectionDays
+        ).household
+    }
+
+    /// Every account's figures and the household's (Sprint 10 decision 1).
+    public func balances(
+        now: Date, calendar: HouseholdCalendar, includePendingInProjection: Bool, projectionDays: Int = 30
+    ) throws -> HouseholdBalances {
         let settings = try requireSettings()
-        let startDate = settings.startingBalanceDate
-        let afterStart = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.occurredAt > startDate })
-        let lines = try modelContext.fetch(afterStart).map { try $0.ledgerLine() }
+        let accounts = try modelContext.fetch(FetchDescriptor<Account>(sortBy: [SortDescriptor(\.sortOrder)]))
+            .map { try $0.baseline() }
+        let earliest = accounts.map(\.startingBalanceDate).min() ?? now
+        let afterStart = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.occurredAt > earliest })
+        var lines = try modelContext.fetch(afterStart).map { try $0.ledgerLine() }
+        // Occurrences already handled whose record is dated before every baseline (a date edited back) still count
+        // as handled, so they are never projected again. Their dates keep them out of every account's figures.
+        let windowStart = calendar.startOfDay(for: now)
+        let handledEarly = FetchDescriptor<TransactionRecord>(
+            predicate: #Predicate {
+                $0.occurredAt <= earliest && $0.recurringSeriesID != nil
+                    && ($0.scheduledOccurrence ?? windowStart) > windowStart
+            })
+        lines += try modelContext.fetch(handledEarly).map { try $0.ledgerLine() }
         let enabled = FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.isEnabled == true })
         let series = try modelContext.fetch(enabled).map { try $0.series() }
-        let starting = Money(minorUnits: settings.startingBalanceMinorUnits, currencyCode: settings.currencyCode)
-        return try BalanceCalculator(projectionDays: projectionDays).snapshot(
-            startingBalance: starting, startingBalanceDate: startDate, lines: lines, series: series, now: now,
-            calendar: calendar, includePendingInProjection: includePendingInProjection)
+        return try BalanceCalculator(projectionDays: projectionDays).balances(
+            accounts: accounts, lines: lines, series: series, now: now, calendar: calendar,
+            includePendingInProjection: includePendingInProjection, currencyCode: settings.currencyCode)
     }
 
     /// What the Home Screen widget shows: the Dashboard's figures, without amounts when the user hid them or turned
@@ -428,20 +580,34 @@ public actor TransactionService {
 
     public func dashboardSummary(now: Date, calendar: HouseholdCalendar, days: Int = 7) throws -> DashboardSummary {
         let settings = try requireSettings()
-        let balance = try balanceSnapshot(
+        let all = try balances(
             now: now, calendar: calendar, includePendingInProjection: settings.includePendingInProjection)
+        let balance = all.household
 
         let weekStart = calendar.startOfWeek(for: now)
         let expense = TransactionType.expense.rawValue
+        let refund = TransactionType.refund.rawValue
         let posted = TransactionStatus.posted.rawValue
         let thisWeek = FetchDescriptor<TransactionRecord>(
             predicate: #Predicate {
-                $0.occurredAt >= weekStart && $0.occurredAt <= now && $0.typeRawValue == expense
-                    && $0.statusRawValue == posted
+                $0.occurredAt >= weekStart && $0.occurredAt <= now
+                    && ($0.typeRawValue == expense || $0.typeRawValue == refund) && $0.statusRawValue == posted
             })
-        let weekLines = try modelContext.fetch(thisWeek).map { try $0.ledgerLine().amount }
-        let spent = try Money.sum(weekLines, currencyCode: settings.currencyCode)
+        // Refunds this week count against this week's spending (Sprint 20), never below zero.
+        let weekLines = try modelContext.fetch(thisWeek).map { record in
+            let line = try record.ledgerLine()
+            return line.type == .refund ? try line.amount.negated() : line.amount
+        }
+        let netSpent = try Money.sum(weekLines, currencyCode: settings.currencyCode)
+        let spent = netSpent.minorUnits < 0 ? .zero(settings.currencyCode) : netSpent
 
+        let upcoming = try upcomingOccurrences(now: now, calendar: calendar, days: days)
+        return DashboardSummary(balance: balance, spentThisWeek: spent, upcoming: upcoming, accounts: all.accounts)
+    }
+
+    /// Recurring occurrences from the start of today through the next `days` days that have not been recorded yet,
+    /// soonest first (the Dashboard's Upcoming card; Sprint 14 bill reminders).
+    public func upcomingOccurrences(now: Date, calendar: HouseholdCalendar, days: Int) throws -> [UpcomingOccurrence] {
         let dayStart = calendar.startOfDay(for: now)
         let end = calendar.calendar.date(byAdding: .day, value: days, to: dayStart) ?? dayStart
         let window = DateInterval(start: dayStart, end: max(end, dayStart))
@@ -460,20 +626,29 @@ public actor TransactionService {
             }
         }
         let enabled = FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.isEnabled == true })
+        let models = try modelContext.fetch(enabled)
+        // Store names for purchases (Sprint 22), in one fetch.
+        var storeNames: [UUID: String] = [:]
+        if models.contains(where: { $0.merchantID != nil }) {
+            for merchant in try modelContext.fetch(FetchDescriptor<Merchant>()) {
+                storeNames[merchant.id] = merchant.displayName
+            }
+        }
         var upcoming: [UpcomingOccurrence] = []
-        for model in try modelContext.fetch(enabled) {
+        for model in models {
             let series = try model.series()
+            let merchantName = series.merchantID.flatMap { storeNames[$0] }
             for date in RecurrenceEngine().occurrences(of: series, in: window) {
                 let item = UpcomingOccurrence(
                     seriesID: series.id, date: date, amount: series.templateAmount, type: series.type,
-                    title: model.notes)
+                    title: model.notes, kind: series.kind, merchantName: merchantName)
                 if !handled.contains(item.id) {
                     upcoming.append(item)
                 }
             }
         }
         upcoming.sort { $0.date < $1.date }
-        return DashboardSummary(balance: balance, spentThisWeek: spent, upcoming: upcoming)
+        return upcoming
     }
 
     public func setSeriesEnabled(_ enabled: Bool, series id: UUID, now: Date) throws {
@@ -485,21 +660,49 @@ public actor TransactionService {
     }
 
     /// Changes a series' template and rule (spec §9.4: occurrences are computed, so a rule change only moves the
-    /// projection). Transactions already posted from it keep their own amount, date, and category; the next
-    /// occurrence is recomputed after the latest one posted, so nothing is offered twice.
+    /// projection). Transactions already posted from it keep their own amount, date, category and merchant; the next
+    /// occurrence is recomputed after the latest one posted, so nothing is offered twice. `kind` and `merchantName`
+    /// replace the stored ones, so they have no defaults: a caller that left them out would turn a purchase into a
+    /// bill and clear its store (Sprint 22 review S2). No store clears it.
     public func updateSeries(
         _ id: UUID, templateAmount: Money, type: TransactionType, rule: RecurrenceRule, startDate: Date,
-        endDate: Date? = nil, categoryID: UUID?, notes: String?, now: Date
+        endDate: Date? = nil, categoryID: UUID?, notes: String?, accountID: UUID? = nil,
+        transferAccountID: UUID? = nil, kind: RecurringKind, merchantName: String?, now: Date
     ) throws {
         begin()
         guard let series = try recurringSeries(id) else { throw LedgerError.unknownSeries }
-        guard templateAmount.minorUnits > 0 else { throw LedgerError.nonPositiveAmount }
-        guard type != .transfer else { throw LedgerError.transfersUnavailable }
-        try requireCurrency(templateAmount, try requireSettings())
+        // Before any lookup or edit, so an impossible rule leaves nothing half-changed (review S3).
+        try rule.validate()
+        guard kind == .bill || type == .expense else { throw LedgerError.purchaseMustBeExpense }
+        let store = Self.storeName(merchantName)
+        let template = TransactionDraft(
+            amount: templateAmount, type: type, occurredAt: startDate, categoryID: categoryID, merchantName: store,
+            accountID: accountID, transferAccountID: transferAccountID)
+        try template.validate()
+        let settings = try requireSettings()
+        try requireCurrency(templateAmount, settings)
         if let categoryID {
             // An unchanged category that was archived since may stay; a newly picked one must be active.
             try requireUsableCategory(categoryID, for: type, allowArchived: categoryID == series.categoryID)
         }
+        let accounts = try resolveAccounts(
+            template, settings: settings, current: (series.accountID, series.transferAccountID), now: now)
+        // Looked up before the first edit to the series, so a failed fetch leaves it as it was.
+        var merchantID: UUID?
+        if let store {
+            // The same store name keeps the series' own merchant: names aren't unique, so looking it up again could
+            // pick another one with the same name (review S5).
+            let current = try series.merchantID.flatMap { id in
+                try modelContext.fetch(FetchDescriptor<Merchant>(predicate: #Predicate { $0.id == id })).first
+            }
+            if let current, current.normalizedName == Merchant.normalize(store) {
+                merchantID = current.id
+            } else {
+                merchantID = try findOrCreateMerchant(named: store, now: now).id
+            }
+        }
+        series.accountID = accounts.source
+        series.transferAccountID = accounts.destination
         try series.setRule(rule)
         series.templateAmountMinorUnits = templateAmount.minorUnits
         series.currencyCode = templateAmount.currencyCode
@@ -508,6 +711,8 @@ public actor TransactionService {
         series.endDate = endDate
         series.categoryID = categoryID
         series.notes = notes
+        series.kind = kind
+        series.merchantID = merchantID
         series.updatedAt = now
         let target: UUID? = id
         let posted = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.recurringSeriesID == target })
@@ -597,9 +802,60 @@ public actor TransactionService {
         guard category.kind.allows(type) else { throw LedgerError.categoryKindMismatch(category.kind, type) }
     }
 
-    private func findOrCreateMerchant(named name: String, now: Date) throws -> Merchant {
+    /// The category a manual choice teaches its merchant (Sprint 23, A-006): an active category of a kind that allows
+    /// the type, on an expense or income. A model's pick is not learned (AI output never becomes stored data, spec
+    /// §12), nor is a transfer or refund. Fetched before the first edit, so a failed fetch leaves nothing pending.
+    func learnableCategory(_ id: UUID?, type: TransactionType, isAIClassified: Bool) throws -> UUID? {
+        guard let id, !isAIClassified, type == .expense || type == .income else { return nil }
+        let descriptor = FetchDescriptor<CategoryRecord>(predicate: #Predicate { $0.id == id })
+        guard let category = try modelContext.fetch(descriptor).first, !category.isArchived, category.kind.allows(type)
+        else { return nil }
+        return category.id
+    }
+
+    /// Points the merchant's default category (a suggestion only, spec §7.4) at `categoryID`, without saving.
+    func learn(_ categoryID: UUID?, for merchant: Merchant, now: Date) {
+        guard let categoryID, merchant.defaultCategoryID != categoryID else { return }
+        merchant.defaultCategoryID = categoryID
+        merchant.updatedAt = now
+    }
+
+    private func merchant(_ id: UUID) throws -> Merchant? {
+        let descriptor = FetchDescriptor<Merchant>(predicate: #Predicate { $0.id == id })
+        return try modelContext.fetch(descriptor).first
+    }
+
+    /// A series' store (Sprint 22): the trimmed name, or nil when there is none.
+    private static func storeName(_ name: String?) -> String? {
+        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return Merchant.normalize(trimmed).isEmpty ? nil : trimmed
+    }
+
+    /// The learned category of each normalized merchant name in `keys` that has one in `usable`. Names aren't unique;
+    /// the oldest merchant with a usable category speaks for the name. Quick Add (`suggestedCategory`) and the import
+    /// preview (`importCategorySuggestions`) both read it here, so the same text gets the same suggestion.
+    func learnedCategories(for keys: Set<String>, usable: Set<UUID>) throws -> [String: UUID] {
+        guard !keys.isEmpty, !usable.isEmpty else { return [:] }
+        var descriptor = FetchDescriptor<Merchant>(sortBy: [SortDescriptor(\.createdAt)])
+        if keys.count == 1, let only = keys.first {
+            descriptor.predicate = #Predicate<Merchant> { $0.normalizedName == only }
+        }
+        var learned: [String: UUID] = [:]
+        for merchant in try modelContext.fetch(descriptor) where keys.contains(merchant.normalizedName) {
+            guard learned[merchant.normalizedName] == nil, let category = merchant.defaultCategoryID,
+                usable.contains(category)
+            else { continue }
+            learned[merchant.normalizedName] = category
+        }
+        return learned
+    }
+
+    /// The oldest merchant with `name`'s normalized name, else a new one. Every path that records a merchant (a new
+    /// entry, Quick Add, an edit, an import, a series) comes through here, so a name always lands on the same one.
+    func findOrCreateMerchant(named name: String, now: Date) throws -> Merchant {
         let key = Merchant.normalize(name)
-        let descriptor = FetchDescriptor<Merchant>(predicate: #Predicate { $0.normalizedName == key })
+        let descriptor = FetchDescriptor<Merchant>(
+            predicate: #Predicate { $0.normalizedName == key }, sortBy: [SortDescriptor(\.createdAt)])
         if let existing = try modelContext.fetch(descriptor).first {
             return existing
         }

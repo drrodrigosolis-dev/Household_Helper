@@ -11,15 +11,20 @@ struct HouseholdCalendarTests {
         try #require(ISO8601DateFormatter().date(from: iso))
     }
 
+    // DST edges use Europe/Berlin: tzdata 2026c keeps America/Vancouver on UTC-7 after March 2026, so its
+    // fall-back day depends on the host's time zone database.
+    private let berlin = HouseholdCalendar(
+        timeZone: TimeZone(identifier: "Europe/Berlin")!, locale: Locale(identifier: "de_DE"), firstWeekday: 2)
+
     @Test(arguments: [
-        ("2026-03-08T12:00:00-07:00", 23.0),  // spring forward
-        ("2026-11-01T12:00:00-08:00", 25.0),  // fall back
-        ("2026-09-25T12:00:00-07:00", 24.0),
+        ("2026-03-29T12:00:00+02:00", 23.0),  // spring forward
+        ("2026-10-25T12:00:00+01:00", 25.0),  // fall back
+        ("2026-09-25T12:00:00+02:00", 24.0),
     ])
     func dayBoundsFollowTheStoredTimeZoneAcrossDST(iso: String, hours: Double) throws {
         let noon = try date(iso)
-        let start = vancouver.startOfDay(for: noon)
-        let end = vancouver.endOfDay(for: noon)
+        let start = berlin.startOfDay(for: noon)
+        let end = berlin.endOfDay(for: noon)
         #expect(start <= noon && noon < end)
         #expect(end.timeIntervalSince(start) == hours * 3600)
     }

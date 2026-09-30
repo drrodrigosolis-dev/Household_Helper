@@ -7,6 +7,19 @@ final class SettingsUITests: XCTestCase {
 
     /// Spec §24.2 Backup and export: CSV export is offered, disabled while there is nothing to export and enabled
     /// once a transaction exists. The system file exporter it opens is not driven (an out-of-app sheet).
+    /// Sprint 15: CSV import is offered in Data and enabled even with no data (the file picker is not driven).
+    @MainActor
+    func testCSVImportIsOffered() {
+        let app = launchApp()
+        openSettings(app)
+        app.buttons["settings.data"].tap()
+        XCTAssertTrue(app.navigationBars["Data"].waitForExistence(timeout: 5), "Data did not open")
+        let importButton = app.buttons["data.importCSV"]
+        XCTAssertTrue(scrollUntilExists(app, importButton), "CSV import button missing")
+        XCTAssertTrue(importButton.isEnabled)
+        captureScreen(app, named: "sprint15-data-import-light")
+    }
+
     @MainActor
     func testCSVExportIsEnabledOnceThereIsATransaction() {
         let app = launchApp()

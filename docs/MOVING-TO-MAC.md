@@ -1,9 +1,9 @@
 # Moving development from claude.ai cloud sessions to the Mac
 
-Everything lives in git on `build/v1`; nothing needs copying out of a cloud container.
+Everything lives in git on `build/v1.1`; nothing needs copying out of a cloud container.
 
 ## Before the cloud credits run out (last cloud session)
-1. `git status` clean and `git log origin/build/v1..HEAD` empty: every commit pushed.
+1. `git status` clean and `git log origin/build/v1.1..HEAD` empty: every commit pushed.
 2. `docs/PROGRESS.md` and the current `docs/sprints/` plan reflect reality, and the PR description matches.
 3. Note in `docs/PROGRESS.md` anything in flight (a red run, a half-done item) so the Mac session picks it up.
 
@@ -11,7 +11,7 @@ Everything lives in git on `build/v1`; nothing needs copying out of a cloud cont
 1. Install Xcode 26 from the Mac App Store, open it once, and install an iOS 26 simulator runtime
    (Xcode > Settings > Components).
 2. `brew install xcodegen gh`, then `gh auth login`.
-3. `git clone https://github.com/drrodrigosolis-dev/Household_Helper && cd Household_Helper && git checkout build/v1`
+3. `git clone https://github.com/drrodrigosolis-dev/Household_Helper && cd Household_Helper && git checkout build/v1.1`
 4. `Scripts/bootstrap.sh` (checks tools, installs nothing), then `Scripts/verify.sh` should pass like CI does.
 5. Start Claude Code in the repo (`claude`), signed in with the Claude subscription. Do not set `ANTHROPIC_API_KEY`.
    Project settings, hooks, skills, and subagents load from `.claude/`; personal overrides go in

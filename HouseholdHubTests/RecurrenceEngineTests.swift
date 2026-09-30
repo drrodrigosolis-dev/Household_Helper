@@ -17,17 +17,51 @@ struct RecurrenceEngineTests {
         return DateInterval(start: start, end: end)
     }
 
-    private func series(_ rule: RecurrenceRule, start: String, end: String? = nil) throws -> RecurringSeries {
+    // DST edges use Europe/Berlin: tzdata 2026c keeps America/Vancouver on UTC-7 after March 2026, so its
+    // offsets from November 2026 on depend on the host's time zone database.
+    private let berlinZone = TimeZone(identifier: "Europe/Berlin")!
+
+    private func series(
+        _ rule: RecurrenceRule, start: String, end: String? = nil, zone: TimeZone? = nil
+    ) throws -> RecurringSeries {
         let startDate = try date(start)
         let endDate = try end.map { try date($0) }
         let amount = Money(minorUnits: 1000, currencyCode: "CAD")
         return RecurringSeries(
-            templateAmount: amount, type: .expense, rule: rule, timeZone: vancouverZone, startDate: startDate,
-            endDate: endDate)
+            templateAmount: amount, type: .expense, rule: rule, timeZone: zone ?? vancouverZone,
+            startDate: startDate, endDate: endDate)
+    }
+
+    /// Year, month, day and hour of each date in `zone`, independent of the zone's UTC offset.
+    private func localParts(_ dates: [Date], in zone: TimeZone) -> [[Int]] {
+        let calendar = HouseholdCalendar(timeZone: zone).calendar
+        return dates.map { date in
+            let parts = calendar.dateComponents([.year, .month, .day, .hour], from: date)
+            return [parts.year ?? 0, parts.month ?? 0, parts.day ?? 0, parts.hour ?? 0]
+        }
     }
 
     private func occurrences(_ series: RecurringSeries, _ window: DateInterval) -> [Date] {
         engine.occurrences(of: series, in: window)
+    }
+
+    /// Audit A-001: a series started "now" carries fractions of a second; its first occurrence, rebuilt from whole
+    /// seconds, must still count (it was dropped, so a bill due today never reached Upcoming or the balance).
+    @Test(arguments: [
+        RecurrenceRule.daily(interval: 1), .weekly(interval: 1, weekday: 1), .monthlyOnDay(day: 27),
+        .monthlyOnWeekday(ordinal: -1, weekday: 1), .yearly(month: 9, day: 27),
+    ])
+    func aStartWithFractionsOfASecondKeepsItsFirstOccurrence(rule: RecurrenceRule) throws {
+        // Sunday 2026-09-27 20:45:12.734 in Vancouver.
+        let start = try date("2026-09-27T20:45:12-07:00").addingTimeInterval(0.734)
+        let amount = Money(minorUnits: 1799, currencyCode: "CAD")
+        let series = RecurringSeries(
+            templateAmount: amount, type: .expense, rule: rule, timeZone: vancouverZone, startDate: start,
+            endDate: nil)
+        let day = try window("2026-09-27T00:00:00-07:00", "2026-09-28T00:00:00-07:00")
+        let first = try #require(occurrences(series, day).first, "The first occurrence was dropped")
+        #expect(localParts([first], in: vancouverZone) == [[2026, 9, 27, 20]])
+        #expect(engine.nextOccurrence(of: series, after: start.addingTimeInterval(-1)) == first)
     }
 
     @Test func monthlyDay31ClampsToShortMonths() throws {
@@ -53,20 +87,17 @@ struct RecurrenceEngineTests {
 
     @Test func yearlyFeb29FallsOnFeb28InCommonYears() throws {
         let rule = try series(.yearly(month: 2, day: 29), start: "2024-02-29T09:00:00-08:00")
-        let result = occurrences(rule, try window("2024-01-01T00:00:00-08:00", "2029-01-01T00:00:00-08:00"))
-        let expected = try [
-            "2024-02-29T09:00:00-08:00", "2025-02-28T09:00:00-08:00", "2026-02-28T09:00:00-08:00",
-            "2027-02-28T09:00:00-08:00", "2028-02-29T09:00:00-08:00",
-        ].map(date)
-        #expect(result == expected)
+        let result = occurrences(rule, try window("2024-01-01T00:00:00-08:00", "2029-01-01T00:00:00Z"))
+        let expected = [[2024, 2, 29, 9], [2025, 2, 28, 9], [2026, 2, 28, 9], [2027, 2, 28, 9], [2028, 2, 29, 9]]
+        #expect(localParts(result, in: vancouverZone) == expected)
     }
 
     @Test func biweeklyKeepsLocalTimeAcrossFallBack() throws {
-        let rule = try series(.weekly(interval: 2, weekday: 6), start: "2026-10-09T09:00:00-07:00")
-        let result = occurrences(rule, try window("2026-10-01T00:00:00-07:00", "2026-11-30T00:00:00-08:00"))
+        let rule = try series(.weekly(interval: 2, weekday: 6), start: "2026-10-09T09:00:00+02:00", zone: berlinZone)
+        let result = occurrences(rule, try window("2026-10-01T00:00:00+02:00", "2026-11-30T00:00:00+01:00"))
         let expected = try [
-            "2026-10-09T09:00:00-07:00", "2026-10-23T09:00:00-07:00", "2026-11-06T09:00:00-08:00",
-            "2026-11-20T09:00:00-08:00",
+            "2026-10-09T09:00:00+02:00", "2026-10-23T09:00:00+02:00", "2026-11-06T09:00:00+01:00",
+            "2026-11-20T09:00:00+01:00",
         ].map(date)
         #expect(result == expected)
     }

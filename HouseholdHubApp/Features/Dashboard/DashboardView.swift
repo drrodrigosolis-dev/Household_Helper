@@ -10,12 +10,23 @@ struct DashboardView: View {
     @Environment(AppRouter.self) private var router
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
+    @Query(sort: \Account.sortOrder) private var accountRecords: [Account]
     @Query private var recent: [TransactionRecord]
     @Query private var recentWishes: [WishlistItem]
     @Query private var recentTasks: [TaskItem]
     @State private var summary: DashboardSummary?
+    /// The three budgets closest to, or over, their limit this month (Sprint 11).
+    @State private var budgets: [BudgetStatus] = []
+    /// Up to three active savings goals, in list order (Sprint 12 decision 5).
+    @State private var goals: [GoalStatus] = []
     @State private var loadFailed = false
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.funTheme) private var theme
+
+    /// Big figures: with a theme on, bold rounded digits that stay easy to read (Sprint 21 owner answer).
+    private func figureFont(_ style: Font.TextStyle) -> Font {
+        theme == nil ? .system(style) : .system(style, design: .rounded, weight: .bold)
+    }
 
     init() {
         var descriptor = FetchDescriptor<TransactionRecord>(sortBy: [SortDescriptor(\.occurredAt, order: .reverse)])
@@ -54,9 +65,12 @@ struct DashboardView: View {
     /// The five latest entries across transactions, wishlist changes, and task changes (spec §24.2).
     private var activity: [Activity] {
         let all =
-            recent.map(Activity.transaction) + recentWishes.map(Activity.wishlist) + recentTasks.map(Activity.task)
+            recent.map(Activity.transaction) + wishActivity.map(Activity.wishlist) + recentTasks.map(Activity.task)
         return Array(all.sorted { $0.date > $1.date }.prefix(5))
     }
+
+    /// A purchased item is already in the list as its expense (audit A-002: it showed twice).
+    private var wishActivity: [WishlistItem] { recentWishes.filter { $0.status != .purchased } }
 
     private var includePending: Bool { settings.first?.includePendingInProjection ?? false }
 
@@ -69,8 +83,25 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    if theme != nil {
+                        ThemeHeaderStrip()
+                    }
+                    // Sprint 24: the one-time tour offer on installs set up before the tour existed.
+                    TourOffer()
                     if let summary {
-                        balanceCards(summary)
+                        // The tour's first stop: current, pending, and projected together. At accessibility sizes
+                        // the three fill the screen, so the stop spotlights the Current card (inside balanceCards).
+                        VStack(spacing: 16) { balanceCards(summary) }
+                            .tourTarget(.figures, if: !typeSize.isAccessibilitySize)
+                        if summary.accounts.count > 1 {
+                            accountsCard(summary.accounts)
+                        }
+                        if !budgets.isEmpty {
+                            budgetsCard(budgets)
+                        }
+                        if !goals.isEmpty {
+                            goalsCard(goals)
+                        }
                         upcomingCard(summary.upcoming)
                     } else if loadFailed {
                         ContentUnavailableView(
@@ -83,14 +114,43 @@ struct DashboardView: View {
                 }
                 .padding()
             }
+            .background { AmbientLayer(placement: .background) }
             .quickAddAccess()
             .navigationTitle("Dashboard")
+            .themedScreen(decorated: true)
             .task { await refresh() }
             .onReceive(storeSaves) { _ in Task { await refresh() } }
         }
     }
 
     // MARK: Cards
+
+    private var quickAddButton: some View {
+        styledAddButton
+            .accessibilityLabel("Quick Add")
+            .accessibilityIdentifier("dashboard.quickAdd")
+    }
+
+    @ViewBuilder
+    private var styledAddButton: some View {
+        let button = Button("Add", systemImage: "plus") { router.isQuickAddPresented = true }
+        if theme != nil {
+            button.buttonStyle(CrayonCapsuleStyle())
+        } else {
+            button.buttonStyle(.bordered)
+        }
+    }
+
+    /// The balance and, with a theme on, the crayon strokes beside it from the mockup.
+    private func balanceFigure(_ summary: DashboardSummary) -> some View {
+        HStack(spacing: 6) {
+            AmountText(summary.balance.current.formatted(), font: figureFont(.largeTitle).bold())
+                .fontDesign(nil)
+            if theme != nil {
+                DoodleView(doodle: .dashes, size: 22)
+            }
+        }
+    }
 
     @ViewBuilder
     private func balanceCards(_ summary: DashboardSummary) -> some View {
@@ -101,30 +161,37 @@ struct DashboardView: View {
             router.showBudget(.transactions, filter: posted)
         } content: {
             // Quick Add from the primary card as well as the floating button (spec §24.3).
-            HStack(alignment: .firstTextBaseline) {
-                AmountText(summary.balance.current.formatted(), font: .largeTitle.bold())
-                Spacer(minLength: 8)
-                Button("Add", systemImage: "plus") { router.isQuickAddPresented = true }
-                    .buttonStyle(.bordered)
-                    .accessibilityLabel("Quick Add")
-                    .accessibilityIdentifier("dashboard.quickAdd")
+            // Stacked at accessibility sizes so "Add" never breaks mid-word (local Sprint 10 walk).
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 8) {
+                    balanceFigure(summary)
+                    quickAddButton
+                }
+            } else {
+                HStack(alignment: theme == nil ? .firstTextBaseline : .center) {
+                    balanceFigure(summary)
+                    Spacer(minLength: 8)
+                    quickAddButton
+                }
             }
         }
+        .tourTarget(.figures, if: typeSize.isAccessibilitySize)
         pairLayout {
             DashboardCard(
                 title: "Pending impact", identifier: "dashboard.pending",
-                value: summary.balance.pendingImpact.formatted()
+                value: summary.balance.pendingImpact.formatted(), ornament: .starSmall
             ) {
                 router.showBudget(.transactions, filter: TransactionFilter(status: .pending))
             } content: {
-                AmountText(summary.balance.pendingImpact.formatted(), font: .title3)
+                AmountText(summary.balance.pendingImpact.formatted(), font: figureFont(.title3)).fontDesign(nil)
             }
             DashboardCard(
-                title: "Spent this week", identifier: "dashboard.week", value: summary.spentThisWeek.formatted()
+                title: "Spent this week", identifier: "dashboard.week", value: summary.spentThisWeek.formatted(),
+                ornament: .starSmall
             ) {
                 router.showBudget(.transactions, filter: TransactionFilter(period: .thisWeek, status: .posted))
             } content: {
-                AmountText(summary.spentThisWeek.formatted(), font: .title3)
+                AmountText(summary.spentThisWeek.formatted(), font: figureFont(.title3)).fontDesign(nil)
             }
         }
         DashboardCard(
@@ -134,10 +201,88 @@ struct DashboardView: View {
             router.showBudget(.recurring)
         } content: {
             VStack(alignment: .leading, spacing: 8) {
-                AmountText(summary.balance.projected.formatted(), font: .title2)
+                HStack {
+                    AmountText(summary.balance.projected.formatted(), font: figureFont(.title2)).fontDesign(nil)
+                    if theme != nil && !typeSize.isAccessibilitySize {
+                        Spacer(minLength: 8)
+                        ThemeDrawing(piece: .ornamentWide, height: 40)
+                    }
+                }
                 Toggle("Include pending", isOn: pendingBinding)
                     .font(.subheadline)
                     .accessibilityIdentifier("dashboard.includePending")
+            }
+        }
+    }
+
+    /// The three budgets nearest their limit; a row opens that category's transactions this month.
+    private func budgetsCard(_ statuses: [BudgetStatus]) -> some View {
+        DashboardCard(title: "Budgets", identifier: "dashboard.budgets") {
+            router.showBudget(.budgets)
+        } content: {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(statuses, id: \.categoryID) { status in
+                    if let category = categories.first(where: { $0.id == status.categoryID }) {
+                        Button {
+                            router.showBudget(
+                                .transactions, filter: TransactionFilter(period: .thisMonth, categoryID: category.id))
+                        } label: {
+                            BudgetRow(status: status, category: category)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("dashboard.budget")
+                    }
+                }
+            }
+        }
+    }
+
+    /// Up to three active goals; the card opens Wishlist › Goals.
+    private func goalsCard(_ statuses: [GoalStatus]) -> some View {
+        DashboardCard(title: "Goals", identifier: "dashboard.goals", hint: "Opens Wishlist goals") {
+            router.showGoals()
+        } content: {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(statuses) { status in
+                    Button {
+                        router.showGoals()
+                    } label: {
+                        GoalRow(
+                            status: status, accountName: accountRecords.first { $0.id == status.rule.accountID }?.name)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("dashboard.goal")
+                }
+            }
+        }
+    }
+
+    /// Each account's current figure (Sprint 10 decision 7); a row opens Budget filtered to that account.
+    private func accountsCard(_ balances: [AccountBalance]) -> some View {
+        DashboardCard(title: "Accounts", identifier: "dashboard.accounts") {
+            router.showBudget(.transactions)
+        } content: {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(balances, id: \.accountID) { balance in
+                    if let account = accountRecords.first(where: { $0.id == balance.accountID }) {
+                        Button {
+                            router.showBudget(.transactions, filter: TransactionFilter(accountID: account.id))
+                        } label: {
+                            rowLayout {
+                                Label(account.name, systemImage: AccountFormat.icon(account.kind))
+                                if !typeSize.isAccessibilitySize {
+                                    Spacer()
+                                }
+                                Text(AccountFormat.balanceText(balance.snapshot.current, kind: account.kind))
+                                    .monospacedDigit()
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .accessibilityElement(children: .combine)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("dashboard.account")
+                    }
+                }
             }
         }
     }
@@ -158,7 +303,7 @@ struct DashboardView: View {
     }
 
     private func upcomingCard(_ upcoming: [UpcomingOccurrence]) -> some View {
-        DashboardCard(title: "Upcoming (7 days)", identifier: "dashboard.upcoming") {
+        DashboardCard(title: "Upcoming (7 days)", identifier: "dashboard.upcoming", ornament: .star) {
             router.showBudget(.recurring)
         } content: {
             if upcoming.isEmpty {
@@ -168,7 +313,7 @@ struct DashboardView: View {
                     ForEach(upcoming) { item in
                         // Stacks at accessibility sizes so title, date, and amount never squeeze each other.
                         rowLayout {
-                            Text(item.title ?? String(localized: "Recurring item"))
+                            upcomingTitle(item)
                             if !typeSize.isAccessibilitySize {
                                 Spacer()
                             }
@@ -184,14 +329,26 @@ struct DashboardView: View {
         }
     }
 
+    /// A recurring purchase (Sprint 22) shows a cart; one without a name reads as its store.
+    @ViewBuilder
+    private func upcomingTitle(_ item: UpcomingOccurrence) -> some View {
+        let title = item.title ?? item.merchantName ?? String(localized: "Recurring item")
+        if item.kind == .purchase {
+            Label(title, systemImage: "cart")
+        } else {
+            Text(title)
+        }
+    }
+
     private var recentCard: some View {
-        DashboardCard(title: "Recent activity", identifier: "dashboard.recent") {
+        DashboardCard(title: "Recent activity", identifier: "dashboard.recent", ornament: .ornamentActivity) {
             router.showBudget(.transactions)
         } content: {
             if activity.isEmpty {
                 Text("No transactions yet. Tap + to add one.").foregroundStyle(.secondary)
             } else {
-                VStack(spacing: 8) {
+                // Leading-aligned so rows that stack at accessibility sizes don't centre (local walk L-005).
+                VStack(alignment: .leading, spacing: 8) {
                     // Each row opens its own tab (spec §24.2 "deep-link into owning tab").
                     ForEach(activity) { entry in
                         switch entry {
@@ -199,7 +356,8 @@ struct DashboardView: View {
                             Button {
                                 router.showBudget(.transactions)
                             } label: {
-                                TransactionRow(record: record, category: category(of: record))
+                                TransactionRow(
+                                    record: record, category: category(of: record), accounts: accountRecords)
                             }
                             .buttonStyle(.plain)
                         case .wishlist(let item):
@@ -241,8 +399,14 @@ struct DashboardView: View {
     private func refresh() async {
         guard let services else { return }
         do {
-            summary = try await services.transactions.dashboardSummary(
-                now: .now, calendar: HouseholdCalendar(timeZone: .current))
+            let calendar = HouseholdCalendar(timeZone: .current)
+            summary = try await services.transactions.dashboardSummary(now: .now, calendar: calendar)
+            // The budget card fails on its own: a budget problem must not hide the balances.
+            let report = (try? await services.transactions.budgetReport(month: .now, calendar: calendar)) ?? []
+            budgets = Array(report.sorted { $0.usedFraction > $1.usedFraction }.prefix(3))
+            // Goals fail on their own too.
+            let goalReport = (try? await services.transactions.goalReport(now: .now, calendar: calendar)) ?? []
+            goals = Array(goalReport.filter { !$0.rule.isArchived }.prefix(3))
             loadFailed = false
         } catch {
             loadFailed = true
@@ -256,16 +420,24 @@ private struct DashboardCard<Content: View>: View {
     let identifier: String
     /// The card's figure, read with its title on the button so VoiceOver hears "Current balance, $1,234".
     let value: String?
+    let hint: LocalizedStringKey
+    /// A small drawing beside the title when a theme is on (Sprint 21); never at accessibility text sizes.
+    let ornament: ThemePiece?
     let action: () -> Void
     let content: () -> Content
+    @Environment(\.funTheme) private var theme
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     init(
-        title: LocalizedStringKey, identifier: String, value: String? = nil, action: @escaping () -> Void,
-        @ViewBuilder content: @escaping () -> Content
+        title: LocalizedStringKey, identifier: String, value: String? = nil,
+        hint: LocalizedStringKey = "Opens the matching Budget view", ornament: ThemePiece? = nil,
+        action: @escaping () -> Void, @ViewBuilder content: @escaping () -> Content
     ) {
         self.title = title
         self.identifier = identifier
         self.value = value
+        self.hint = hint
+        self.ornament = ornament
         self.action = action
         self.content = content
     }
@@ -275,8 +447,11 @@ private struct DashboardCard<Content: View>: View {
             Button(action: action) {
                 HStack {
                     Text(title)
-                        .font(.headline)
+                        .themedFont(.headline)
                     Spacer()
+                    if let ornament, theme != nil, !typeSize.isAccessibilitySize {
+                        ThemeDrawing(piece: ornament, height: ornament == .ornamentActivity ? 34 : 22)
+                    }
                     Image(systemName: "chevron.right")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -285,13 +460,13 @@ private struct DashboardCard<Content: View>: View {
             }
             .buttonStyle(.plain)
             .accessibilityValue(value.map { Text($0) } ?? Text(""))
-            .accessibilityHint("Opens the matching Budget view")
+            .accessibilityHint(hint)
             .accessibilityIdentifier(identifier)
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
+        .themedSurface(cornerRadius: 16, standard: .background.secondary)
     }
 }
 

@@ -4,7 +4,16 @@ import SwiftUI
 
 /// Wishlist tab (spec §24.2): priority and status filter chips, a list/grid toggle remembered on this device, and
 /// cards with thumbnail, name, priority, and estimated price. Tapping a card opens the detail with Mark Purchased.
+/// A Goals segment holds the savings goals (Sprint 12 decision 5).
 struct WishlistView: View {
+    enum Segment: String, CaseIterable, Identifiable {
+        case items
+        /// Savings goals (Sprint 12).
+        case goals
+
+        var id: String { rawValue }
+    }
+
     enum Layout: String {
         case list
         case grid
@@ -37,54 +46,101 @@ struct WishlistView: View {
         }
     }
 
+    @Environment(AppRouter.self) private var router
     @Query(sort: \WishlistItem.createdAt, order: .reverse) private var items: [WishlistItem]
     /// A per-device display preference, deliberately outside the store and backups (spec §7.11).
     @AppStorage("wishlist.layout") private var layout = Layout.list
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.funTheme) private var theme
     @State private var priority: Priority?
     @State private var status = StatusFilter.active
     @State private var isAdding = false
+    @State private var isAddingSeveral = false
+    /// Sprint 14: name, notes and price.
+    @State private var searchText = ""
 
     private var visible: [WishlistItem] {
+        let query = SearchQuery(searchText)
         // Highest priority first; `items` is newest first and the sort is stable, so ties stay newest first.
-        items.filter { status.includes($0.status) && (priority == nil || $0.priority == priority) }
-            .sorted { $0.priority > $1.priority }
+        return items.filter {
+            status.includes($0.status) && (priority == nil || $0.priority == priority)
+                && query.matches([$0.name, $0.notes], amount: $0.actualPrice ?? $0.estimatedPrice)
+        }
+        .sorted { $0.priority > $1.priority }
     }
 
     var body: some View {
+        @Bindable var router = router
         NavigationStack {
-            content
-                .safeAreaInset(edge: .top) { chips }
-                .quickAddAccess()
-                .navigationTitle("Wishlist")
-                .navigationDestination(for: UUID.self) { id in
-                    WishlistDetailView(itemID: id)
+            Group {
+                switch router.wishlistSegment {
+                case .items:
+                    content
+                        .searchable(text: $searchText, prompt: "Search wishlist")
+                        .safeAreaInset(edge: .top) { chips }
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) { layoutToggle }
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("Add several", systemImage: "text.badge.plus") { isAddingSeveral = true }
+                                    .accessibilityIdentifier("wishlist.addSeveral")
+                            }
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("Add item", systemImage: "plus") { isAdding = true }
+                                    .accessibilityIdentifier("wishlist.add")
+                            }
+                        }
+                case .goals:
+                    GoalsListView()
                 }
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) { layoutToggle }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Add item", systemImage: "plus") { isAdding = true }
-                            .accessibilityIdentifier("wishlist.add")
-                    }
+            }
+            .tourTarget(.wishlist)
+            .safeAreaInset(edge: .top) {
+                Picker("View", selection: $router.wishlistSegment) {
+                    Text("Items").tag(Segment.items)
+                    Text("Goals").tag(Segment.goals)
                 }
-                .sheet(isPresented: $isAdding) {
-                    NavigationStack { WishlistEditorView(item: nil) }
-                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .accessibilityIdentifier("wishlist.segment")
+            }
+            // Goals has its own + (audit A-013, as on Budget's Recurring and Budgets).
+            .quickAddAccess(showsButton: router.wishlistSegment == .items)
+            .navigationTitle("Wishlist")
+            .themedScreen(decorated: true, toolbarTrailing: true)
+            .navigationDestination(for: UUID.self) { id in
+                WishlistDetailView(itemID: id)
+            }
+            .sheet(isPresented: $isAdding) {
+                NavigationStack { WishlistEditorView(item: nil) }
+            }
+            .sheet(isPresented: $isAddingSeveral) {
+                NavigationStack { BatchAddView(kind: .wishlist) }
+            }
         }
     }
 
     @ViewBuilder
     private var content: some View {
         if visible.isEmpty {
-            ContentUnavailableView(
-                emptyTitle, systemImage: "heart",
-                description: Text("Add things you're saving for. Mark them purchased to record the expense."))
+            ContentUnavailableView {
+                EmptyStateLabel(Text(emptyTitle), systemImage: "heart")
+                    .tourTarget(.wishlistEmpty)
+            } description: {
+                Text("Add things you're saving for. Mark them purchased to record the expense.")
+            } actions: {
+                // Only when the list is truly empty; with filters hiding items, the chips are the way back.
+                if items.isEmpty {
+                    Button("Add item") { isAdding = true }
+                        .accessibilityIdentifier("wishlist.addEmpty")
+                }
+            }
         } else if layout == .grid {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: gridMinimum), spacing: 12)], spacing: 12) {
                     ForEach(visible) { item in
                         NavigationLink(value: item.id) { WishlistCard(item: item) }
                             .buttonStyle(.plain)
+                            .tourTarget(.wishlistRow, if: item.id == visible.first?.id)
                     }
                 }
                 .padding()
@@ -92,6 +148,8 @@ struct WishlistView: View {
         } else {
             List(visible) { item in
                 NavigationLink(value: item.id) { WishlistRow(item: item) }
+                    .themedRow()
+                    .tourTarget(.wishlistRow, if: item.id == visible.first?.id)
             }
             .listStyle(.insetGrouped)
         }
@@ -101,7 +159,8 @@ struct WishlistView: View {
     private var gridMinimum: CGFloat { typeSize.isAccessibilitySize ? 300 : 150 }
 
     private var emptyTitle: String {
-        items.isEmpty ? String(localized: "No wishlist items yet") : String(localized: "Nothing matches these filters")
+        guard items.isEmpty else { return String(localized: "Nothing matches these filters") }
+        return theme?.theme.emptyWishlistTitle ?? String(localized: "No wishlist items yet")
     }
 
     /// Two chips side by side, stacked when they don't fit (large text). A horizontal ScrollView here left a ~90 pt gap
@@ -221,7 +280,7 @@ struct WishlistCard: View {
             AmountText(WishlistItemSummary.price(item), font: .subheadline)
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(uiColor: .secondarySystemGroupedBackground)))
+        .themedSurface(cornerRadius: 14, standard: Color(uiColor: .secondarySystemGroupedBackground))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("wishlist.row")
     }
@@ -248,4 +307,5 @@ enum WishlistItemSummary {
 
 #Preview {
     WishlistView()
+        .environment(AppRouter.shared)
 }

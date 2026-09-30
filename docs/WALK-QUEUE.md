@@ -4,13 +4,6 @@ Only items no automation can reach from the current environment. Each entry: spr
 result, and why it could not be walked automatically. Emptied at the next walk on the owner's Mac.
 
 ## Pending
-- **Sprint 6 (Phase 7) — backup and restore through the Files app.** On the Simulator or a device: add a few
-  transactions and a wishlist item with a photo; Settings › Backup and export › Back up now; save the folder in
-  Files. Delete the app's data (reinstall), finish onboarding, then Restore from backup… and pick the folder.
-  Expected: a confirmation that says everything will be replaced; afterwards balances, wishlist (with photo), and
-  tasks match the original. Why queued: the system document picker cannot be driven reliably by UI tests; the
-  backup format, validation, and restore are covered by unit tests.
-
 - **Sprint 7 (Phase 8) — on-device AI on a device with Apple Intelligence.** Settings › Intelligence: turn on all
   three switches. Quick Add: type "twelve dollars lunch" (amount and Dining should be suggested and labelled), then
   "47.50 coffee" (nothing from the model may override the parsed amount). Analytics › Summary › Write summary: the
@@ -37,7 +30,62 @@ result, and why it could not be walked automatically. Emptied at the next walk o
   Remove the device passcode: the app opens with an alert and the switch stays on. Why queued: the CI simulator has
   no passcode, so the switch is unavailable there.
 
+- **Sprint 18 — board drag feel (owner's finger, Simulator or phone).** 1. In Tasks, drag a To Do card and rest it on
+  the right-edge peek: after ~0.6 s In Progress slides in, outlined, and stays (no second jump). 2. Release: the card
+  lands in In Progress. 3. Drag a Done card: it should lift (L-018 saw long-press open the menu instead on the Mac's
+  synthetic gestures). 4. Rest it on the 16 pt left edge: the previous column slides back; release lands there. Why
+  queued: drag feel and lift-vs-menu need a real finger.
+
+- **Sprint 25 — Siri (owner's phone; Siri can't run in CI).** Install a fresh build, open the app once and finish
+  setup so Siri reads the shortcuts. Lock off unless a step says otherwise.
+  1. **One-breath dictation (owner question 4, first).** Say "Add to my wishlist in Household Hub, headphones for
+     149" in one breath. Expected: no follow-up question; the confirmation reads "Add headphones, $149.00?". If Siri
+     asks "What would you like to add?" instead, the one-breath assumption is false: record it here and in
+     `docs/sprints/SPRINT-25.md`, then answer "headphones for 149" and continue.
+  2. **Each phrase, English.** "Add to my wishlist in Household Hub", "Add to my Household Hub wishlist", "Add a wish
+     in Household Hub": Siri asks for the item; answer "rain boots for 45" → "Add rain boots, $45.00?" → Yes →
+     "Added rain boots to your wishlist."; the item is in Wishlist. Answer "gift for mom" → "Add gift for mom with no
+     price?". Say No once: nothing is added.
+  3. "Add a task in Household Hub", "Add a Household Hub task", "New task in Household Hub": answer "call the
+     plumber" → "Add the task “call the plumber”?" → Yes → the task is at the bottom of the board's first column.
+  4. **Log Transaction without Apple Intelligence** (Settings › Intelligence › Quick Add understanding off, or a
+     phone without it): "Log a transaction in Household Hub", "47.50 coffee" → "Record $47.50 expense at coffee on
+     <today>?". Nothing is saved on No.
+  5. **Foundation Models path** (a device with Apple Intelligence on; Quick Add understanding and Category suggestions
+     on): "Log a transaction in Household Hub", then "I spent 40 on groceries at Safeway yesterday". Expected:
+     "Record $40.00 expense at Safeway on <yesterday>, in Groceries?". Then "2 coffees for 9.50" → $9.50, not $2.00.
+     Wishlist: "I'd love the Sony headphones, they cost 149" → "Add Sony headphones, $149.00?". Note how long the
+     model takes; after 6 s the grammar's draft is used (the confirmation then shows the plain-grammar wording).
+  6. **Lock on** (Settings › Privacy › Require Face ID): each of the three intents asks for Face ID before its
+     question or confirmation; failing it ends with "Household Hub is locked…". Lock off again: no prompt.
+  7. **Spanish** (iPhone language Español, Siri language Español): "Añade a mi lista de deseos en Household Hub",
+     "audífonos por 149" → the confirmation names audífonos and $149.00; "Añade una tarea en Household Hub",
+     "llamar al fontanero"; "Registrar un movimiento en Household Hub", "40 supermercado ayer". Check the Spanish
+     dialogs read naturally once the Localizable strings are translated.
+  Why queued: Siri, dictation, Face ID and the on-device model exist only on the phone.
+
+- **Sprints 23–26 on the phone (owner, after the L-034 install of `8a15d68`; the Simulator could not show these).**
+  1. **Budget alert (F7):** give a category a small budget (e.g. $10), then Quick Add expenses in it to pass 80 %
+     and then 100 % of it. Expected: one notification at 80 % and one at 100 %, naming the category only (no
+     amounts), each once.
+  2. **Task reminders (Sprint 26):** add a task due today with a time 5 minutes ahead ("call mom 3:35pm" style
+     on the Task line). Expected: a notification at that minute. Add one due tomorrow without a time, set
+     Settings › Reminder default time to a minute you'll be around, and check it moves there.
+  3. **VoiceOver tour (Sprint 24):** turn VoiceOver on, Settings › Show the tour again. Expected: each stop reads
+     "Step N of 6, title", swiping never reaches the app behind the tour, a two-finger scrub skips it.
+  4. **Tips (Sprint 24), with your own data:** refund (on an expense's editor), saved searches (Budget › Filter ›
+     More filters), import presets (CSV import), recurring suggestions (Budget › Recurring, after a few repeats),
+     themes (Settings), analytics taps (More › Analytics). Each shows once; Settings › Reset tips shows them again.
+  5. **Siri phrases (Sprint 25 + owner request 2026-09-28):** "Log a transaction in Household Hub" → "got paid
+     1200" (income), "I had to pay 80 dentist" (expense, merchant "dentist"); "Add a task in Household Hub" →
+     "call mom tomorrow 3pm" (due tomorrow 15:00).
+  Why queued: notifications, VoiceOver and Siri only on the device; the tips need real data.
+
 ## Done
+- **Sprint 6 (Phase 7) — backup and restore through the Files app** (local Simulator, L-012, 2026-09-27). The first
+  try found "Back up now" did nothing: two `fileExporter`s on one view, only the last presented; fixed in `9b100f5`.
+  Rerun on `774d0c4`: backup saved to Files, app reinstalled, restore replaced everything; balances, both
+  transactions and the wishlist photo matched. Screenshots `docs/walk/sprint-6/local/rerun-*`.
 - ~~Cold-launch 22 s blank screen (run 36209505191).~~ Not reproduced: the launch metric in run 36216543703 measured 2.8–3.6 s; the slow UI-test starts were simulator warm-up and automation setup. The 2 s target itself is tracked under Launch baseline.
 - ~~Owner decision — Google Sheets export.~~ Dropped from v1 (owner, 2026-09-26); CSV covers it.
 - ~~Sprint 0/1 (Phases 0–1) — visual pass of the tab shell.~~ Covered by the automated screenshot walks from Sprint 2

@@ -9,7 +9,19 @@ public enum LedgerError: Error, Equatable, Sendable {
     /// guess, because a wrong guess can flip the sign of a balance.
     case unreadableRecord(field: String, value: String)
     case nonPositiveAmount
-    case transfersUnavailable
+    /// A budget limit, goal target or imported amount above `Money.maxPlanMinorUnits`.
+    case amountTooLarge
+    /// A transfer needs a destination account other than its source, and only a transfer has one (Sprint 10). A
+    /// transfer also carries no category or merchant: it is neither income nor spending.
+    case transferNeedsTwoAccounts
+    case transferHasNoCategory
+    case unknownAccount
+    case archivedAccount
+    case emptyAccountName
+    /// Transactions or recurring items still reference the account; archive it instead (Sprint 10 decision 4).
+    case accountInUse(referenceCount: Int)
+    /// The default account can't be archived or deleted until another account is the default.
+    case defaultAccountRequired
     case sourceRequiresDedicatedPath(TransactionSource)
     case currencyMismatch(expected: String, actual: String)
     case unknownCategory
@@ -20,6 +32,8 @@ public enum LedgerError: Error, Equatable, Sendable {
     case alreadyMaterialized
     /// Transactions posted from the series still reference it; disable it instead (never delete history silently).
     case seriesHasHistory(postedCount: Int)
+    /// Sprint 22. A recurring purchase is money spent at a store: it is always an expense.
+    case purchaseMustBeExpense
     case unknownTransaction
     /// Transactions, series, and wishlist items that still reference the category.
     case categoryInUse(referenceCount: Int)
@@ -27,6 +41,37 @@ public enum LedgerError: Error, Equatable, Sendable {
     case purchaseMustStayExpense
     /// Cancelling would leave the item "purchased" with nothing spent; deleting the transaction reverts the item.
     case purchaseCannotBeCancelled
+    /// Sprint 20. A refund is made only from its purchase (`refundTransaction`), never from a draft or a series.
+    case refundNeedsPurchase
+    /// Only a posted or pending expense can be refunded.
+    case notRefundable
+    /// More than what is left to refund on the purchase (its price less earlier refunds).
+    case refundExceedsRemaining(remaining: Money)
+    case refundBeforePurchase
+    /// A refund counts only while posted or pending; record it as one of those.
+    case refundMustBeLive
+    /// While its purchase is pending, a refund is pending too: a posted refund would add to the current balance
+    /// money that has not left it yet (§9).
+    case refundOfPendingPurchase
+    /// A purchase with refunds keeps its type, account, currency and at least the refunded amount, and cannot be
+    /// cancelled or deleted until its refunds are deleted (never rewrite history).
+    case purchaseHasRefunds
+    /// Sprint 23. Only a posted or pending expense or income made by hand or imported can be split: not a transfer,
+    /// refund, cancelled record, recurring occurrence or wishlist purchase.
+    case notSplittable
+    /// Already one part of a split; unsplit it first.
+    case alreadySplit
+    /// A split has 2 to 10 parts (`TransactionService.splitPartCount`).
+    case splitPartCount
+    /// The parts must add up to the original amount exactly.
+    case splitDoesNotAddUp
+    /// Unsplit was asked of a record that is not part of a split.
+    case notSplit
+    /// The parts of a split share their type, status, date, account and merchant; only amount, category and note are
+    /// each part's own.
+    case splitPartsMustAgree
+    /// Sprint 23. A refund is made from its purchase, and a cancelled record has nothing to repeat.
+    case notDuplicable
     case systemCategoryIsPermanent
     case emptyCategoryName
 }
@@ -35,19 +80,23 @@ public enum LedgerError: Error, Equatable, Sendable {
 public struct SettingsSnapshot: Equatable, Sendable {
     public let currencyCode: String
     public let onboardingCompleted: Bool
+    /// The default account's baseline (Sprint 10: each account has its own).
     public let startingBalance: Money
     public let startingBalanceDate: Date
     public let includePendingInProjection: Bool
+    /// Where new entries go unless another account is picked.
+    public let defaultAccountID: UUID?
 
     public init(
         currencyCode: String, onboardingCompleted: Bool, startingBalance: Money, startingBalanceDate: Date,
-        includePendingInProjection: Bool
+        includePendingInProjection: Bool, defaultAccountID: UUID? = nil
     ) {
         self.currencyCode = currencyCode
         self.onboardingCompleted = onboardingCompleted
         self.startingBalance = startingBalance
         self.startingBalanceDate = startingBalanceDate
         self.includePendingInProjection = includePendingInProjection
+        self.defaultAccountID = defaultAccountID
     }
 }
 
@@ -66,11 +115,15 @@ public struct TransactionDraft: Equatable, Sendable {
     /// The category was picked by the on-device model and accepted by the user (spec §12.3). Only meaningful with a
     /// category; an edit that changes the category takes this value, an edit that keeps it keeps the stored one.
     public var isAIClassified: Bool
+    /// The account the money is in, or leaves for a transfer; nil means the default account (Sprint 10 decision 8).
+    public var accountID: UUID?
+    /// A transfer's destination; required for a transfer and absent otherwise.
+    public var transferAccountID: UUID?
 
     public init(
         amount: Money, type: TransactionType, occurredAt: Date, status: TransactionStatus = .posted,
         categoryID: UUID? = nil, merchantName: String? = nil, notes: String? = nil, source: TransactionSource = .manual,
-        isAIClassified: Bool = false
+        isAIClassified: Bool = false, accountID: UUID? = nil, transferAccountID: UUID? = nil
     ) {
         self.amount = amount
         self.type = type
@@ -81,14 +134,38 @@ public struct TransactionDraft: Equatable, Sendable {
         self.notes = notes
         self.source = source
         self.isAIClassified = isAIClassified
+        self.accountID = accountID
+        self.transferAccountID = transferAccountID
     }
 
     /// Checks that need no store access. Store-dependent checks (category, currency) happen in the service.
     public func validate() throws {
         guard amount.minorUnits > 0 else { throw LedgerError.nonPositiveAmount }
-        guard type != .transfer else { throw LedgerError.transfersUnavailable }
+        if type == .transfer {
+            guard let transferAccountID, transferAccountID != accountID else {
+                throw LedgerError.transferNeedsTwoAccounts
+            }
+            guard categoryID == nil, merchantName == nil else { throw LedgerError.transferHasNoCategory }
+        } else {
+            guard transferAccountID == nil else { throw LedgerError.transferNeedsTwoAccounts }
+        }
         guard source != .recurring, source != .wishlistPurchase else {
             throw LedgerError.sourceRequiresDedicatedPath(source)
         }
+        guard type != .refund else { throw LedgerError.refundNeedsPurchase }
+    }
+
+    /// Quick Add's expense or income (Sprint 23): the line's description ("12 pizza place" → "pizza place") names the
+    /// merchant, as an imported row's description does, so both find or make the same merchant and read or teach the
+    /// same learned category. Nothing goes to the notes; a blank description means no merchant.
+    public static func quickAdd(
+        amount: Money, type: TransactionType, occurredAt: Date, categoryID: UUID?, description: String,
+        isAIClassified: Bool, accountID: UUID?
+    ) -> TransactionDraft {
+        let name = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        return TransactionDraft(
+            amount: amount, type: type, occurredAt: occurredAt, categoryID: categoryID,
+            merchantName: Merchant.normalize(name).isEmpty ? nil : name, isAIClassified: isAIClassified,
+            accountID: accountID)
     }
 }

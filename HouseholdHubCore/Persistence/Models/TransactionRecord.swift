@@ -1,9 +1,9 @@
 import Foundation
 import SwiftData
 
-extension SchemaV1 {
+extension SchemaV4 {
     /// A financial event (spec §7.2). Named `TransactionRecord` because `Transaction` collides with SwiftUI's type.
-    /// The amount is a positive magnitude; `type` gives the sign.
+    /// The amount is a positive magnitude; `type` gives the sign. Sprint 23 (SchemaV4) adds its split group.
     @Model
     public final class TransactionRecord {
         @Attribute(.unique) public var id: UUID
@@ -23,6 +23,15 @@ extension SchemaV1 {
         public var scheduledOccurrence: Date?
         public var wishlistItemID: UUID?
         public var isAIClassified: Bool
+        /// The account the money is in (a transfer's source); the service always sets it (Sprint 10).
+        public var accountID: UUID?
+        /// A transfer's destination account; nil for income and expenses.
+        public var transferAccountID: UUID?
+        /// Sprint 20 (SchemaV2): the expense this refund gives money back for; nil for every other transaction.
+        public var refundOfTransactionID: UUID?
+        /// Sprint 23 (SchemaV4): shared by every part of one split payment; nil when the record is not split (every
+        /// record stored before V4).
+        public var splitGroupID: UUID?
         public var createdAt: Date
         public var updatedAt: Date
 
@@ -72,9 +81,10 @@ extension SchemaV1 {
             }
             return LedgerLine(
                 amount: amount, type: type, status: status, occurredAt: occurredAt,
-                recurringSeriesID: recurringSeriesID, scheduledOccurrence: scheduledOccurrence)
+                recurringSeriesID: recurringSeriesID, scheduledOccurrence: scheduledOccurrence, accountID: accountID,
+                transferAccountID: transferAccountID)
         }
     }
 }
 
-public typealias TransactionRecord = SchemaV1.TransactionRecord
+public typealias TransactionRecord = SchemaV4.TransactionRecord

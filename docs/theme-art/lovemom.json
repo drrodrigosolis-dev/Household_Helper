@@ -1,0 +1,23 @@
+{
+  "theme": "lovemom",
+  "note": "Owner's art sheets (2026-09-28, two pages of crayon drawings for all four themes); not committed.",
+  "boards": {
+    "sheet1": {"width": 1536, "height": 1024},
+    "sheet2": {"width": 1312, "height": 1199}
+  },
+  "pieces": {
+    "cornerTopLeading": {"board": "sheet1", "box": [10, 15, 250, 196]},
+    "cornerTopTrailing": {"board": "sheet1", "box": [548, 20, 680, 148], "isolate": true},
+    "cornerBottomLeading": {"board": "sheet2", "box": [24, 478, 102, 590], "isolate": true},
+    "cornerBottomTrailing": {"board": "sheet1", "box": [34, 312, 200, 484], "isolate": true},
+    "header1": {"board": "sheet1", "box": [264, 80, 520, 484], "isolate": true},
+    "header2": {"board": "sheet2", "box": [20, 252, 140, 400], "isolate": true},
+    "header3": {"board": "sheet2", "box": [322, 24, 440, 178], "isolate": true},
+    "header4": {"board": "sheet2", "box": [512, 418, 622, 592], "isolate": true, "fill": true},
+    "star": {"board": "sheet1", "box": [52, 240, 100, 300]},
+    "starSmall": {"board": "sheet1", "box": [470, 432, 512, 480]},
+    "underline": {"board": "sheet1", "box": [532, 386, 738, 492]},
+    "ornamentWide": {"board": "sheet2", "box": [80, 330, 262, 592], "isolate": true},
+    "ornamentActivity": {"board": "sheet1", "box": [505, 232, 640, 384], "isolate": true}
+  }
+}

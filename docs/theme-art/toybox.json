@@ -1,0 +1,23 @@
+{
+  "theme": "toybox",
+  "note": "Owner's Toy Box dark Dashboard mockup (2026-09-28). The board is never committed: it shows the owner's balances and a notification photo.",
+  "boards": {
+    "mockup": {"width": 1186, "height": 2576, "clear": [[95, 55, 265, 112]]}
+  },
+  "pieces": {
+    "cornerTopLeading": [0, 20, 190, 282],
+    "cornerTopTrailing": [828, 172, 1092, 348],
+    "cornerBottomLeading": [0, 2486, 212, 2568],
+    "cornerBottomTrailing": [1082, 2476, 1162, 2562],
+    "header1": [85, 440, 252, 628],
+    "header2": [345, 462, 512, 632],
+    "header3": [648, 472, 788, 612],
+    "header4": [930, 440, 1142, 612],
+    "star": [16, 498, 74, 562],
+    "starSmall": [700, 1330, 770, 1400],
+    "underline": [42, 375, 560, 424],
+    "ornamentWide": [632, 1428, 878, 1560],
+    "ornamentActivity": [706, 2196, 842, 2312],
+    "addButton": [922, 2114, 1120, 2300]
+  }
+}

@@ -14,6 +14,14 @@ struct HouseholdHubApp: App {
     init() {
         let inMemory = ProcessInfo.processInfo.arguments.contains(LaunchArguments.uiTesting)
         let configuration = PersistenceConfiguration(useInMemoryStore: inMemory)
+        if inMemory {
+            ThemeSettings.resetForUITesting()
+            TutorialSettings.resetForUITesting()
+        }
+        // Before the first navigation bar is made, so it already has the theme's title font.
+        ThemeAppearance.apply(ThemeSettings.storedTheme.spec)
+        // Sprint 24: loads the tips datastore once; hidden under -uiTesting unless -uiTestingTips asks otherwise.
+        TutorialTips.configure()
         store = Result {
             let container = try HouseholdContainerFactory().makeContainer(configuration: configuration)
             return LoadedStore(container: container, services: AppServices(container: container))

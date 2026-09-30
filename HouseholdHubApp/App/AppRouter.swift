@@ -18,15 +18,28 @@ final class AppRouter {
     var tab = AppTab.dashboard
     var budgetSegment = BudgetView.Segment.transactions
     var budgetFilter = TransactionFilter()
+    var wishlistSegment = WishlistView.Segment.items
     /// Quick Add opened from outside the app (widget link, Shortcuts), shown over whatever tab is active.
     var isQuickAddPresented = false
     /// True while first-run setup is showing; outside requests to open Quick Add wait until it is done.
     var isOnboarding = false
     /// True while a backup is being restored; nothing else may write meanwhile (the Log Transaction shortcut waits).
     var isRestoring = false
+    /// More's pushed screens; re-tapping the More tab clears it (audit A-012).
+    var morePath: [MoreView.Destination] = []
+
+    /// A tap on the tab that is already selected: More goes back to its first screen.
+    func reselect(_ destination: AppTab) {
+        if destination == .more {
+            morePath = []
+        }
+    }
 
     /// Opens a tab at its root, e.g. a wishlist or task row in the Dashboard's recent activity (spec §24.2).
     func show(_ destination: AppTab) {
+        if destination == .wishlist {
+            wishlistSegment = .items
+        }
         tab = destination
     }
 
@@ -34,5 +47,11 @@ final class AppRouter {
         budgetSegment = segment
         budgetFilter = filter
         tab = .budget
+    }
+
+    /// Wishlist › Goals (Sprint 12), e.g. from the Dashboard's Goals card.
+    func showGoals() {
+        wishlistSegment = .goals
+        tab = .wishlist
     }
 }

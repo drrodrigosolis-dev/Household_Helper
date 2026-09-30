@@ -22,7 +22,7 @@ session's context is a scratch buffer.
   credits end; unpushed work is lost work.
 - **Lanes** (parallel agents, `Agent` with `isolation: "worktree"`): none when files are shared (Phase 2);
   otherwise 3 at once, 4 at most, split by file ownership. Lanes cannot build (no Xcode in cloud sessions), so
-  they are merged into `build/v1` one at a time and CI verifies each merge. Sonnet by default; Opus only where a
+  they are merged into `build/v1.1` one at a time and CI verifies each merge. Sonnet by default; Opus only where a
   wrong call is silent and expensive (schema/migration, money/accounting correctness, navigation state). Each lane
   reports what it could **not** wire (file + the one line needed); grep for that call site at merge.
 - Verify claims (a plan, audit, or lane report saying "X is broken/slow/missing") by reading the code first.

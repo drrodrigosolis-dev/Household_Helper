@@ -153,7 +153,11 @@ final class WalkUITests: XCTestCase {
         app.navigationBars.buttons["Settings"].tap()
         // The lower Settings sections: Privacy, Appearance, Quick Add, Widget, About.
         let about = app.staticTexts["About"]
-        XCTAssertTrue(scrollUntilExists(app, app.switches["settings.widgetShowsBalance"]))
+        // Settings grew in Sprints 24–26 (tour replay, theme tip, reminder default time): at the largest text sizes
+        // the widget row is more than eight slow swipes down (L-027, testWalkLargeText).
+        XCTAssertTrue(
+            scrollUntilExists(app, app.switches["settings.widgetShowsBalance"], maxSwipes: 16),
+            "The widget setting is missing from Settings")
         captureScreen(app, named: "\(prefix)-Settings-preferences")
         _ = scrollUntilExists(app, about)
         captureScreen(app, named: "\(prefix)-Settings-about")

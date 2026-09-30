@@ -1,0 +1,22 @@
+{
+  "theme": "dinosaurs",
+  "note": "Owner's art sheets (2026-09-28, two pages of crayon drawings for all four themes); not committed.",
+  "boards": {
+    "sheet1": {"width": 1536, "height": 1024},
+    "sheet2": {"width": 1312, "height": 1199}
+  },
+  "pieces": {
+    "cornerTopLeading": {"board": "sheet1", "box": [1098, 712, 1306, 920], "isolate": true},
+    "cornerTopTrailing": {"board": "sheet1", "box": [1006, 544, 1272, 692], "isolate": true},
+    "cornerBottomLeading": {"board": "sheet1", "box": [794, 544, 864, 620]},
+    "cornerBottomTrailing": {"board": "sheet1", "box": [1420, 804, 1484, 880]},
+    "header1": {"board": "sheet1", "box": [870, 520, 1110, 770], "isolate": true},
+    "header2": {"board": "sheet1", "box": [1238, 598, 1524, 794], "isolate": true},
+    "header3": {"board": "sheet2", "box": [752, 990, 992, 1162], "isolate": true},
+    "header4": {"board": "sheet2", "box": [1066, 864, 1290, 990], "isolate": true},
+    "star": {"board": "sheet1", "box": [1326, 856, 1404, 940]},
+    "starSmall": {"board": "sheet1", "box": [1242, 936, 1310, 982]},
+    "ornamentWide": {"board": "sheet2", "box": [1000, 1040, 1132, 1168], "fill": true},
+    "ornamentActivity": {"board": "sheet2", "box": [1136, 1004, 1300, 1168], "isolate": true}
+  }
+}

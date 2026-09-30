@@ -1,0 +1,38 @@
+Failed to synthesize event: Neither element nor any descendant has keyboard focus. Event dispatch snapshot: TextField, {{40.0, 360.7}, {360.0, 131.3}}, identifier: 'budgetEditor.limit', label: 'Monthly limit', placeholderValue: '0.00'
+Element debug description:
+Attributes: TextField, 0x1142fb700, {{40.0, 360.7}, {360.0, 131.3}}, identifier: 'budgetEditor.limit', label: 'Monthly limit', placeholderValue: '0.00'
+Element subtree:
+ →TextField, 0x1142fb700, {{40.0, 360.7}, {360.0, 131.3}}, identifier: 'budgetEditor.limit', label: 'Monthly limit', placeholderValue: '0.00'
+Path to element:
+ →Application, 0x114001f40, pid: 70393, label: 'Household Hub'
+  ↳Window (Main), 0x114002080, {{0.0, 0.0}, {440.0, 956.0}}
+   ↳Other, 0x1142ed900, {{0.0, 0.0}, {440.0, 956.0}}
+    ↳Other, 0x11428c280, {{0.0, 62.0}, {440.0, 894.0}}
+     ↳Other, 0x11428cb40, {{0.0, 62.0}, {440.0, 894.0}}
+      ↳Other, 0x11428cc80, {{0.0, 62.0}, {440.0, 894.0}}
+       ↳Other, 0x11428c000, {{0.0, 62.0}, {440.0, 894.0}}
+        ↳Other, 0x11428ca00, {{0.0, 62.0}, {440.0, 894.0}}
+         ↳Other, 0x11428c8c0, {{0.0, 62.0}, {440.0, 894.0}}
+          ↳Other, 0x114294500, {{0.0, 62.0}, {440.0, 894.0}}
+           ↳Other, 0x114294280, {{0.0, 62.0}, {440.0, 894.0}}
+            ↳Other, 0x114294640, {{0.0, 62.0}, {440.0, 894.0}}
+             ↳Other, 0x114047700, {{0.0, 62.0}, {440.0, 894.0}}
+              ↳CollectionView, 0x1140475c0, {{0.0, 62.0}, {440.0, 894.0}}
+               ↳Cell, 0x114046bc0, {{20.0, 345.7}, {400.0, 161.3}}
+                ↳Other, 0x1140443c0, {{20.0, 345.7}, {400.0, 161.3}}
+                 ↳Other, 0x1142f9900, {{20.0, 345.7}, {400.0, 161.3}}
+                  ↳Other, 0x1142f9cc0, {{20.0, 345.7}, {400.0, 161.3}}
+                   ↳TextField, 0x1142fb700, {{40.0, 360.7}, {360.0, 131.3}}, identifier: 'budgetEditor.limit', label: 'Monthly limit', placeholderValue: '0.00'
+Query chain:
+ →Find: Target Application 'dev.householdhub.app'
+  Output: {
+    Application, 0x1142bee40, pid: 70393, label: 'Household Hub'
+  }
+  ↪︎Find: Descendants matching type TextField
+    Output: {
+      TextField, 0x1142bc640, {{40.0, 360.7}, {360.0, 131.3}}, identifier: 'budgetEditor.limit', label: 'Monthly limit', placeholderValue: '0.00'
+    }
+    ↪︎Find: Elements matching predicate '"budgetEditor.limit" IN identifiers'
+      Output: {
+        TextField, 0x114282d00, {{40.0, 360.7}, {360.0, 131.3}}, identifier: 'budgetEditor.limit', label: 'Monthly limit', placeholderValue: '0.00'
+      }

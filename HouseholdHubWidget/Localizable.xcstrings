@@ -1,0 +1,166 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Current": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actual"
+          }
+        }
+      }
+    },
+    "Current balance": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saldo actual"
+          }
+        }
+      }
+    },
+    "Expense": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gasto"
+          }
+        }
+      }
+    },
+    "Hidden": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oculto"
+          }
+        }
+      }
+    },
+    "Household Hub": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Household Hub"
+          }
+        }
+      }
+    },
+    "In %lld days": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En %lld días"
+          }
+        }
+      }
+    },
+    "Income": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ingreso"
+          }
+        }
+      }
+    },
+    "Nothing due soon": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada vence pronto"
+          }
+        }
+      }
+    },
+    "Nothing pending": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada pendiente"
+          }
+        }
+      }
+    },
+    "Opens Quick Add": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre Registro rápido"
+          }
+        }
+      }
+    },
+    "Pending %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pendiente %@"
+          }
+        }
+      }
+    },
+    "Pending hidden": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pendientes ocultos"
+          }
+        }
+      }
+    },
+    "Quick Add": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registro rápido"
+          }
+        }
+      }
+    },
+    "Transfer": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transferencia"
+          }
+        }
+      }
+    },
+    "Upcoming": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Próximos"
+          }
+        }
+      }
+    },
+    "Your current balance, what's pending, and what's coming up.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu saldo actual, lo pendiente y lo que viene."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

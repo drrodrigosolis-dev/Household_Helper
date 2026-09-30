@@ -23,15 +23,16 @@ public actor CategoryService {
         }
     }
 
-    /// Inserts the default system categories once. Names are stored data and can be renamed by the user.
-    public func seedSystemCategoriesIfNeeded(now: Date) throws {
+    /// Inserts the default system categories once, named in `language` (Sprint 16: a new install set up in Spanish
+    /// gets Spanish names). Names are stored data and can be renamed; existing ones are never renamed.
+    public func seedSystemCategoriesIfNeeded(now: Date, language: SeedLanguage = .english) throws {
         begin()
         let system = FetchDescriptor<CategoryRecord>(predicate: #Predicate { $0.isSystem == true })
         guard try modelContext.fetchCount(system) == 0 else { return }
         for (index, seed) in SystemCategory.defaults.enumerated() {
             let record = CategoryRecord(
-                name: seed.name, icon: seed.icon, color: seed.color, kind: seed.kind, sortOrder: index, isSystem: true,
-                now: now)
+                name: seed.name(in: language), icon: seed.icon, color: seed.color, kind: seed.kind, sortOrder: index,
+                isSystem: true, now: now)
             modelContext.insert(record)
         }
         try commit()
@@ -66,7 +67,10 @@ public actor CategoryService {
                 FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.categoryID == target }))
             let wishes = try modelContext.fetchCount(
                 FetchDescriptor<WishlistItem>(predicate: #Predicate { $0.categoryID == target }))
-            let wishTypes = Array(repeating: TransactionType.expense, count: wishes)
+            // A budget limits spending, so like a wishlist item it needs a category that allows expenses.
+            let budgets = try modelContext.fetchCount(
+                FetchDescriptor<CategoryBudget>(predicate: #Predicate { $0.categoryID == id }))
+            let wishTypes = Array(repeating: TransactionType.expense, count: wishes + budgets)
             let types = transactions.map(\.type) + series.map(\.type) + wishTypes
             if let misfit = types.first(where: { !kind.allows($0) }) {
                 throw LedgerError.categoryKindMismatch(kind, misfit)
@@ -95,6 +99,7 @@ public actor CategoryService {
         guard !category.isSystem else { throw LedgerError.systemCategoryIsPermanent }
         let references = try referenceCount(id)
         guard references == 0 else { throw LedgerError.categoryInUse(referenceCount: references) }
+        try deleteBudget(of: id)
         modelContext.delete(category)
         try commit()
     }
@@ -117,6 +122,7 @@ public actor CategoryService {
         guard !category.isSystem else { throw LedgerError.systemCategoryIsPermanent }
         guard source != destination else { throw LedgerError.categoryInUse(referenceCount: try referenceCount(source)) }
         let moved = try moveReferences(from: source, to: destination, now: now)
+        try deleteBudget(of: source)
         modelContext.delete(category)
         try commit()
         return moved
@@ -163,14 +169,14 @@ public actor CategoryService {
 
     /// Discards edits left pending by an earlier operation that threw before saving, so this write can't persist
     /// them (the same guard as TaskBoardService).
-    private func begin() {
+    func begin() {
         if modelContext.hasChanges {
             modelContext.rollback()
         }
     }
 
     /// Saves, or discards every pending edit if the save fails, so no later save can persist a failed operation.
-    private func commit() throws {
+    func commit() throws {
         do {
             try modelContext.save()
         } catch {
@@ -179,7 +185,7 @@ public actor CategoryService {
         }
     }
 
-    private func requireCategory(_ id: UUID) throws -> CategoryRecord {
+    func requireCategory(_ id: UUID) throws -> CategoryRecord {
         let descriptor = FetchDescriptor<CategoryRecord>(predicate: #Predicate { $0.id == id })
         guard let category = try modelContext.fetch(descriptor).first else { throw LedgerError.unknownCategory }
         return category
@@ -217,10 +223,36 @@ public struct SystemCategory: Sendable {
         SystemCategory(name: "Other Income", icon: "plus.circle", hex: "#558B2F", kind: .income),
     ]
 
+    /// Spanish names for the seeded categories (neutral Latin-American, owner decision 25).
+    static let spanishNames = [
+        "Groceries": "Supermercado", "Dining": "Restaurantes", "Housing": "Vivienda", "Utilities": "Servicios",
+        "Transportation": "Transporte", "Health": "Salud", "Entertainment": "Entretenimiento", "Shopping": "Compras",
+        "Other": "Otros", "Salary": "Salario", "Other Income": "Otros ingresos",
+    ]
+
+    public func name(in language: SeedLanguage) -> String {
+        switch language {
+        case .english: return name
+        case .spanish: return Self.spanishNames[name] ?? name
+        }
+    }
+
     private init(name: String, icon: String, hex: String, kind: CategoryKind) {
         self.name = name
         self.icon = icon
         self.color = ColorToken(hex: hex) ?? .black
         self.kind = kind
+    }
+}
+
+/// The language names the app creates are written in (seeded categories, the first account), chosen once from the
+/// device's language when the data is first set up (Sprint 16). User data is never renamed afterwards.
+public enum SeedLanguage: String, Sendable {
+    case english
+    case spanish
+
+    /// Spanish when the first preferred language is Spanish, else English.
+    public static func preferred(_ languages: [String]) -> SeedLanguage {
+        languages.first?.lowercased().hasPrefix("es") == true ? .spanish : .english
     }
 }

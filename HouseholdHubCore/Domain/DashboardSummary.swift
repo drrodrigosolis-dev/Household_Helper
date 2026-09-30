@@ -7,15 +7,24 @@ public struct UpcomingOccurrence: Equatable, Sendable, Identifiable {
     public let amount: Money
     public let type: TransactionType
     public let title: String?
+    /// Sprint 22: a bill or a purchase; only bills get a "due" reminder.
+    public let kind: RecurringKind
+    /// The series' store (a purchase's, usually), as it is named now; nil without one.
+    public let merchantName: String?
 
     public var id: String { "\(seriesID.uuidString)-\(date.timeIntervalSinceReferenceDate)" }
 
-    public init(seriesID: UUID, date: Date, amount: Money, type: TransactionType, title: String?) {
+    public init(
+        seriesID: UUID, date: Date, amount: Money, type: TransactionType, title: String?, kind: RecurringKind = .bill,
+        merchantName: String? = nil
+    ) {
         self.seriesID = seriesID
         self.date = date
         self.amount = amount
         self.type = type
         self.title = title
+        self.kind = kind
+        self.merchantName = merchantName
     }
 }
 
@@ -26,10 +35,15 @@ public struct DashboardSummary: Equatable, Sendable {
     public let spentThisWeek: Money
     /// Unrecorded recurring occurrences from the start of today through the next 7 days, soonest first.
     public let upcoming: [UpcomingOccurrence]
+    /// Each account's figures, in the Accounts list order (Sprint 10 decision 7); `balance` is their sum.
+    public let accounts: [AccountBalance]
 
-    public init(balance: BalanceSnapshot, spentThisWeek: Money, upcoming: [UpcomingOccurrence]) {
+    public init(
+        balance: BalanceSnapshot, spentThisWeek: Money, upcoming: [UpcomingOccurrence], accounts: [AccountBalance] = []
+    ) {
         self.balance = balance
         self.spentThisWeek = spentThisWeek
         self.upcoming = upcoming
+        self.accounts = accounts
     }
 }

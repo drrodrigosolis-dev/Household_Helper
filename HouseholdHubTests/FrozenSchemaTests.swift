@@ -1,0 +1,78 @@
+import CoreData
+import SwiftData
+import Testing
+
+@testable import HouseholdHubCore
+
+/// Installed schemas must never change: SchemaV1 (`063a510`), SchemaV2 (`fd7e67e`) and SchemaV3 (`8a9ec36`) are on
+/// the owner's iPhone, and SwiftData finds an installed store's version by these hashes. Any edit to a frozen model
+/// (a stored property, its type or an attribute) changes its hash and fails here; make a new schema version instead.
+/// The values were read on the Mac from the installed commits (L-020 step 5, `docs/coordination/TO-CLOUD.md`).
+struct FrozenSchemaTests {
+    private static let v1: [String: String] = [
+        "Account": "z8vYhvnjK/te4y7y6DljMmwO+2iy1UuwpSEpB6yfsqE=",
+        "AppSettings": "PclbrgFUgnyPFx/XBhB/qKu92jpbLQm1COGAXlhf8DA=",
+        "BoardColumn": "otW/nUsNm6JmixgMPaSfXzQKcN4TpRQPPUGsn7jnXCc=",
+        "CategoryBudget": "VAEI6gouN4/Rxh1sazObIrp0WmXZkaJGB1U2nLhNQ+A=",
+        "CategoryRecord": "cUsNCAgPc2gpLihb3KPSdaNKvFO7/B4U9Vl+JpBMpUw=",
+        "Merchant": "s6+cFd3vZXSEfg7LVPwvIgyni9MzWu0zbh7rFZUjNzU=",
+        "RecurringTransaction": "oijWj8kd4Qliu8X7ya4opWf6YHpcszEX9uqplqLYJdA=",
+        "SavingsGoal": "mUZ5lA3rraIbpy7Wa46GGYVKa+Y0V370fRnsYN0UATY=",
+        "SubtaskItem": "vZQ3n0NYJGO8BxsXX4uo3anzMtE0fKjDyV46vRtmHnU=",
+        "TaskItem": "zSCRBvZul4FQCWPnYOzgXEGlpyDbzbi73NGZo+Dhulo=",
+        "TransactionRecord": "9eg/co5II3NEWXB1AlD8Tjiu7K1d4lP9xi5cCoyiE20=",
+        "WishlistItem": "bPgBJmmAIe2iJw9B3LFaHmdIJSBZZgJ+vxJH74SqYPo=",
+    ]
+
+    /// SchemaV2 changed only `TransactionRecord` (refunds).
+    private static let v2 = v1.merging(["TransactionRecord": "2g9ao8KCDDqQBAa3ERmZEHquayXhZfIjTQzbqhK+Nm0="]) { $1 }
+
+    /// SchemaV3 changed only `RecurringTransaction` (its kind).
+    private static let v3 = v2.merging(["RecurringTransaction": "Ah+kRpqWLOcB/TVzas/mI6QzL9RoRU2wsiRDA2BS7M4="]) { $1 }
+
+    /// SchemaV4 changed only `TransactionRecord` (split groups). Installed with `f183138`; hashes read on the Mac from
+    /// that commit's models (L-026).
+    private static let v4 = v3.merging(["TransactionRecord": "F5WYtwgaO6q21/brlIsfUyspR7hkSGkQz6j95t0Ak4g="]) { $1 }
+
+    /// SchemaV5 changed only `TaskItem` (an optional due time). Installed with `f183138` (L-026).
+    private static let v5 = v4.merging(["TaskItem": "2pIoyApU+f5sjlTDqLkcCvswgQBav+y1tUo2VjdtP98="]) { $1 }
+
+    private func hashes(_ models: [any PersistentModel.Type]) throws -> [String: String] {
+        let model = try #require(NSManagedObjectModel.makeManagedObjectModel(for: models))
+        return Dictionary(
+            uniqueKeysWithValues: model.entities.compactMap { entity in
+                entity.name.map { ($0, entity.versionHash.base64EncodedString()) }
+            })
+    }
+
+    @Test func schemaV1IsAsInstalled() throws {
+        #expect(try hashes(SchemaV1.models) == Self.v1)
+    }
+
+    @Test func schemaV2IsAsInstalled() throws {
+        #expect(try hashes(SchemaV2.models) == Self.v2)
+    }
+
+    @Test func schemaV3IsAsInstalled() throws {
+        #expect(try hashes(SchemaV3.models) == Self.v3)
+    }
+
+    @Test func schemaV4IsAsInstalled() throws {
+        #expect(try hashes(SchemaV4.models) == Self.v4)
+    }
+
+    @Test func schemaV5IsAsInstalled() throws {
+        #expect(try hashes(SchemaV5.models) == Self.v5)
+    }
+
+    /// Sprint 26: SchemaV1 to SchemaV4 list the frozen `SchemaV1.TaskItem` (still hashing as installed), and SchemaV5
+    /// changes only `TaskItem`. Both are also pinned above, since their install with `f183138`.
+    @Test func schemaV5ChangesOnlyTheTaskItem() throws {
+        let v4 = try hashes(SchemaV4.models)
+        let v5 = try hashes(SchemaV5.models)
+        #expect(v4["TaskItem"] == Self.v1["TaskItem"])
+        #expect(v5["TaskItem"] != v4["TaskItem"])
+        #expect(v5.filter { $0.key != "TaskItem" } == v4.filter { $0.key != "TaskItem" })
+        #expect(Set(v5.keys) == Set(Self.v1.keys))
+    }
+}

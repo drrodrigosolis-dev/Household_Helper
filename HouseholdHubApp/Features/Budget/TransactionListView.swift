@@ -7,75 +7,174 @@ struct TransactionListView: View {
     private static let pageSize = 200
 
     let filter: TransactionFilter
+    /// Sprint 14: words in the notes, merchant, category or account, or an exact amount.
+    var search = ""
+    /// Sprint 23 (A-007): Select mode, turned on and off from the Budget toolbar.
+    @Binding var isSelecting: Bool
     @State private var limit = TransactionListView.pageSize
+    @Environment(\.services) private var services
+    /// Sprint 23 (F3): the Undo banner's state, owned by Budget; absent where no screen provides one.
+    @Environment(UndoCenter.self) private var undoCenter: UndoCenter?
 
     var body: some View {
-        FilteredTransactions(filter: filter, limit: limit) { limit += TransactionListView.pageSize }
-            .id(filter)
+        FilteredTransactions(filter: filter, search: SearchQuery(search), limit: limit, isSelecting: $isSelecting) {
+            limit += TransactionListView.pageSize
+        }
+        .id(filter)
+        .safeAreaInset(edge: .bottom) {
+            if let banner = undoCenter?.banner {
+                UndoBannerView(banner: banner, undo: performUndo)
+                    // Clear of the floating + at the bottom trailing corner.
+                    .padding(.leading, 16)
+                    .padding(.trailing, 88)
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.default, value: undoCenter?.banner)
     }
+
+    /// Takes the offered undo back through the service: a delete is restored in one save, or refused with nothing
+    /// changed; a bulk category edit is re-applied record by record.
+    private func performUndo() {
+        guard let undoCenter, let services, let undo = undoCenter.take() else { return }
+        Task {
+            do {
+                try await services.transactions.undo(undo, now: .now)
+            } catch UndoError.partiallyUndone(let failed) {
+                undoCenter.notify(UndoMessage.partlyUndone(failed: failed))
+            } catch {
+                undoCenter.notify(UndoMessage.refused)
+            }
+        }
+    }
+}
+
+/// Sprint 23 (A-007): the rules the Select mode's bulk actions follow. Each change still goes through the transaction
+/// service one record at a time, so every rule of a single edit or delete applies to each.
+enum BulkEdit {
+    /// Transfers never have a category, and a refund takes its purchase's, so neither is recategorized.
+    static func canSetCategory(_ type: TransactionType) -> Bool {
+        type == .expense || type == .income
+    }
+
+    /// Active categories that allow every recategorizable type among the selected transactions.
+    static func categories(_ all: [CategoryRecord], for types: Set<TransactionType>) -> [CategoryRecord] {
+        all.filter { category in !category.isArchived && types.allSatisfy { category.kind.allows($0) } }
+    }
+
+    /// The edit that changes only the category; the service validates it like any other edit and learns the
+    /// merchant's category from it.
+    static func draft(_ record: TransactionRecord, categoryID: UUID) -> TransactionDraft {
+        TransactionDraft(
+            amount: record.amount, type: record.type, occurredAt: record.occurredAt, status: record.status,
+            categoryID: categoryID, merchantName: record.merchantNameSnapshot, notes: record.notes,
+            accountID: record.accountID)
+    }
+
+    /// A recurring occurrence, which a delete marks skipped and can also disable the series of (spec §8.3).
+    static func isOccurrence(_ record: TransactionRecord) -> Bool {
+        record.recurringSeriesID != nil && record.scheduledOccurrence != nil
+    }
+
+    /// Refunds go first, so a purchase whose refunds are also selected can be deleted after them.
+    static func deletionOrder(_ records: [TransactionRecord]) -> [TransactionRecord] {
+        records.filter { $0.type == .refund } + records.filter { $0.type != .refund }
+    }
+}
+
+/// One day's transactions in the list.
+private struct TransactionDay {
+    let day: Date
+    let records: [TransactionRecord]
 }
 
 private struct FilteredTransactions: View {
     @Environment(\.services) private var services
+    @Environment(AppRouter.self) private var router
+    @Environment(UndoCenter.self) private var undoCenter: UndoCenter?
     @Query private var records: [TransactionRecord]
     @Query private var categories: [CategoryRecord]
+    @Query(sort: \Account.sortOrder) private var accounts: [Account]
+    /// Purchased wishlist items, to name refunds of their purchases (`refundNames`).
+    @Query(filter: #Predicate<WishlistItem> { $0.purchasedTransactionID != nil })
+    private var purchasedItems: [WishlistItem]
     let limit: Int
     let loadMore: () -> Void
+    let search: SearchQuery
+    /// Whether a filter narrows the list, so the empty state can offer to clear it.
+    let isFiltered: Bool
+    @Binding var isSelecting: Bool
 
     @State private var pendingDelete: TransactionRecord?
     @State private var editing: TransactionRecord?
     @State private var errorMessage: String?
+    @State private var selection: Set<UUID> = []
+    @State private var isPickingCategory = false
+    @State private var isConfirmingBulkDelete = false
+    @State private var isWorking = false
     private let calendar = HouseholdCalendar(timeZone: .current)
 
-    init(filter: TransactionFilter, limit: Int, loadMore: @escaping () -> Void) {
-        let calendar = HouseholdCalendar(timeZone: .current)
-        let start = filter.startDate(now: .now, calendar: calendar) ?? .distantPast
-        let categoryID: UUID? = filter.categoryID
-        let anyCategory = filter.categoryID == nil
-        let status = filter.status?.rawValue ?? ""
-        let anyStatus = filter.status == nil
-        var descriptor = FetchDescriptor<TransactionRecord>(
-            predicate: #Predicate {
-                $0.occurredAt >= start && (anyCategory || $0.categoryID == categoryID)
-                    && (anyStatus || $0.statusRawValue == status)
-            },
-            sortBy: [SortDescriptor(\.occurredAt, order: .reverse)])
-        descriptor.fetchLimit = limit
+    init(
+        filter: TransactionFilter, search: SearchQuery, limit: Int, isSelecting: Binding<Bool>,
+        loadMore: @escaping () -> Void
+    ) {
+        var descriptor = filter.fetchDescriptor(now: .now, calendar: HouseholdCalendar(timeZone: .current))
+        // A search looks through everything the filter allows; the household's history is small.
+        if search.isEmpty {
+            descriptor.fetchLimit = limit
+        }
         _records = Query(descriptor)
+        _isSelecting = isSelecting
+        self.search = search
         self.limit = limit
         self.loadMore = loadMore
+        self.isFiltered = filter.isActive
     }
 
     var body: some View {
+        // Narrowed once per update, not once per section (A-005).
+        let shown = matchingRecords()
         Group {
-            if records.isEmpty {
-                ContentUnavailableView(
-                    "No transactions", systemImage: "list.bullet.rectangle",
-                    description: Text("Use Quick Add to record an expense or income."))
-            } else {
-                List {
-                    if let errorMessage {
-                        ErrorText(errorMessage)
-                    }
-                    ForEach(days, id: \.self) { day in
-                        Section {
-                            ForEach(recordsByDay[day] ?? []) { record in
-                                row(record)
-                            }
-                        } header: {
-                            Text(dayLabel(day))
-                        }
-                    }
-                    if records.count >= limit {
-                        Button("Show more", action: loadMore)
-                            .accessibilityIdentifier("budget.showMore")
+            if shown.isEmpty, isFiltered || !search.isEmpty {
+                // Found in the local Sprint 10 walk: an empty filtered list must say the filter hides everything.
+                ContentUnavailableView {
+                    Label("No matching transactions", systemImage: "line.3.horizontal.decrease.circle")
+                } description: {
+                    Text("Nothing matches these filters.")
+                } actions: {
+                    if isFiltered {
+                        Button("Clear Filters") { router.budgetFilter = TransactionFilter() }
+                            .accessibilityIdentifier("budget.clearFilters")
                     }
                 }
-                .listStyle(.insetGrouped)
+            } else if shown.isEmpty {
+                ContentUnavailableView {
+                    EmptyStateLabel(Text("No transactions"), systemImage: "list.bullet.rectangle")
+                        .tourTarget(.budgetEmpty)
+                } description: {
+                    Text("Use Quick Add to record an expense or income.")
+                }
+            } else {
+                list(shown)
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if isSelecting {
+                bulkBar(shown.filter { selection.contains($0.id) })
+            }
+        }
+        .onChange(of: isSelecting) {
+            if !isSelecting {
+                selection = []
             }
         }
         .navigationDestination(item: $editing) { record in
-            TransactionEditorView(record: record)
+            if record.type == .transfer {
+                TransferEditorView(record: record)
+            } else {
+                TransactionEditorView(record: record)
+            }
         }
         .confirmationDialog(
             "Delete this transaction?", isPresented: deleteDialogShown, titleVisibility: .visible,
@@ -87,24 +186,88 @@ private struct FilteredTransactions: View {
         }
     }
 
-    private func row(_ record: TransactionRecord) -> some View {
+    private func list(_ shown: [TransactionRecord]) -> some View {
+        let names = refundNames
+        return List(selection: selectionBinding) {
+            if let errorMessage {
+                ErrorText(errorMessage)
+            }
+            ForEach(Self.days(shown, calendar: calendar), id: \.day) { section in
+                Section {
+                    ForEach(section.records) { record in
+                        row(record, refundedName: names[record.id]).themedRow()
+                            .tourTarget(.budgetRow, if: record.id == shown.first?.id)
+                    }
+                } header: {
+                    Text(dayLabel(section.day))
+                }
+            }
+            if search.isEmpty, records.count >= limit {
+                Button("Show more", action: loadMore)
+                    .accessibilityIdentifier("budget.showMore")
+            }
+        }
+        .listStyle(.insetGrouped)
+        .environment(\.editMode, Binding.constant(isSelecting ? EditMode.active : EditMode.inactive))
+        // Sprint 23 (F3 polish): scrolling away from a fresh Undo offer dismisses it early, same as it timing out.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 12).onChanged { _ in
+                if undoCenter?.banner != nil { undoCenter?.dismiss() }
+            })
+    }
+
+    /// Names for refunds without a merchant or note, by refund ID: the wishlist item whose purchase each refunds,
+    /// else the purchase's own merchant or note when it is loaded. One pass for the whole list, not a query per row.
+    private var refundNames: [UUID: String] {
+        let refunds = records.filter {
+            $0.type == .refund && $0.refundOfTransactionID != nil && $0.merchantNameSnapshot == nil && $0.notes == nil
+        }
+        guard !refunds.isEmpty else { return [:] }
+        var items: [UUID: String] = [:]
+        for item in purchasedItems {
+            if let purchase = item.purchasedTransactionID { items[purchase] = item.name }
+        }
+        let loaded = Dictionary(records.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var names: [UUID: String] = [:]
+        for refund in refunds {
+            guard let purchaseID = refund.refundOfTransactionID else { continue }
+            let purchase = loaded[purchaseID]
+            if let name = items[purchaseID] ?? purchase?.merchantNameSnapshot ?? purchase?.notes {
+                names[refund.id] = name
+            }
+        }
+        return names
+    }
+
+    /// Rows are selectable only in Select mode; otherwise a tap opens the editor.
+    private var selectionBinding: Binding<Set<UUID>>? {
+        isSelecting ? $selection : nil
+    }
+
+    @ViewBuilder
+    private func row(_ record: TransactionRecord, refundedName: String?) -> some View {
         let category = categories.first { $0.id == record.categoryID }
-        return TransactionRow(record: record, category: category)
-            .contentShape(Rectangle())
-            .onTapGesture { editing = record }
-            .accessibilityAddTraits(.isButton)
-            .accessibilityHint("Opens the editor")
-            .swipeActions(edge: .trailing) {
-                Button("Delete", role: .destructive) { pendingDelete = record }
-                Button("Edit") { editing = record }
-                    .tint(.blue)
-            }
-            .contextMenu {
-                Button("Edit", systemImage: "pencil") { editing = record }
-                Button("Delete", systemImage: "trash", role: .destructive) { pendingDelete = record }
-            }
-            .accessibilityAction(named: "Edit") { editing = record }
-            .accessibilityAction(named: "Delete") { pendingDelete = record }
+        if isSelecting {
+            TransactionRow(record: record, category: category, accounts: accounts, refundedName: refundedName)
+                .tag(record.id)
+        } else {
+            TransactionRow(record: record, category: category, accounts: accounts, refundedName: refundedName)
+                .contentShape(Rectangle())
+                .onTapGesture { editing = record }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint("Opens the editor")
+                .swipeActions(edge: .trailing) {
+                    Button("Delete", role: .destructive) { pendingDelete = record }
+                    Button("Edit") { editing = record }
+                        .tint(.blue)
+                }
+                .contextMenu {
+                    Button("Edit", systemImage: "pencil") { editing = record }
+                    Button("Delete", systemImage: "trash", role: .destructive) { pendingDelete = record }
+                }
+                .accessibilityAction(named: "Edit") { editing = record }
+                .accessibilityAction(named: "Delete") { pendingDelete = record }
+        }
     }
 
     @ViewBuilder
@@ -139,22 +302,213 @@ private struct FilteredTransactions: View {
     private func delete(_ record: TransactionRecord, disableSeries: Bool) {
         let id = record.id
         pendingDelete = nil
+        guard let services else { return }
         Task {
             do {
-                try await services?.transactions.deleteTransaction(id, alsoDisableSeries: disableSeries, now: .now)
+                let deleted = try await services.transactions.deleteTransactionForUndo(
+                    id, alsoDisableSeries: disableSeries, now: .now)
                 errorMessage = nil
+                undoCenter?.offer(.deletion([deleted]), message: UndoMessage.deleted(1))
+            } catch LedgerError.purchaseHasRefunds {
+                errorMessage = String(localized: "This purchase has refunds. Delete its refunds first.")
             } catch {
                 errorMessage = String(localized: "That transaction couldn't be deleted. Nothing was changed.")
             }
         }
     }
 
-    private var recordsByDay: [Date: [TransactionRecord]] {
-        Dictionary(grouping: records) { calendar.startOfDay(for: $0.occurredAt) }
+    // MARK: Select mode (Sprint 23, A-007)
+
+    /// Set category… and Delete for the selected rows, under the list.
+    private func bulkBar(_ selected: [TransactionRecord]) -> some View {
+        let categorizable = selected.filter { BulkEdit.canSetCategory($0.type) }
+        return HStack {
+            Button("Set category…", systemImage: "folder") { isPickingCategory = true }
+                .disabled(categorizable.isEmpty || isWorking)
+                .accessibilityIdentifier("transactions.bulkCategory")
+            Spacer(minLength: 8)
+            Text("\(selected.count) selected")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("transactions.selectedCount")
+            Spacer(minLength: 8)
+            Button("Delete", systemImage: "trash", role: .destructive) { isConfirmingBulkDelete = true }
+                .disabled(selected.isEmpty || isWorking)
+                .accessibilityIdentifier("transactions.bulkDelete")
+                .confirmationDialog(
+                    Text("Delete \(selected.count) transactions?"), isPresented: $isConfirmingBulkDelete,
+                    titleVisibility: .visible
+                ) {
+                    Button("Delete \(selected.count) transactions", role: .destructive) {
+                        bulkDelete(selected, disablingSeries: false)
+                    }
+                    // Spec §8.3's third choice, for the recurring occurrences among them (data-safety review B2).
+                    if selected.contains(where: BulkEdit.isOccurrence) {
+                        Button("Delete and disable their series", role: .destructive) {
+                            bulkDelete(selected, disablingSeries: true)
+                        }
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text(bulkDeleteMessage(selected))
+                }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 12)
+        .background(.bar)
+        .sheet(isPresented: $isPickingCategory) {
+            NavigationStack {
+                bulkCategoryPicker(categorizable, skipped: selected.count - categorizable.count)
+            }
+            .presentationDetents([.medium, .large])
+        }
     }
 
-    private var days: [Date] {
-        recordsByDay.keys.sorted(by: >)
+    /// Active categories valid for every selected type; transfers and refunds are left as they are.
+    private func bulkCategoryPicker(_ categorizable: [TransactionRecord], skipped: Int) -> some View {
+        let options = BulkEdit.categories(categories, for: Set(categorizable.map(\.type)))
+            .sorted { $0.sortOrder < $1.sortOrder }
+        return List {
+            Section {
+                ForEach(options) { category in
+                    Button {
+                        setCategory(category.id, on: categorizable)
+                    } label: {
+                        Label {
+                            Text(category.name)
+                        } icon: {
+                            CategoryBadge(icon: category.icon, color: category.color)
+                        }
+                    }
+                    .accessibilityIdentifier("transactions.bulkCategoryOption")
+                }
+            } footer: {
+                if skipped > 0 {
+                    Text("Transfers and refunds keep their own category, so \(skipped) selected will be skipped.")
+                }
+            }
+        }
+        .navigationTitle("Set category")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") { isPickingCategory = false }
+            }
+        }
+    }
+
+    private func bulkDeleteMessage(_ selected: [TransactionRecord]) -> String {
+        var parts = [String(localized: "They will be removed from your history and balances.")]
+        if selected.contains(where: BulkEdit.isOccurrence) {
+            let skipped = String(
+                localized: "Occurrences are marked as skipped; their series keep running unless you disable them.")
+            parts.append(skipped)
+        }
+        if selected.contains(where: { $0.wishlistItemID != nil }) {
+            parts.append(String(localized: "Wishlist items they bought are no longer purchased."))
+        }
+        if selected.contains(where: { $0.type == .expense }) {
+            parts.append(String(localized: "A purchase that still has refunds is kept."))
+        }
+        return parts.joined(separator: " ")
+    }
+
+    /// Changes each record through the service's update, so validation and merchant memory apply. Records that fail
+    /// stay selected and are counted in the message.
+    private func setCategory(_ categoryID: UUID, on categorizable: [TransactionRecord]) {
+        let drafts = categorizable.map { ($0.id, BulkEdit.draft($0, categoryID: categoryID)) }
+        isPickingCategory = false
+        guard let services, !drafts.isEmpty else { return }
+        isWorking = true
+        Task {
+            var failed: Set<UUID> = []
+            var changes: [CategoryUndoEntry] = []
+            for (id, draft) in drafts {
+                do {
+                    changes.append(try await services.transactions.updateCategoryForUndo(id, with: draft, now: .now))
+                } catch {
+                    failed.insert(id)
+                }
+            }
+            isWorking = false
+            finishBulk(failed: failed)
+            if !changes.isEmpty {
+                undoCenter?.offer(.categoryChange(changes), message: UndoMessage.recategorized(changes.count))
+            }
+            if !failed.isEmpty {
+                errorMessage = String(
+                    localized: "\(failed.count) of \(drafts.count) couldn't be changed. They are still selected.")
+            }
+        }
+    }
+
+    /// Deletes each record through the service, as a single delete would: an occurrence is marked skipped (and its
+    /// series disabled when asked), a purchase with refunds is refused, a wishlist purchase reverts its item. Records
+    /// that fail stay selected.
+    private func bulkDelete(_ selected: [TransactionRecord], disablingSeries: Bool) {
+        let ids = BulkEdit.deletionOrder(selected).map(\.id)
+        let occurrences = Set(selected.filter(BulkEdit.isOccurrence).map(\.id))
+        guard let services, !ids.isEmpty else { return }
+        isWorking = true
+        Task {
+            var failed: Set<UUID> = []
+            var hasRefunds = 0
+            var deleted: [DeletedTransaction] = []
+            for id in ids {
+                do {
+                    let entry = try await services.transactions.deleteTransactionForUndo(
+                        id, alsoDisableSeries: disablingSeries && occurrences.contains(id), now: .now)
+                    deleted.append(entry)
+                } catch LedgerError.purchaseHasRefunds {
+                    failed.insert(id)
+                    hasRefunds += 1
+                } catch {
+                    failed.insert(id)
+                }
+            }
+            isWorking = false
+            finishBulk(failed: failed)
+            if !deleted.isEmpty {
+                undoCenter?.offer(.deletion(deleted), message: UndoMessage.deleted(deleted.count))
+            }
+            if hasRefunds > 0 {
+                errorMessage = String(
+                    localized: "\(hasRefunds) purchases have refunds and were kept. Delete their refunds first.")
+            } else if !failed.isEmpty {
+                errorMessage = String(
+                    localized: "\(failed.count) of \(ids.count) couldn't be deleted. They are still selected.")
+            }
+        }
+    }
+
+    /// Leaves Select mode after a full success; otherwise keeps only the failed rows selected.
+    private func finishBulk(failed: Set<UUID>) {
+        if failed.isEmpty {
+            errorMessage = nil
+            isSelecting = false
+        } else {
+            selection = failed
+        }
+    }
+
+    /// The fetched records narrowed by the search, if any. Names are looked up by id once per pass (A-005).
+    private func matchingRecords() -> [TransactionRecord] {
+        guard !search.isEmpty else { return records }
+        let categoryNames = Dictionary(categories.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+        let accountNames = Dictionary(accounts.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+        return records.filter { record in
+            let fields = [
+                record.notes, record.merchantNameSnapshot, record.categoryID.flatMap { categoryNames[$0] },
+                record.accountID.flatMap { accountNames[$0] }, record.transferAccountID.flatMap { accountNames[$0] },
+            ]
+            return search.matches(fields, amount: record.amount)
+        }
+    }
+
+    /// Records grouped by local day, newest day first.
+    private static func days(_ records: [TransactionRecord], calendar: HouseholdCalendar) -> [TransactionDay] {
+        let grouped = Dictionary(grouping: records) { calendar.startOfDay(for: $0.occurredAt) }
+        return grouped.keys.sorted(by: >).map { TransactionDay(day: $0, records: grouped[$0] ?? []) }
     }
 
     private func dayLabel(_ day: Date) -> String {
@@ -171,15 +525,63 @@ private struct FilteredTransactions: View {
 struct TransactionRow: View {
     let record: TransactionRecord
     let category: CategoryRecord?
+    /// Every account, so a row can name its own when there is more than one (Sprint 10 decision 7).
+    var accounts: [Account] = []
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// Sprint 23 hand check: what a refund with no merchant or note of its own gives money back for (the wishlist
+    /// item its purchase completed, else the purchase's merchant or note), so it isn't titled "Transaction". The list
+    /// works it out once for all rows (`refundNames`); nil for every other row.
+    var refundedName: String?
+
+    /// Transfers and refunds show what they are; everything else shows its category's icon.
+    static func badgeIcon(_ type: TransactionType) -> String? {
+        switch type {
+        case .transfer: "arrow.left.arrow.right"
+        case .refund: "arrow.uturn.backward"
+        case .income, .expense: nil
+        }
+    }
+
+    private func accountName(_ id: UUID?) -> String? {
+        accounts.first { $0.id == id }?.name
+    }
+
+    /// True once `title` already reads "Refund · <name>", so `subtitle` does not say "Refund" a second time.
+    private var titleNamesRefund: Bool {
+        record.type == .refund && record.merchantNameSnapshot == nil && record.notes == nil && refundedName != nil
+    }
 
     private var title: String {
-        record.merchantNameSnapshot ?? record.notes ?? category?.name ?? String(localized: "Transaction")
+        if record.type == .transfer {
+            let destination = accountName(record.transferAccountID) ?? String(localized: "another account")
+            return record.notes ?? String(localized: "Transfer to \(destination)")
+        }
+        if let own = record.merchantNameSnapshot ?? record.notes {
+            return own
+        }
+        if let refundedName {
+            return String(localized: "Refund · \(refundedName)")
+        }
+        return category?.name ?? String(localized: "Transaction")
     }
 
     private var subtitle: String {
         var parts: [String] = []
-        if let category, record.merchantNameSnapshot != nil || record.notes != nil {
+        if record.type == .refund, !titleNamesRefund {
+            parts.append(String(localized: "Refund"))
+        }
+        // Sprint 23 (F4): one part of a split payment.
+        if record.splitGroupID != nil {
+            parts.append(String(localized: "row.split", defaultValue: "Split"))
+        }
+        if record.type == .transfer {
+            let source = accountName(record.accountID) ?? String(localized: "another account")
+            let destination = accountName(record.transferAccountID) ?? String(localized: "another account")
+            parts.append(String(localized: "\(source) → \(destination)"))
+        } else if accounts.count > 1, let name = accountName(record.accountID) {
+            parts.append(name)
+        }
+        if let category, record.merchantNameSnapshot != nil || record.notes != nil || titleNamesRefund {
             parts.append(category.name)
         }
         if record.status != .posted {
@@ -190,7 +592,9 @@ struct TransactionRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            CategoryBadge(icon: category?.icon ?? "questionmark", color: category?.color)
+            CategoryBadge(
+                icon: Self.badgeIcon(record.type) ?? category?.icon ?? "questionmark",
+                color: category?.color)
             rowLayout {
                 details
                 if !typeSize.isAccessibilitySize {

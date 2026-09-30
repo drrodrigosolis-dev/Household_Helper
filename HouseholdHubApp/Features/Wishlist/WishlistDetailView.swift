@@ -1,14 +1,22 @@
+import Combine
 import HouseholdHubCore
 import SwiftData
 import SwiftUI
 
-/// Item detail (spec §24.2): photo, facts, Mark Purchased (§8.1), edit, archive, and the §8.2 delete choice.
+/// Item detail (spec §24.2): photo, facts, Mark Purchased (§8.1), edit, archive, and the §8.2 delete choice. Its
+/// savings goal, if any, shows with its progress (Sprint 12 decision 5).
 struct WishlistDetailView: View {
     @Environment(\.services) private var services
     @Environment(\.dismiss) private var dismiss
     @Query private var matches: [WishlistItem]
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
     @Query private var tasks: [TaskItem]
+    @Query private var goals: [SavingsGoal]
+    @Query(sort: \Account.sortOrder) private var accounts: [Account]
+    /// The expense (and any refunds) recorded for this item, so the purchased row opens it (audit A-016).
+    @Query private var purchases: [TransactionRecord]
+    @State private var goalStatus: GoalStatus?
+    @State private var goalEditor: GoalEditorView.Mode?
 
     @State private var isEditing = false
     @State private var isPurchasing = false
@@ -17,6 +25,8 @@ struct WishlistDetailView: View {
 
     init(itemID: UUID) {
         _matches = Query(filter: #Predicate<WishlistItem> { $0.id == itemID })
+        let linked: UUID? = itemID
+        _purchases = Query(filter: #Predicate<TransactionRecord> { $0.wishlistItemID == linked })
     }
 
     var body: some View {
@@ -28,6 +38,52 @@ struct WishlistDetailView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        .task { await refreshGoal() }
+        .onReceive(storeSaves) { _ in Task { await refreshGoal() } }
+        .sheet(item: $goalEditor) { mode in
+            NavigationStack { GoalEditorView(mode: mode) }
+        }
+    }
+
+    private var storeSaves: some Publisher<Notification, Never> {
+        NotificationCenter.default.publisher(for: ModelContext.didSave).receive(on: RunLoop.main)
+    }
+
+    private func goal(of item: WishlistItem) -> SavingsGoal? {
+        goals.first { $0.wishlistItemID == item.id }
+    }
+
+    private func refreshGoal() async {
+        guard let services, let item = matches.first, let goal = goal(of: item) else {
+            goalStatus = nil
+            return
+        }
+        let report = try? await services.transactions.goalReport(
+            now: .now, calendar: HouseholdCalendar(timeZone: .current))
+        goalStatus = report?.first { $0.id == goal.id }
+    }
+
+    /// The item's goal with its progress; or, for an item still wanted, a way to start one.
+    @ViewBuilder
+    private func goalSection(_ item: WishlistItem) -> some View {
+        if let goal = goal(of: item) {
+            Section("Savings goal") {
+                if let goalStatus, goalStatus.id == goal.id {
+                    GoalRow(status: goalStatus, accountName: accounts.first { $0.id == goal.accountID }?.name)
+                        .contentShape(Rectangle())
+                        .onTapGesture { goalEditor = .edit(goal) }
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityHint("Edits this goal")
+                } else {
+                    Button(goal.name) { goalEditor = .edit(goal) }
+                }
+            }
+        } else if item.status == .wanted || item.status == .pending {
+            Section {
+                Button("Start a Savings Goal", systemImage: "target") { goalEditor = .create(wishlistItem: item) }
+                    .accessibilityIdentifier("wishlist.startGoal")
+            }
+        }
     }
 
     private func details(_ item: WishlistItem) -> some View {
@@ -58,6 +114,7 @@ struct WishlistDetailView: View {
                     Text(notes)
                 }
             }
+            goalSection(item)
             let linked = tasks.filter { $0.linkedWishlistItemID == item.id }.sorted { $0.createdAt < $1.createdAt }
             if !linked.isEmpty {
                 // Links go both ways (spec §2.1): the tasks that link this item, each opening its task detail.
@@ -80,8 +137,17 @@ struct WishlistDetailView: View {
                         .accessibilityIdentifier("wishlist.markPurchased")
                 }
                 if item.status == .purchased {
-                    Label("Recorded in Budget as an expense", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.secondary)
+                    if let expense = purchases.first(where: { $0.id == item.purchasedTransactionID }) {
+                        NavigationLink {
+                            TransactionEditorView(record: expense)
+                        } label: {
+                            Label("Recorded in Budget as an expense", systemImage: "checkmark.circle.fill")
+                        }
+                        .accessibilityIdentifier("wishlist.purchaseExpense")
+                    } else {
+                        Label("Recorded in Budget as an expense", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 if item.status == .archived {
                     Button("Restore", systemImage: "tray.and.arrow.up") { setArchived(false, item) }
@@ -89,6 +155,7 @@ struct WishlistDetailView: View {
                     Button("Archive", systemImage: "archivebox") { setArchived(true, item) }
                 }
                 Button("Delete", systemImage: "trash", role: .destructive) { isConfirmingDelete = true }
+                    .foregroundStyle(.red)
                     .accessibilityIdentifier("wishlist.delete")
             }
             if let errorMessage {
@@ -96,6 +163,7 @@ struct WishlistDetailView: View {
             }
         }
         .navigationTitle(item.name)
+        .themedScreen()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Edit") { isEditing = true }
@@ -120,16 +188,22 @@ struct WishlistDetailView: View {
     /// Spec §8.2: with a linked purchase, offer archiving next to deleting, and say the expense stays.
     @ViewBuilder
     private func deleteActions(_ item: WishlistItem) -> some View {
-        if item.purchasedTransactionID != nil, item.status != .archived {
+        let hasGoal = goal(of: item) != nil
+        if item.purchasedTransactionID != nil || hasGoal, item.status != .archived {
             Button("Archive item") { setArchived(true, item) }
         }
-        Button("Delete item", role: .destructive) { delete(item) }
+        if !hasGoal {
+            Button("Delete item", role: .destructive) { delete(item) }
+        }
         Button("Cancel", role: .cancel) {}
     }
 
     private func deleteMessage(_ item: WishlistItem) -> String {
         if item.purchasedTransactionID != nil {
             return String(localized: "Its purchase stays in Budget and in your balances. Only the wishlist item goes.")
+        }
+        if goal(of: item) != nil {
+            return String(localized: "A savings goal uses this item, so it can't be deleted until the goal is gone.")
         }
         let removed = String(localized: "The item and its photo will be removed.")
         guard tasks.contains(where: { $0.linkedWishlistItemID == item.id }) else { return removed }
@@ -157,6 +231,9 @@ struct WishlistDetailView: View {
                     try? services.images?.delete(media)
                 }
                 dismiss()
+            } catch GoalError.usedByGoals {
+                errorMessage = String(
+                    localized: "A savings goal uses this item. Delete the goal first, or archive the item.")
             } catch {
                 errorMessage = String(localized: "This item couldn't be deleted.")
             }
@@ -172,10 +249,13 @@ struct WishlistPurchaseView: View {
     @Environment(\.services) private var services
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
+    @Query(sort: \Account.sortOrder) private var accounts: [Account]
 
     @State private var priceText: String
     @State private var purchasedAt = Date.now
     @State private var categoryID: UUID?
+    /// nil = the default account (Sprint 10 decision 9).
+    @State private var accountID: UUID?
     @State private var errorMessage: String?
     @State private var isSaving = false
 
@@ -195,7 +275,7 @@ struct WishlistPurchaseView: View {
     var body: some View {
         Form {
             Section {
-                LabeledContent("Price paid") {
+                FocusingRow("Price paid") {
                     TextField("0.00", text: $priceText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
@@ -208,6 +288,16 @@ struct WishlistPurchaseView: View {
                         Text(category.name).tag(UUID?.some(category.id))
                     }
                 }
+                let active = accounts.filter { !$0.isArchived }
+                if active.count > 1 {
+                    Picker("Paid from", selection: $accountID) {
+                        Text("Default account").tag(UUID?.none)
+                        ForEach(active) { account in
+                            Text(account.name).tag(UUID?.some(account.id))
+                        }
+                    }
+                    .accessibilityIdentifier("wishlist.purchase.account")
+                }
             } footer: {
                 Text("Records one expense in Budget and marks \(item.name) as purchased.")
             }
@@ -216,6 +306,7 @@ struct WishlistPurchaseView: View {
             }
         }
         .navigationTitle("Mark Purchased")
+        .themedScreen()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -235,7 +326,9 @@ struct WishlistPurchaseView: View {
         defer { isSaving = false }
         do {
             try await services.transactions.purchaseWishlistItem(
-                item.id, actualPrice: price, occurredAt: purchasedAt, categoryID: categoryID, now: .now)
+                item.id, actualPrice: price, occurredAt: purchasedAt, categoryID: categoryID, accountID: accountID,
+                now: .now)
+            Celebration.shared.fire()
             dismiss()
         } catch {
             errorMessage = String(localized: "The purchase couldn't be recorded. Nothing was changed.")

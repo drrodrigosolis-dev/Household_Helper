@@ -1,7 +1,8 @@
 # Household Hub v1 — progress
 
-Gate: a phase is **CI green** only when `.github/workflows/verify.yml` concluded `success` on the `build/v1` commit
-that completes it (CLAUDE.md, "Autonomous CI-driven operation"; spec §28). Mirrored in the `build/v1 → main` PR description.
+Gate: a phase is **CI green** only when `.github/workflows/verify.yml` concluded `success` on the commit that
+completes it (CLAUDE.md, "Autonomous CI-driven operation"; spec §28). v1 (Phases 0-10) was merged into `main` as
+`e5b5c40` on the owner's go-ahead; v1.1 is built on `build/v1.1` and mirrored in the `build/v1.1 → main` PR description.
 
 | Phase (§21) | Status | Note |
 |---|---|---|
@@ -20,7 +21,8 @@ that completes it (CLAUDE.md, "Autonomous CI-driven operation"; spec §28). Mirr
 Statuses: not started / in progress / CI green / blocked.
 
 ## Owner decisions (2026-09-26)
-**SchemaV1 frozen: not yet** (freezes at the first install on the owner's device; update this line then).
+**SchemaV1 frozen: yes, at `063a510`** (2026-09-27, first install on the owner's iPhone). Model changes now need
+SchemaV2 and a migration stage.
 
 1. **Widget on a free-team device shows the sample figures** (spec §5.2/§24.4 as written), not an amount-free
    placeholder. Advisor's note on record: on a real phone those figures can be mistaken for the real balance.
@@ -43,6 +45,36 @@ Statuses: not started / in progress / CI green / blocked.
 11. **Accent color: any color** via a color picker (overrides Sprint 9 default 3), with a warning when it would be
     hard to see in Light or Dark Mode; the palette stays as quick choices.
 
+12. **v1 merged into `main`** (`e5b5c40`), with device-only checks still queued; post-v1 work goes on `build/v1.1`.
+13. **v1.1 features** (all owner-chosen; beyond spec §2.1, so recorded here rather than assumed): multiple accounts
+    with transfers, category budgets, savings goals, recurring tasks, search, local reminders, CSV import, and a Spanish
+    translation (neutral Latin-American).
+14. **CSV import is a manual, user-picked file with a preview before anything is saved.** It is not the §2.2 non-goal
+    "automatic merchant transaction import from banks": no bank connection, no background import.
+15. **SchemaV1 stays editable through the v1.1 data features** (accounts, budgets, goals, recurring tasks); it freezes
+    at the first install on the owner's device as before, so installing before those are green would force migrations.
+    **Frozen 2026-09-27** at `063a510` (Debug build, first install on the owner's iPhone 16 Pro Max, iOS 27.0).
+16. **Sprint 10 defaults accepted ("run")**: the 11 account and transfer decisions in `docs/sprints/SPRINT-10.md`.
+17. **Budgets roll over by default, with a toggle on each budget** (Sprint 11); the other Sprint 11 defaults accepted.
+18. **Cloud ↔ local sessions** coordinate through `docs/coordination/` (two one-way files in the repo).
+19. **Sprint 12 defaults accepted ("run")**: the 6 savings-goal decisions in `docs/sprints/SPRINT-12.md`.
+20. **Sprint 13 defaults accepted**: the 5 recurring-task decisions in `docs/sprints/SPRINT-13.md`.
+21. **Column changes don't repeat tasks**: reordering or deleting columns completes tasks without adding their next
+    copies; only a task completed on its own does (Sprint 13).
+22. **CI workflow pinned** (owner go-ahead 2026-09-26): actions by commit SHA and XcodeGen at a fixed version.
+23. **Sprint 14 defaults accepted ("run")**: search and local reminders, `docs/sprints/SPRINT-14.md`.
+24. **Sprint 15 defaults accepted ("run")**: CSV import, `docs/sprints/SPRINT-15.md`.
+25. **Sprint 16 defaults accepted ("run Spanish")**: neutral Latin-American Spanish, `docs/sprints/SPRINT-16.md`.
+26. **Batch add in v1.1** (2026-09-27): paste a list, one type per batch (tasks or wishlist items), preview, one
+    save; ships before the merge as Sprint 17 (`docs/sprints/SPRINT-17.md`).
+27. **Task columns at 2/3 width** (2026-09-27): a moved task's column comes into focus, with auto-scroll while
+    dragging; Sprint 18 (`docs/sprints/SPRINT-18.md`).
+28. **Fun themes in v1.1** (2026-09-27): Toy Box (generic, not "Toy Story"), Airplanes, Dinosaurs, Love Mom, Winter
+    Special, or off; full restyle with fonts; celebrations plus gentle ambient animation; Sprint 19
+    (`docs/sprints/SPRINT-19.md`).
+29. **Refunds in v1.1** (2026-09-27): a linked refund transaction on the refund date (not "mark cancelled", which
+    rewrites past months), partial refunds allowed, and on a fully refunded wishlist purchase the owner chooses keep
+    or remove; needs SchemaV2 (first migration of real data); Sprint 20 (`docs/sprints/SPRINT-20.md`).
 
 ## Defaults awaiting the owner's review (Phase 10)
 - **Currency after records exist (§6.3):** Settings › Household refuses the change and says why, rather than §6.3's
@@ -64,3 +96,50 @@ Statuses: not started / in progress / CI green / blocked.
   the phone locks during a long "Back up now", photos not yet read are left out and the user is told.
 - **A total photo cap of 500 MB per restore:** past it, remaining photos count as missing and the data still
   restores (the review showed a hard refusal would make large legitimate backups unrestorable).
+
+## v1.1 plan (owner decisions 13-15)
+Order: data-model features first, while SchemaV1 is still editable, and accounts before anything that needs to know
+where money sits. Each is one sprint (`docs/sprints/SPRINT-10…`), closed only on its own green CI run.
+
+| Sprint | Feature | Status |
+|---|---|---|
+| 10 | Multiple accounts + transfers (household balance = sum of accounts; §9 terms per account) | CI green (run 36251732218 on `e5ddfb7`); large-text re-walk pending |
+| 11 | Category budgets (monthly limits, rollover on by default, progress on Dashboard and Analytics) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
+| 12 | Savings goals (target and date, monthly amount needed; can point at a wishlist item) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
+| 13 | Recurring tasks (reuse the recurrence rules) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
+| 14 | Search (deterministic) + local reminders (task due dates, upcoming bills) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`); real reminder on device pending (L-009) |
+| 15 | CSV import (user-picked file, column mapping, preview, duplicate check, one atomic save) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`) |
+| 16 | Spanish translation (String Catalog; walked in Spanish) | CI green (run 36268510203 on `25afbec`; 36270046170 on `69d9801`); Xcode export gaps fixed (L-010); default task columns now seeded in Spanish (run 36274947830 on `54387a4`, green) |
+| 17 | Batch add (paste a list of tasks or wishlist items, preview, one save) | CI green as part of run 36599247241 on `dba6f9e` (no sprint-own green run recorded; see `docs/sprints/SPRINT-17.md`); Mac UI 53/53 and Simulator walk (L-015, L-016) |
+| 18 | Task columns at 2/3 width; the moved-to column comes into focus; auto-scroll while dragging | CI green as part of run 36599247241 on `dba6f9e` (no sprint-own green run recorded; see `docs/sprints/SPRINT-18.md`); spring-loading later removed and one column per drag (Sprint 26 post-sprint, `1f51430`) |
+| 19 | Fun themes: five themes or off; colors, fonts, icons, pictures, animations | CI green as part of run 36599247241 on `dba6f9e` (no sprint-own green run recorded; see `docs/sprints/SPRINT-19.md`); superseded by Sprint 21's redo |
+| 20 | Refunds: a linked refund on the refund date, partial amounts, wishlist keep/remove (first schema change: SchemaV2) | CI green as part of run 36599247241 on `dba6f9e` (no sprint-own green run recorded; see `docs/sprints/SPRINT-20.md`); SchemaV2 installed on the owner's iPhone (`fd7e67e`) and frozen |
+| 21 | Themes redone after the owner's mockup (chalk art per theme) | CI green as part of run 36599247241 on `dba6f9e` (no sprint-own green run recorded; see `docs/sprints/SPRINT-21.md`); Simulator art walk (`ebfaa71`, L-019) |
+| 22 | Recurring purchases (Bill / Purchase, store, SchemaV3) | CI green as part of run 36599247241 on `dba6f9e` (no sprint-own green run recorded; see `docs/sprints/SPRINT-22.md`); SchemaV3 installed (`8a9ec36`) and frozen |
+| 23 | Fixes from the local full audit (A-001–A-023) + owner features F1–F8 (SchemaV4) | CI green (run 36599247241 on `dba6f9e`, UI 88/88); Mac hand checks L-023/L-024; F7 notification and bulk Undo in the L-034 walk |
+| 24 | First-time tutorial: six-stop spotlight tour, one-time offer, ten TipKit tips, Settings replay | CI green (run 36599247241 on `dba6f9e`); tour walked on the Mac (L-026, L-027); VoiceOver tour in the L-034 walk; seven tips and Reset Tips not yet seen |
+| 25 | Siri: Add to Wishlist, Add Task, Log Transaction free sentences; on-device refinement with grammar fallback | CI green (run 36599247241 on `dba6f9e`); Siri on the phone pending (WALK-QUEUE, L-034) |
+| 26 | Task time and reminder default time (SchemaV5) | CI green (run 36599247241 on `dba6f9e`, UI 88/88; Mac 88/88, L-033); real reminders in the L-034 walk |
+
+Local walks after the Mac restart (2026-09-27, `docs/coordination/`): Spanish on a fresh store, label taps, goals, a
+real reminder, and backup/restore through Files all pass. Fixed on the way: "Back up now" did nothing (two
+`fileExporter`s on one view, `9b100f5`); goal subtitle wrap and red Delete icons (`9431b07`); Quick Add UI tests now
+wait for the typed text and an enabled Save (`bc5ceaa`). CI green on `bc5ceaa` (run 36334223494). Remaining before
+the merge go-ahead: the owner's device checks in `docs/WALK-QUEUE.md` (Face ID, on-device AI, launch time).
+
+**State on 2026-09-29.** CI run 36599247241 on `dba6f9e` is green (lint, build, unit, UI 88/88) and holds all of
+Sprints 17–26 plus the post-sprint work (tour accessibility fixes, Sprint 26 data-safety fixes, time-of-day and
+income/expense phrases in entry text with spec §25.2, and the Tasks board holding still during a drag with
+spring-loading removed; `docs/sprints/SPRINT-26.md`). The Mac's full UI suite on the same code is 88/88 (L-033);
+later commits are coordination docs only. SchemaV4 and SchemaV5 are installed (`f183138`) and pinned. Pending: L-034,
+the Release install of this code on the owner's iPhone and the final walk (F7 budget alerts, bulk Undo, the tour with
+VoiceOver, Siri phrases, task-time reminders, Quick Add times and phrases), then the owner's go-ahead before any merge
+to `main`.
+
+**L-034 (2026-09-29).** Release `8a15d68` installed on the owner's iPhone. Simulator walk (`docs/walk/l034/`):
+bulk delete → Undo ✓; "got paid 1200" income ✓; task "call mom tomorrow 3pm" due tomorrow 15:00 ✓; "20 dinner 8pm"
+→ yesterday 20:00 ✓; "me pagaron 500 sueldo" income ✓; Reminder default time row ✓; tour stops and three tips ✓
+(UI run). One defect: "I had to pay 80 dentist" saved the merchant "dentis"; fixed in `310da84` with a UI test
+(CI and the Mac's L-035 recheck pending). Not observable on the Simulator and queued for the owner in
+`docs/WALK-QUEUE.md`: budget alert and task reminder delivery, the tour with VoiceOver, six tips needing real
+data, Reset tips, Siri.

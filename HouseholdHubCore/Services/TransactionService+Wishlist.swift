@@ -4,8 +4,13 @@ import SwiftData
 /// Wishlist writes live on the transaction service because a purchase (spec §8.1) and a deletion (§8.2) touch both a
 /// wishlist item and a transaction: one serial context makes each of them a single atomic save with no second writer.
 extension TransactionService {
+    /// Refused with `StoreWriteError.restoreInProgress` while a restore runs (`RestoreGate`).
     @discardableResult
     public func createWishlistItem(_ draft: WishlistDraft, now: Date) throws -> UUID {
+        try RestoreGate.shared(for: modelContainer).write { try insertWishlistItem(draft, now: now) }
+    }
+
+    private func insertWishlistItem(_ draft: WishlistDraft, now: Date) throws -> UUID {
         begin()
         try draft.validate()
         let settings = try requireSettings()
@@ -20,6 +25,34 @@ extension TransactionService {
         modelContext.insert(item)
         try commit()
         return item.id
+    }
+
+    /// Adds every draft with one save (Sprint 17 batch add): all of them or none. Each is checked before anything is
+    /// inserted. Creation times step back a millisecond per line so the newest-first list shows them in paste order.
+    @discardableResult
+    public func createWishlistItems(_ drafts: [WishlistDraft], now: Date) throws -> [UUID] {
+        begin()
+        guard !drafts.isEmpty else { return [] }
+        let settings = try requireSettings()
+        for draft in drafts {
+            try draft.validate()
+            try requireCurrency(draft.estimatedPrice, settings)
+            if let categoryID = draft.categoryID {
+                try requireUsableCategory(categoryID, for: .expense)
+            }
+        }
+        var ids: [UUID] = []
+        for (index, draft) in drafts.enumerated() {
+            let created = now.addingTimeInterval(-Double(index) / 1000)
+            let item = WishlistItem(
+                name: draft.trimmedName, estimatedPrice: draft.estimatedPrice, priority: draft.priority, now: created)
+            apply(draft, to: item)
+            item.status = draft.status
+            modelContext.insert(item)
+            ids.append(item.id)
+        }
+        try commit()
+        return ids
     }
 
     /// Edits the user-facing fields. A purchased or archived item keeps its status; only its details change.
@@ -61,12 +94,15 @@ extension TransactionService {
     }
 
     /// Deletes the item only (spec §8.2): a linked purchase stays in the ledger, with its link cleared. Returns the
-    /// item's media reference so the caller can remove the image file after the delete is saved.
+    /// item's media reference so the caller can remove the image file after the delete is saved. An item a savings
+    /// goal uses can't be deleted (Sprint 12 decision 6).
     @discardableResult
     public func deleteWishlistItem(_ id: UUID, now: Date) throws -> String? {
         begin()
         // Every fetch happens before the first edit, so a failed fetch leaves no pending edits behind.
         let item = try requireWishlistItem(id)
+        let goals = try goalCount(usingWishlistItem: id)
+        guard goals == 0 else { throw GoalError.usedByGoals(count: goals) }
         let media = item.mediaReference
         let record = try item.purchasedTransactionID.flatMap { try transaction($0) }
         let itemID: UUID? = id
@@ -105,7 +141,7 @@ extension TransactionService {
     /// marked purchased, in one save. Every check runs before anything is inserted, so a refusal leaves no trace.
     @discardableResult
     public func purchaseWishlistItem(
-        _ id: UUID, actualPrice: Money, occurredAt: Date, categoryID: UUID?, now: Date
+        _ id: UUID, actualPrice: Money, occurredAt: Date, categoryID: UUID?, accountID: UUID? = nil, now: Date
     ) throws -> UUID {
         begin()
         let item = try requireWishlistItem(id)
@@ -118,9 +154,12 @@ extension TransactionService {
         if let categoryID {
             try requireUsableCategory(categoryID, for: .expense, allowArchived: categoryID == item.categoryID)
         }
+        // Paid from the default account unless the purchase sheet picked another (Sprint 10 decision 9).
+        let account = try resolveAccount(accountID, settings: try requireSettings(), now: now)
         let record = TransactionRecord(
             amount: actualPrice, type: .expense, status: .posted, source: .wishlistPurchase, occurredAt: occurredAt,
             now: now)
+        record.accountID = account
         record.categoryID = categoryID
         record.notes = item.name
         record.wishlistItemID = item.id

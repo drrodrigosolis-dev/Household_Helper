@@ -22,42 +22,6 @@ extension SchemaV1 {
         }
     }
 
-    /// A task card (spec §7.8). Named `TaskItem` because `Task` is Swift concurrency's type.
-    @Model
-    public final class TaskItem {
-        @Attribute(.unique) public var id: UUID
-        public var title: String
-        public var notes: String?
-        public var columnID: UUID
-        public var priorityRawValue: String
-        public var dueDate: Date?
-        public var completedAt: Date?
-        /// Position within the column; a move takes the midpoint of its new neighbours (spec §7.8).
-        public var sortOrder: Double
-        public var linkedWishlistItemID: UUID?
-        public var linkedTransactionID: UUID?
-        public var archivedAt: Date?
-        public var createdAt: Date
-        public var updatedAt: Date
-
-        public init(
-            id: UUID = UUID(), title: String, columnID: UUID, priority: Priority, sortOrder: Double, now: Date
-        ) {
-            self.id = id
-            self.title = title
-            self.columnID = columnID
-            self.priorityRawValue = priority.rawValue
-            self.sortOrder = sortOrder
-            self.createdAt = now
-            self.updatedAt = now
-        }
-
-        public var priority: Priority {
-            get { Priority(rawValue: priorityRawValue) ?? .medium }
-            set { priorityRawValue = newValue.rawValue }
-        }
-    }
-
     /// A checklist step of a task (spec §7.9), linked by `taskID` and deleted with its task.
     @Model
     public final class SubtaskItem {
@@ -81,6 +45,59 @@ extension SchemaV1 {
     }
 }
 
+extension SchemaV5 {
+    /// A task card (spec §7.8). Named `TaskItem` because `Task` is Swift concurrency's type. Sprint 26 (SchemaV5)
+    /// adds its optional due time.
+    @Model
+    public final class TaskItem {
+        @Attribute(.unique) public var id: UUID
+        public var title: String
+        public var notes: String?
+        public var columnID: UUID
+        public var priorityRawValue: String
+        public var dueDate: Date?
+        public var completedAt: Date?
+        /// Position within the column; a move takes the midpoint of its new neighbours (spec §7.8).
+        public var sortOrder: Double
+        public var linkedWishlistItemID: UUID?
+        public var linkedTransactionID: UUID?
+        public var archivedAt: Date?
+        /// A repeating task's rule (Sprint 13), JSON-encoded like `RecurringTransaction.ruleData`; nil = no repeat.
+        /// Only the open task of a series carries it: completing it hands the rule to the next task.
+        public var recurrenceRuleData: Data?
+        /// Calendar context for the rule, e.g. "America/Vancouver"; set exactly when `recurrenceRuleData` is.
+        public var recurrenceTimeZoneIdentifier: String?
+        /// Sprint 26 (SchemaV5): the due time as minutes after local midnight (0...1439) on the due day; nil = no
+        /// time (every task stored before V5), and always nil without a due date. Minutes, like the start-of-day
+        /// `dueDate`, keep the wall-clock time when the device changes time zone.
+        public var dueTimeMinutes: Int?
+        public var createdAt: Date
+        public var updatedAt: Date
+
+        public init(
+            id: UUID = UUID(), title: String, columnID: UUID, priority: Priority, sortOrder: Double, now: Date
+        ) {
+            self.id = id
+            self.title = title
+            self.columnID = columnID
+            self.priorityRawValue = priority.rawValue
+            self.sortOrder = sortOrder
+            self.createdAt = now
+            self.updatedAt = now
+        }
+
+        public var priority: Priority {
+            get { Priority(rawValue: priorityRawValue) ?? .medium }
+            set { priorityRawValue = newValue.rawValue }
+        }
+
+        /// The repeat rule, or nil when the task doesn't repeat or the stored rule can't be read.
+        public var recurrence: RecurrenceRule? {
+            recurrenceRuleData.flatMap { try? RecurrenceRule.decoded(from: $0) }
+        }
+    }
+}
+
 public typealias BoardColumn = SchemaV1.BoardColumn
-public typealias TaskItem = SchemaV1.TaskItem
+public typealias TaskItem = SchemaV5.TaskItem
 public typealias SubtaskItem = SchemaV1.SubtaskItem

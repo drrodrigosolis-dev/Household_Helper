@@ -56,7 +56,7 @@ struct QuickAddFixtures {
             dayOffset: nil),
         // Income only when the model says so; a category of the wrong kind is dropped.
         Case(
-            note: "got paid", model: QuickAddSuggestion(type: "income", categoryName: "Dining"), amount: nil,
+            note: "paycheck", model: QuickAddSuggestion(type: "income", categoryName: "Dining"), amount: nil,
             income: true, category: nil, dayOffset: nil),
         // A category that isn't the household's is ignored, and dates stay within the past month.
         Case(
@@ -270,11 +270,15 @@ struct IntelligenceTests {
                 categoryID: category, merchantName: "Café Luna")
             try await ledger.create(draft, now: now)
         }
-        #expect(try await ledger.suggestedCategory(forMerchantText: "  cafe LUNA ", type: .expense) == dining)
+        // Sprint 23: the category last given by hand (groceries, learned by the merchant) comes first.
+        #expect(try await ledger.suggestedCategory(forMerchantText: "  cafe LUNA ", type: .expense) == groceries)
         #expect(try await ledger.suggestedCategory(forMerchantText: "Unknown", type: .expense) == nil)
         #expect(try await ledger.suggestedCategory(forMerchantText: "Café Luna", type: .income) == nil)
+        // With that one archived, the most used active category.
+        try await categories.setArchived(true, category: groceries, now: now)
+        #expect(try await ledger.suggestedCategory(forMerchantText: "Café Luna", type: .expense) == dining)
         try await categories.setArchived(true, category: dining, now: now)
-        #expect(try await ledger.suggestedCategory(forMerchantText: "Café Luna", type: .expense) == groceries)
+        #expect(try await ledger.suggestedCategory(forMerchantText: "Café Luna", type: .expense) == nil)
     }
 
     @Test func aiSwitchesStartOnAndRoundTripThroughBackups() async throws {

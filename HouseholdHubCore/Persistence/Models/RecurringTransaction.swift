@@ -1,9 +1,9 @@
 import Foundation
 import SwiftData
 
-extension SchemaV1 {
+extension SchemaV3 {
     /// A recurrence series (spec §7.5). Occurrences are computed, never pre-generated; a record is created only when
-    /// the user posts one (§9.4).
+    /// the user posts one (§9.4). Sprint 22 (SchemaV3) adds its kind: a bill or a purchase.
     @Model
     public final class RecurringTransaction {
         @Attribute(.unique) public var id: UUID
@@ -22,6 +22,13 @@ extension SchemaV1 {
         public var endDate: Date?
         public var nextOccurrence: Date?
         public var isEnabled: Bool
+        /// The account each occurrence lands in (a transfer's source); set by the service (Sprint 10).
+        public var accountID: UUID?
+        /// A recurring transfer's destination account.
+        public var transferAccountID: UUID?
+        /// Sprint 22 (SchemaV3): a `RecurringKind` raw value; nil means a bill, so every series stored before V3 is
+        /// one. Read and written through `kind`.
+        public var kindRawValue: String?
         public var createdAt: Date
         public var updatedAt: Date
 
@@ -52,6 +59,14 @@ extension SchemaV1 {
             set { typeRawValue = newValue.rawValue }
         }
 
+        /// A bill unless stored as another kind; a bill is stored as nil (like every series written before V3), so a
+        /// backup of bills reads in older formats too. An unknown stored value (a newer app's kind) reads as a bill:
+        /// the kind never changes accounting.
+        public var kind: RecurringKind {
+            get { RecurringKind(rawValue: kindRawValue ?? "") ?? .bill }
+            set { kindRawValue = newValue == .bill ? nil : newValue.rawValue }
+        }
+
         public func rule() throws -> RecurrenceRule {
             try RecurrenceRule.decoded(from: ruleData)
         }
@@ -76,9 +91,10 @@ extension SchemaV1 {
             }
             return RecurringSeries(
                 id: id, templateAmount: templateAmount, type: type, rule: decodedRule, timeZone: zone,
-                startDate: startDate, endDate: endDate, isEnabled: isEnabled)
+                startDate: startDate, endDate: endDate, isEnabled: isEnabled, accountID: accountID,
+                transferAccountID: transferAccountID, kind: kind, merchantID: merchantID)
         }
     }
 }
 
-public typealias RecurringTransaction = SchemaV1.RecurringTransaction
+public typealias RecurringTransaction = SchemaV3.RecurringTransaction

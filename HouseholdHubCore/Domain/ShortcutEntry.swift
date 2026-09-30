@@ -19,8 +19,11 @@ public enum ShortcutEntry {
         // No category options: a #tag is dropped rather than guessed; the category can be set later in the app.
         let parsed = QuickAddParser(currency: currency, categories: [], calendar: calendar).parse(text, now: now)
         guard let amount = parsed.amount else { throw ShortcutEntryError.noAmount }
-        return TransactionDraft(
-            amount: amount, type: parsed.type, occurredAt: parsed.occurredAt,
-            notes: parsed.description.isEmpty ? nil : parsed.description, source: .shortcut)
+        // The description is the merchant, as in Quick Add and import (Sprint 23 walk).
+        var draft = TransactionDraft.quickAdd(
+            amount: amount, type: parsed.type, occurredAt: parsed.occurredAt, categoryID: nil,
+            description: parsed.description, isAIClassified: false, accountID: nil)
+        draft.source = .shortcut
+        return draft
     }
 }

@@ -6,6 +6,7 @@ import SwiftUI
 /// edit, and delete.
 struct TaskDetailView: View {
     @Environment(\.services) private var services
+    @Environment(\.funTheme) private var theme
     @Environment(\.dismiss) private var dismiss
     @Query private var matches: [TaskItem]
     @Query private var subtasks: [SubtaskItem]
@@ -36,11 +37,17 @@ struct TaskDetailView: View {
     private func details(_ task: TaskItem) -> some View {
         List {
             Section {
-                LabeledContent("Column", value: columns.first { $0.id == task.columnID }?.name ?? "")
+                let column = columns.first { $0.id == task.columnID }
+                LabeledContent("Column", value: column?.displayName(theme: theme) ?? "")
                     .accessibilityIdentifier("task.column")
                 LabeledContent("Priority", value: WishlistFormat.priorityText(task.priority))
                 if let due = task.dueDate {
-                    LabeledContent("Due", value: due.formatted(date: .abbreviated, time: .omitted))
+                    LabeledContent("Due", value: TaskDueFormat.text(due: due, minutes: task.dueTimeMinutes))
+                        .accessibilityIdentifier("task.due")
+                }
+                if let rule = task.recurrence {
+                    LabeledContent("Repeats", value: RecurrenceFormat.describe(rule))
+                        .accessibilityIdentifier("task.repeats")
                 }
                 if let completed = task.completedAt {
                     LabeledContent("Completed", value: completed.formatted(date: .abbreviated, time: .shortened))
@@ -87,7 +94,7 @@ struct TaskDetailView: View {
                 // default label is only as wide as its text (run 36209505191).
                 Menu {
                     ForEach(columns.filter { $0.id != task.columnID }) { column in
-                        Button(column.name) { move(task, to: column.id) }
+                        Button(column.displayName(theme: theme)) { move(task, to: column.id) }
                     }
                 } label: {
                     Label("Move to…", systemImage: "arrow.right.circle")
@@ -97,12 +104,14 @@ struct TaskDetailView: View {
                 .accessibilityIdentifier("task.moveTo")
                 Button("Archive", systemImage: "archivebox") { archive(task) }
                 Button("Delete", systemImage: "trash", role: .destructive) { isConfirmingDelete = true }
+                    .foregroundStyle(.red)
             }
             if let errorMessage {
                 ErrorText(errorMessage)
             }
         }
         .navigationTitle(task.title)
+        .themedScreen()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Edit") { isEditing = true }
@@ -115,7 +124,11 @@ struct TaskDetailView: View {
             Button("Delete task", role: .destructive) { delete(task) }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("The task and its subtasks will be removed.")
+            if task.recurrenceRuleData != nil {
+                Text("The task and its subtasks will be removed, and it stops repeating.")
+            } else {
+                Text("The task and its subtasks will be removed.")
+            }
         }
     }
 
@@ -180,7 +193,10 @@ struct TaskDetailView: View {
 
     private func setCompleted(_ completed: Bool, _ task: TaskItem) {
         let id = task.id
-        run { try await $0.board.setTaskCompleted(completed, task: id, now: .now) }
+        run {
+            try await $0.board.setTaskCompleted(completed, task: id, now: .now)
+            if completed { Celebration.shared.fire() }
+        }
     }
 
     private func move(_ task: TaskItem, to columnID: UUID) {
@@ -233,8 +249,18 @@ struct TaskEditorView: View {
     @State private var priority: Priority
     @State private var hasDueDate: Bool
     @State private var dueDate: Date
+    /// Sprint 26: an optional time on the due day; off means no time (reminds at the default time).
+    @State private var hasDueTime: Bool
+    @State private var dueTime: Date
+    /// The stored time and the picker `Date` the editor opened with: saving keeps the stored minutes unless the picker
+    /// moved (Sprint 26 review S1).
+    private let storedDueTime: Int?
+    private let openedDueTime: Date
     @State private var wishID: UUID?
     @State private var transactionID: UUID?
+    /// nil = doesn't repeat. `keptRule` is a stored rule the picker can't express, kept unless the user picks again.
+    @State private var repeatChoice: TaskRepeat?
+    @State private var keptRule: RecurrenceRule?
     @State private var errorMessage: String?
     @State private var isSaving = false
 
@@ -252,7 +278,31 @@ struct TaskEditorView: View {
         _priority = State(initialValue: task?.priority ?? .medium)
         _hasDueDate = State(initialValue: task?.dueDate != nil)
         _dueDate = State(initialValue: task?.dueDate ?? .now)
+        // A new time starts at the reminder default time, the time an untimed task would remind at anyway.
+        let storedTime = task?.dueDate == nil ? nil : task?.dueTimeMinutes
+        _hasDueTime = State(initialValue: storedTime != nil)
+        // Built on a fixed day without a clock change, not today: on a spring-forward day 02:30 would read as 03:00.
+        let clock = HouseholdCalendar(timeZone: .current)
+        let opened = TimeOfDay.pickerDate(minutes: storedTime ?? ReminderSync.defaultTimeMinutes, calendar: clock)
+        storedDueTime = storedTime
+        openedDueTime = opened
+        _dueTime = State(initialValue: opened)
         _wishID = State(initialValue: task?.linkedWishlistItemID)
+        if let rule = task?.recurrence, let due = task?.dueDate {
+            let calendar = HouseholdCalendar(timeZone: .current)
+            let choice = TaskRepeat(rule: rule, dueDate: due, calendar: calendar)
+            _repeatChoice = State(initialValue: choice)
+            _keptRule = State(initialValue: choice == nil ? rule : nil)
+        }
+    }
+
+    private var repeatBinding: Binding<TaskRepeat?> {
+        Binding(
+            get: { repeatChoice },
+            set: { choice in
+                repeatChoice = choice
+                keptRule = nil
+            })
     }
 
     private var canSave: Bool { !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSaving }
@@ -270,7 +320,7 @@ struct TaskEditorView: View {
     var body: some View {
         Form {
             Section {
-                LabeledContent("Title") {
+                FocusingRow("Title") {
                     TextField("Required", text: $title)
                         .multilineTextAlignment(.trailing)
                         .accessibilityIdentifier("task.editor.title")
@@ -281,8 +331,33 @@ struct TaskEditorView: View {
                     }
                 }
                 Toggle("Due date", isOn: $hasDueDate)
+                    .accessibilityIdentifier("task.editor.hasDueDate")
                 if hasDueDate {
                     DatePicker("Due", selection: $dueDate, displayedComponents: .date)
+                    Toggle("Due time", isOn: $hasDueTime)
+                        .accessibilityIdentifier("task.editor.hasDueTime")
+                    if hasDueTime {
+                        DatePicker("Time", selection: $dueTime, displayedComponents: .hourAndMinute)
+                            .accessibilityIdentifier("task.editor.dueTime")
+                    }
+                }
+                // A completed task is history; its repeat has moved on to the next task.
+                if hasDueDate, task?.completedAt == nil {
+                    Picker("Repeat", selection: repeatBinding) {
+                        if let keptRule {
+                            Text(RecurrenceFormat.describe(keptRule)).tag(TaskRepeat?.none)
+                        } else {
+                            Text("Never").tag(TaskRepeat?.none)
+                        }
+                        ForEach(TaskRepeat.allCases, id: \.self) { choice in
+                            Text(TaskRepeatFormat.title(choice)).tag(TaskRepeat?.some(choice))
+                        }
+                    }
+                    .accessibilityIdentifier("task.editor.repeat")
+                }
+            } footer: {
+                if hasDueDate, task?.completedAt == nil, repeatChoice != nil || keptRule != nil {
+                    Text("Completing it adds the next one, due on the next date after this due date.")
                 }
             }
             Section {
@@ -300,7 +375,7 @@ struct TaskEditorView: View {
                     }
                 }
                 .accessibilityIdentifier("task.editor.transaction")
-                LabeledContent("Notes") {
+                FocusingRow("Notes") {
                     TextField("Optional", text: $notes, axis: .vertical)
                         .multilineTextAlignment(.trailing)
                 }
@@ -310,6 +385,7 @@ struct TaskEditorView: View {
             }
         }
         .navigationTitle(task == nil ? Text("New Task") : Text("Edit Task"))
+        .themedScreen()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -335,10 +411,28 @@ struct TaskEditorView: View {
         isSaving = true
         defer { isSaving = false }
         // A due date is a calendar day (spec §10): stored as the start of that day in the household calendar.
-        let due = hasDueDate ? HouseholdCalendar(timeZone: .current).startOfDay(for: dueDate) : nil
+        let calendar = HouseholdCalendar(timeZone: .current)
+        let due = hasDueDate ? calendar.startOfDay(for: dueDate) : nil
+        // A time is on the due day (Sprint 26): turning the due date off clears the time too.
+        let time: Int? =
+            if due != nil && hasDueTime {
+                TimeOfDay.editedMinutes(
+                    picked: dueTime, opened: openedDueTime, stored: storedDueTime, calendar: calendar)
+            } else {
+                nil
+            }
+        // A repeat needs a due date (Sprint 13): turning the due date off stops the repeat.
+        // A completed task keeps whatever rule it has (the picker is hidden); an open one takes the picker's choice.
+        let recurrence: RecurrenceRule? =
+            if task?.completedAt != nil {
+                due == nil ? nil : task?.recurrence
+            } else {
+                due.flatMap { day in repeatChoice?.rule(dueDate: day, calendar: calendar) ?? keptRule }
+            }
         let draft = TaskDraft(
-            title: title, notes: notes, priority: priority, dueDate: due, linkedWishlistItemID: wishID,
-            linkedTransactionID: transactionID)
+            title: title, notes: notes, priority: priority, dueDate: due, dueTimeMinutes: time,
+            linkedWishlistItemID: wishID, linkedTransactionID: transactionID, recurrence: recurrence,
+            timeZone: calendar.timeZone)
         do {
             if let task {
                 try await services.board.updateTask(task.id, with: draft, now: .now)
@@ -364,6 +458,32 @@ private struct LinkedTransactionRow: View {
         if let record = matches.first {
             LabeledContent("Transaction", value: TaskEditorView.transactionTitle(record))
                 .accessibilityIdentifier("task.transaction")
+        }
+    }
+}
+
+/// A task's due date, with its time when it has one (Sprint 26), in the locale's styles: "Sep 28, 2026" or
+/// "Sep 28, 2026 at 6:30 PM".
+enum TaskDueFormat {
+    static func text(due: Date, minutes: Int?) -> String {
+        guard let minutes, TimeOfDay.isValid(minutes) else {
+            return due.formatted(date: .abbreviated, time: .omitted)
+        }
+        let calendar = HouseholdCalendar(timeZone: .current)
+        return TimeOfDay.date(minutes: minutes, onDayOf: due, calendar: calendar)
+            .formatted(date: .abbreviated, time: .shortened)
+    }
+}
+
+/// Repeat choice titles (Sprint 13).
+enum TaskRepeatFormat {
+    static func title(_ choice: TaskRepeat) -> String {
+        switch choice {
+        case .daily: return String(localized: "Daily")
+        case .weekly: return String(localized: "Weekly")
+        case .everyTwoWeeks: return String(localized: "Every 2 weeks")
+        case .monthly: return String(localized: "Monthly")
+        case .yearly: return String(localized: "Yearly")
         }
     }
 }

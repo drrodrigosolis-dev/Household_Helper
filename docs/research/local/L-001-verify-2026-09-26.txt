@@ -1,0 +1,14 @@
+result=Failed passed=237 failed=3 skipped=1
+HouseholdHubTests / biweeklyKeepsLocalTimeAcrossFallBack(): Expectation failed: result == expected result → [2026-10-09 16:00:00 +0000, 2026-10-23 16:00:00 +0000, 2026-11-06 16:00:00 +0000, 2026-11-20 16:00:00 +0000] expected → [2026-10-09 16:00:00 +0000, 2026-10-23 16:00:00 +0000, 2026-11-06 17:00:00 +0000, 2026-11-20 17:00:00 +0000]
+HouseholdHubTests / dayBoundsFollowTheStoredTimeZoneAcrossDST(iso:hours:): Expectation failed: end.timeIntervalSince(start) == hours * 3600 end.timeIntervalSince(start) → 86400.0 hours * 3600 → 90000.0
+HouseholdHubTests / yearlyFeb29FallsOnFeb28InCommonYears(): Expectation failed: result == expected result → [2024-02-29 17:00:00 +0000, 2025-02-28 17:00:00 +0000, 2026-02-28 17:00:00 +0000, 2027-02-28 16:00:00 +0000, 2028-02-29 16:00:00 +0000] expected → [2024-02-29 17:00:00 +0000, 2025-02-28 17:00:00 +0000, 2026-02-28 17:00:00 +0000, 2027-02-28 17:00:00 +0000, 2028-02-29 17:00:00 +0000]
+result=Failed passed=43 failed=1 skipped=0
+HouseholdHubUITests / testBudgetScreensInDarkAndLargestText(): Failed to synthesize event: Neither element nor any descendant has keyboard focus. Event dispatch snapshot: TextField, {{40.0, 360.7}, {360.0, 131.3}}, identifier: 'budgetEditor.limit', label: 'Monthly limit', placeholderValue: '0.00' Element debug description: Attributes: TextField, 0x112aa5a40, {{40.0, 360.7}, {360.0, 131.3}}, identi
+==> verify summary
+
+  PASS  Toolchain
+  PASS  Generate project
+  PASS  Lint
+  PASS  Build
+  FAIL  Unit tests
+  FAIL  UI tests

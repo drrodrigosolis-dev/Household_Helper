@@ -2,53 +2,86 @@ import HouseholdHubCore
 import SwiftData
 import SwiftUI
 
-/// Floating Quick Add button shown over every tab (spec §24.3).
+/// Floating Quick Add button shown over every tab (spec §24.3). With a theme on it is the theme's crayon button
+/// (Sprint 21): the drawing from its art board, or a crayon circle in its accent.
 struct QuickAddButton: View {
+    @Environment(\.funTheme) private var theme
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Image(systemName: "plus")
-                .font(.title2.weight(.semibold))
-                .frame(width: 56, height: 56)
+        styled
+            .accessibilityLabel("Quick Add")
+            .accessibilityHint("Record an expense or income")
+            // Fixed size like a tab bar item, so at the largest text sizes a long press shows it enlarged instead.
+            .accessibilityShowsLargeContentViewer()
+            .accessibilityIdentifier("quickadd.button")
+    }
+
+    @ViewBuilder
+    private var styled: some View {
+        if let theme {
+            Button(action: action) {
+                ZStack {
+                    if let art = theme.art(.addButton) {
+                        art.resizable().scaledToFit()
+                    } else {
+                        Circle().fill(theme.accent)
+                        ChalkBorder(cornerRadius: 30, color: .white.opacity(0.5)).padding(3)
+                        Image(systemName: "plus")
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .frame(width: 60, height: 60)
+                .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+        } else {
+            Button(action: action) {
+                Image(systemName: "plus")
+                    .font(.title2.weight(.semibold))
+                    .frame(width: 56, height: 56)
+            }
+            .buttonStyle(.glassProminent)
+            .clipShape(Circle())
         }
-        .buttonStyle(.glassProminent)
-        .clipShape(Circle())
-        .accessibilityLabel("Quick Add")
-        .accessibilityHint("Record an expense or income")
-        // Fixed size like a tab bar item, so at the largest text sizes a long press shows it enlarged instead.
-        .accessibilityShowsLargeContentViewer()
-        .accessibilityIdentifier("quickadd.button")
     }
 }
 
 /// Quick Add access on a tab's root screen (spec §24.3): the floating button, bottom scroll clearance so it never
 /// covers the last row, and the sheet. Pushed screens (editors, Settings pages) do not get the button.
 private struct QuickAddAccess: ViewModifier {
+    /// Sprint 23 (A-013, A-014): a screen hides the button where it would duplicate its own + or cover search
+    /// results; the sheet and the scroll clearance stay, so the list doesn't jump when it comes back.
+    let showsButton: Bool
     @State private var isPresenting = false
 
     func body(content: Content) -> some View {
         content
             .contentMargins(.bottom, 88, for: .scrollContent)
             .overlay(alignment: .bottomTrailing) {
-                QuickAddButton { isPresenting = true }
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 12)
+                if showsButton {
+                    QuickAddButton { isPresenting = true }
+                        .tourTarget(.quickAdd)
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 12)
+                }
             }
             .sheet(isPresented: $isPresenting) { QuickAddView() }
     }
 }
 
 extension View {
-    func quickAddAccess() -> some View {
-        modifier(QuickAddAccess())
+    func quickAddAccess(showsButton: Bool = true) -> some View {
+        modifier(QuickAddAccess(showsButton: showsButton))
     }
 }
 
 /// Quick Add sheet (spec §24.3): one autofocused field parsed by the §25 grammar, progressive details, and a
 /// Save button that stays disabled until the draft is valid. The Wishlist segment turns the same text into a
 /// wishlist item: the amount becomes the estimated price and the description the name. The Task segment makes a
-/// task: the description becomes the title and a date word ("tomorrow") the due date.
+/// task: the description becomes the title and a date word ("tomorrow") the due date. An expense's or income's
+/// description is its merchant ("12 pizza place" → merchant "pizza place"), as in an import (Sprint 23).
 struct QuickAddView: View {
     enum Entry: Hashable {
         case expense
@@ -61,14 +94,21 @@ struct QuickAddView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \CategoryRecord.sortOrder) private var categories: [CategoryRecord]
     @Query(sort: \AppSettings.createdAt) private var settings: [AppSettings]
+    @Query(sort: \Account.sortOrder) private var accounts: [Account]
+    /// nil = the default account (Sprint 10 decision 8).
+    @State private var accountID: UUID?
 
     @State private var text = ""
     @State private var entry = Entry.expense
     @State private var amountText = ""
     @State private var categoryID: UUID?
     @State private var occurredAt = Date.now
+    /// A task's due date, kept apart from the transaction date so switching the type never moves either one.
+    @State private var dueDate = Date.now
     @State private var hasDueDate = false
     @State private var dueFromText = false
+    /// The quick text named a due time: `dueDate` holds it and the picker shows it; saved as `dueTimeMinutes`.
+    @State private var dueHasTime = false
     @State private var notes = ""
     @State private var showDetails = false
     @State private var errorMessage: String?
@@ -77,9 +117,12 @@ struct QuickAddView: View {
     @State private var typeFromText = false
     @State private var amountFromText = false
     @State private var categoryFromText = false
-    /// What the quick text (or a suggestion) last put in the notes field; notes follow the text only while they still
-    /// hold exactly that, so a note the user typed in Details is never overwritten.
+    /// What the quick text (or a suggestion) last put in the description field (Merchant, Name or Title); it follows
+    /// the text only while it still holds exactly that, so what the user typed in Details is never overwritten.
     @State private var notesFromText = ""
+    /// The description field was edited by hand (while the quick line wasn't being typed in), so the line no
+    /// longer overwrites it.
+    @State private var notesEdited = false
     /// Fields filled by a suggestion (merchant history or the on-device model), shown as such until edited.
     @State private var suggestedFields: Set<String> = []
     @State private var suggestionTask: Task<Void, Never>?
@@ -142,6 +185,7 @@ struct QuickAddView: View {
                 }
             }
             .navigationTitle("Quick Add")
+            .themedScreen()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -154,10 +198,31 @@ struct QuickAddView: View {
                 }
             }
             .onChange(of: text) { applyParse() }
+            // L-034: typing "I had to pay 80 dentist" left the merchant as "dentis": a change to the description
+            // field arrived while the quick line was being typed, so the field no longer matched what the line said
+            // and every later keystroke treated it as edited by hand. Now only a change made outside the quick line
+            // counts as an edit; anything else is put back to what the line says.
+            .onChange(of: notes) { _, new in
+                guard new != notesFromText else { return }
+                if quickFieldFocused, !notesEdited {
+                    notes = notesFromText
+                } else {
+                    notesEdited = true
+                }
+            }
             // A suggestion computed for one segment is never applied to another.
-            .onChange(of: entry) {
-                if entry != suggestionEntry {
+            .onChange(of: entry) { old, new in
+                if new != suggestionEntry {
                     suggestionTask?.cancel()
+                }
+                // Tasks read the line with their own grammar (Sprint 17). Switching to or from Task only swaps the
+                // text the line produced, and only if it wasn't edited; dates and amounts are left alone.
+                if old == .task || new == .task {
+                    let description = lineDescription(for: new)
+                    notesFromText = description
+                    if !notesEdited {
+                        notes = description
+                    }
                 }
             }
             .onAppear {
@@ -181,10 +246,11 @@ struct QuickAddView: View {
             if entry == .task {
                 Toggle("Due date", isOn: $hasDueDate)
                 if hasDueDate {
-                    DatePicker("Due", selection: $occurredAt, displayedComponents: .date)
+                    DatePicker(
+                        "Due", selection: $dueDate, displayedComponents: dueHasTime ? [.date, .hourAndMinute] : [.date])
                 }
             } else {
-                LabeledContent(amountLabel) {
+                FocusingRow(amountLabel) {
                     TextField(amountPrompt, text: $amountText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
@@ -197,10 +263,20 @@ struct QuickAddView: View {
                     }
                 }
             }
+            let active = accounts.filter { !$0.isArchived }
+            if entry == .expense || entry == .income, active.count > 1 {
+                Picker("Account", selection: $accountID) {
+                    Text("Default account").tag(UUID?.none)
+                    ForEach(active) { account in
+                        Text(account.name).tag(UUID?.some(account.id))
+                    }
+                }
+                .accessibilityIdentifier("quickadd.account")
+            }
             if entry == .expense || entry == .income {
                 DatePicker("Date", selection: $occurredAt, displayedComponents: [.date, .hourAndMinute])
             }
-            LabeledContent(notesLabel) {
+            FocusingRow(notesLabel) {
                 TextField("Optional", text: $notes)
                     .multilineTextAlignment(.trailing)
                     .accessibilityIdentifier("quickadd.notes")
@@ -214,12 +290,24 @@ struct QuickAddView: View {
         switch entry {
         case .wishlist: "Name"
         case .task: "Title"
-        case .expense, .income: "Notes"
+        case .expense, .income: "Merchant"
         }
     }
 
     private var usableCategories: [CategoryRecord] {
         categories.filter { !$0.isArchived && $0.kind.allows(type) }
+    }
+
+    /// The title or notes text the quick line gives for `entry`: tasks keep numbers and drop a forward date word;
+    /// the others use the transaction grammar.
+    private func lineDescription(for entry: Entry) -> String {
+        let calendar = HouseholdCalendar(timeZone: .current)
+        if entry == .task {
+            return TaskLineParser(calendar: calendar).parse(text, now: .now).title
+        }
+        guard let currency = try? Currency(code: currencyCode) else { return notesFromText }
+        let parser = QuickAddParser(currency: currency, categories: [], calendar: calendar)
+        return parser.parse(text, now: .now).description
     }
 
     /// Mirrors the parse into the structured fields; the fields stay editable afterwards (§25.4).
@@ -228,10 +316,13 @@ struct QuickAddView: View {
         let options = categories.filter { !$0.isArchived }.map {
             QuickAddCategoryOption(id: $0.id, name: $0.name, kind: $0.kind)
         }
-        let parser = QuickAddParser(
-            currency: currency, categories: options, calendar: HouseholdCalendar(timeZone: .current))
+        let calendar = HouseholdCalendar(timeZone: .current)
+        let parser = QuickAddParser(currency: currency, categories: options, calendar: calendar)
         let now = Date.now
         let parsed = parser.parse(text, now: now)
+        // A task reads its line with the task grammar (Sprint 17): the due date looks forward ("friday" is the next
+        // one, not the last) and numbers stay in the title ("buy 2 lightbulbs").
+        let taskLine = TaskLineParser(calendar: calendar).parse(text, now: now)
         // Wishlist and Task are explicit choices; a leading "+" only switches between Expense and Income.
         if parsed.type == .income, entry == .expense || entry == .income {
             entry = .income
@@ -256,18 +347,26 @@ struct QuickAddView: View {
             categoryFromText = false
         }
         occurredAt = parsed.occurredAt
-        // A date word moved the date away from now: for a task that is the due date.
-        if parsed.occurredAt != now {
+        if let due = taskLine.dueDate {
+            // A time in the text ("3pm", "a las 15:30") rides on the due date and shows in its picker.
+            if let minutes = taskLine.dueTimeMinutes {
+                dueDate = TimeOfDay.date(minutes: minutes, onDayOf: due, calendar: calendar)
+            } else {
+                dueDate = due
+            }
             hasDueDate = true
             dueFromText = true
+            dueHasTime = taskLine.dueTimeMinutes != nil
         } else if dueFromText {
             hasDueDate = false
             dueFromText = false
+            dueHasTime = false
         }
-        if notes == notesFromText {
-            notes = parsed.description
+        let description = entry == .task ? taskLine.title : parsed.description
+        notesFromText = description
+        if !notesEdited {
+            notes = description
         }
-        notesFromText = parsed.description
         suggestedFields = []
         modelCategoryID = nil
         scheduleSuggestions(for: text, parsed: parsed, currency: currency, options: options, now: now)
@@ -373,10 +472,11 @@ struct QuickAddView: View {
             errorMessage = String(localized: "\(category.name) can't be used for this type. Choose another category.")
             return
         }
-        let draft = TransactionDraft(
-            amount: amount, type: type, occurredAt: occurredAt, categoryID: categoryID,
-            notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
-            isAIClassified: modelCategoryID != nil && modelCategoryID == categoryID)
+        // The description names the merchant, as an imported row's does (Sprint 23): the same merchant, and the
+        // category it learned, whichever way the entry came in.
+        let draft = TransactionDraft.quickAdd(
+            amount: amount, type: type, occurredAt: occurredAt, categoryID: categoryID, description: trimmedNotes,
+            isAIClassified: modelCategoryID != nil && modelCategoryID == categoryID, accountID: accountID)
         do {
             try await services.transactions.create(draft, now: .now)
             dismiss()
@@ -398,8 +498,10 @@ struct QuickAddView: View {
     }
 
     private func saveTask(_ services: AppServices) async {
-        let due = hasDueDate ? HouseholdCalendar(timeZone: .current).startOfDay(for: occurredAt) : nil
-        let draft = TaskDraft(title: trimmedNotes, dueDate: due)
+        let calendar = HouseholdCalendar(timeZone: .current)
+        let due = hasDueDate ? calendar.startOfDay(for: dueDate) : nil
+        let time = hasDueDate && dueHasTime ? TimeOfDay.minutes(of: dueDate, calendar: calendar) : nil
+        let draft = TaskDraft(title: trimmedNotes, dueDate: due, dueTimeMinutes: time)
         do {
             try await services.board.createTask(draft, now: .now)
             dismiss()

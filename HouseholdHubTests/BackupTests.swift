@@ -89,7 +89,6 @@ struct BackupTests {
 
         try await services.ledger.setWidgetShowsBalance(false, now: now)
         let settings = try #require(try services.context().fetch(FetchDescriptor<AppSettings>()).first)
-        #expect(settings.startingBalanceMinorUnits == 10_000)
         #expect(settings.includePendingInProjection == backup.settings.includePendingInProjection)
         #expect(settings.widgetShowsBalance == false)
         let snapshotAfter = try await services.ledger.settingsSnapshot()
@@ -165,8 +164,9 @@ struct BackupTests {
         let source = try makeServices()
         try await populate(source)
         let good = try await snapshot(source)
+        // A file from a newer app than this one is refused before anything is written.
         var newer = good
-        newer.schemaVersion = 2
+        newer.schemaVersion = BackupDTO.currentSchemaVersion + 1
         var dangling = good
         dangling.subtaskItems[0].taskID = UUID()
         var duplicate = good
@@ -180,7 +180,7 @@ struct BackupTests {
         var escaping = good
         escaping.wishlistItems[0].mediaReference = "../../secret.jpg"
         let cases: [(BackupDTO, BackupError)] = [
-            (newer, .unsupportedSchemaVersion(2)),
+            (newer, .unsupportedSchemaVersion(BackupDTO.currentSchemaVersion + 1)),
             (dangling, .missingReference(entity: "subtaskItems", field: "taskID")),
             (duplicate, .duplicateID(entity: "categories")),
             (foreign, .currencyMismatch(entity: "transactions")),
@@ -486,6 +486,15 @@ struct BackupTests {
         try BackupValidator.validate(backup)
         #expect(backup.transactions.first?.amountMinorUnits == 4_750)
         #expect(backup.settings.startingBalanceMinorUnits == 10_000)
+        // Sprint 10: a v1 file becomes v2 with one "Main account" holding its baseline and every transaction.
+        let upgraded = backup.upgradedToCurrent()
+        let main = try #require(upgraded.accounts?.first)
+        #expect(upgraded.schemaVersion == BackupDTO.currentSchemaVersion)
+        #expect(upgraded.accounts?.count == 1)
+        #expect(main.startingBalanceMinorUnits == 10_000)
+        #expect(upgraded.settings.defaultAccountID == main.id)
+        #expect(upgraded.transactions.allSatisfy { $0.accountID == main.id })
+        #expect(backup.upgradedToCurrent() == upgraded, "Every read of the same file upgrades the same way")
     }
 
     // MARK: CSV
@@ -512,9 +521,9 @@ struct BackupTests {
                 category: nil, merchant: nil, notes: "line one\nline two"),
         ]
         let lines = TransactionCSV.text(rows, calendar: calendar).components(separatedBy: "\r\n")
-        #expect(lines[0] == "Date,Type,Status,Amount,Currency,Category,Merchant,Notes")
-        let first = "1970-01-01 00:00,expense,posted,-47.50,CAD,Dining,\"Café, Luna\",\"'=HYPERLINK(\"\"x\"\")\""
+        #expect(lines[0] == "Date,Type,Status,Amount,Currency,Category,Merchant,Notes,Account,To account")
+        let first = "1970-01-01 00:00,expense,posted,-47.50,CAD,Dining,\"Café, Luna\",\"'=HYPERLINK(\"\"x\"\")\",,"
         #expect(lines[1] == first)
-        #expect(lines[2] == "1970-01-01 00:01,income,pending,1200.00,CAD,,,\"line one\nline two\"")
+        #expect(lines[2] == "1970-01-01 00:01,income,pending,1200.00,CAD,,,\"line one\nline two\",,")
     }
 }
